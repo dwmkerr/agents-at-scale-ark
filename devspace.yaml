@@ -119,15 +119,12 @@ dev:
     # Stream logs instead of terminal
     logs:
       lastLines: 50
-    # File synchronization for hot reload - pyproject.toml excluded from back-sync after uv add modifies it
+    # File synchronization for hot reload
     sync:
       - path: ./services/ark-api/ark-api:/app
         startContainer: true
         disableDownload: true
-        excludePaths:
-          - .venv
-          - __pycache__/
-          - "*.pyc"
+        uploadExcludeFile: .dockerignore
       - path: ./ark:/workspace
         excludePaths:
           - bin/
@@ -138,27 +135,19 @@ dev:
       enabled: true
 
   ark-controller:
-    imageSelector: controller
+    imageSelector: ark-controller
     devImage: golang:1.24-bookworm
     command:
-      ["sh", "-c", "cd /workspace && go run cmd/main.go --leader-elect=false"]
+      ["sh", "-c", "cd /app && go run cmd/main.go --leader-elect=false"]
     namespace: ark-system
-    # Stream logs instead of terminal
-    logs:
-      lastLines: 50
     # File synchronization for hot reload
     sync:
-      - path: ./ark:/workspace
+      - path: ./ark:/app
         startContainer: true
         disableDownload: true
-        excludePaths:
-          - bin/
-          - out/
-          - .git/
-          - "*.log"
-    # Restart container when Go files change so that the code is recompiled
-    # restartHelper:
-    #   inject: true
+        uploadExcludeFile: .dockerignore
+        onUpload:
+          restartContainer: true
     # Enable SSH for IDE integration
     ssh:
       enabled: true
@@ -181,11 +170,7 @@ dev:
       - path: ./services/ark-dashboard/ark-dashboard:/app
         startContainer: true
         disableDownload: true
-        excludePaths:
-          - node_modules/
-          - .next/
-          - .git/
-          - "*.log"
+        uploadExcludeFile: .dockerignore
     # Enable SSH for IDE integration
     ssh:
       enabled: true
