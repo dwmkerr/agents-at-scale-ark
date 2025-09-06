@@ -113,7 +113,7 @@ dev:
       [
         "sh",
         "-c",
-        "cd /app && apt-get update && apt-get install -y curl && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && pip install uv && uv add file://$(ls out/ark_sdk-*.whl) && uv sync && uv run uvicorn ark_api.main:app --host 0.0.0.0 --port 8000 --reload",
+        "cd /app/ark-api && apt-get update && apt-get install -y curl && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && pip install uv && uv add file://$(ls out/ark_sdk-*.whl) && uv sync && uv run uvicorn ark_api.main:app --host 0.0.0.0 --port 8000 --reload",
       ]
     namespace: default
     # Stream logs instead of terminal
@@ -121,7 +121,7 @@ dev:
       lastLines: 50
     # File synchronization for hot reload
     sync:
-      - path: ./services/ark-api/ark-api:/app
+      - path: ./services/ark-api:/app
         startContainer: true
         disableDownload: true
         uploadExcludeFile: .dockerignore
@@ -159,7 +159,7 @@ dev:
       [
         "sh",
         "-c",
-        "cd /app && npm install -g pnpm && pnpm install && pnpm run dev",
+        "cd /app/ark-dashboard && npm install -g pnpm && pnpm install && pnpm run dev",
       ]
     namespace: default
     # Stream logs instead of terminal
@@ -167,7 +167,7 @@ dev:
       lastLines: 50
     # File synchronization for hot reload
     sync:
-      - path: ./services/ark-dashboard/ark-dashboard:/app
+      - path: ./services/ark-dashboard:/app
         startContainer: true
         disableDownload: true
         uploadExcludeFile: .dockerignore
