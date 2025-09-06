@@ -15,11 +15,16 @@ hooks:
 pipelines:
   # 'devspace deploy' - Build and deploy production images
   deploy: |-
+    # Deploy any dependencies.
+    run_dependency_pipelines --all
+    # Build the ark controller and ark service images.
     build_images --all
+    # Deploy the ark controller and services.
     create_deployments --all
 
   # 'devspace dev' - DevSpace recommended dev workflow: deploy production, override with dev images, file sync
   dev: |-
+    run_dependency_pipelines --all
     create_deployments --all
     start_dev --all
 
