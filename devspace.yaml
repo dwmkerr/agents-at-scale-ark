@@ -36,7 +36,7 @@ images:
     context: ./services/ark-dashboard
 
   ark-controller:
-    image: controller
+    image: ark-controller
     dockerfile: ./ark/Dockerfile
     context: ./ark
 
