@@ -1,0 +1,15 @@
+{{- if .Values.memory.createMemoryCRD }}
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Memory
+metadata:
+  name: {{ include "ark-cluster-memory.fullname" . }}
+  labels:
+    {{- include "ark-cluster-memory.labels" . | nindent 4 }}
+spec:
+  address:
+    valueFrom:
+      serviceRef:
+        name: {{ include "ark-cluster-memory.fullname" . }}
+        namespace: {{ .Release.Namespace }}
+        port: http
+{{- end }}

@@ -5,7 +5,7 @@ version: v2beta1
 dependencies:
   ark-cluster-memory:
     path: ./services/ark-cluster-memory
-    # pipeline: dev
+    pipeline: dev
 #   postgres-memory:
 #     path: ./services/postgres-memory
 

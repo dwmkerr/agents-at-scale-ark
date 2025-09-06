@@ -30,6 +30,8 @@ service:
 
 # Memory service configuration
 memory:
+  # Create a Memory CRD resource
+  createMemoryCRD: true
   # Port for the HTTP server
   port: 8080
   # Maximum message size in bytes (10MB)
