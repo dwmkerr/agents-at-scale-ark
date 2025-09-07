@@ -266,8 +266,10 @@ export class MemoryStore {
     
     // Send OpenAI-compatible completion marker
     const completionMessage = {
-      type: 'completion',
-      finish_reason: 'stop'
+      choices: [{
+        finish_reason: 'stop',
+        delta: {}
+      }]
     };
     
     this.eventEmitter.emit(`message:${sessionID}`, completionMessage);
