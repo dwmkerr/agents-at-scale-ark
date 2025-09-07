@@ -51,7 +51,9 @@ const createStreamResponses = (sessionID: string, message: Message, index: numbe
   // Handle completion messages specially
   if (typeof message === 'object' && message !== null) {
     const msgObj = message as any;
-    if (msgObj.type === 'completion' && msgObj.finish_reason === 'stop') {
+    // Check for OpenAI-compatible completion format
+    if (msgObj.choices && Array.isArray(msgObj.choices) && 
+        msgObj.choices.length > 0 && msgObj.choices[0].finish_reason === 'stop') {
       return [{
         id: sessionID,
         object: 'chat.completion.chunk',
@@ -278,9 +280,9 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Subscribe to new messages
-    const unsubscribe = memory.subscribe(uid, (message: Message) => {
-      const streamResponses = createStreamResponses(uid, message, 0, maxChunkSize);
+    // Subscribe to streaming chunks (not persistent messages)
+    const unsubscribe = memory.subscribeToChunks(uid, (chunk: Message) => {
+      const streamResponses = createStreamResponses(uid, chunk, 0, maxChunkSize);
       console.log(`[STREAM] Session ${uid}: Broadcasting ${streamResponses.length} chunk(s) to streaming client`);
       
       for (const streamResp of streamResponses) {
@@ -370,8 +372,8 @@ app.post('/stream/:sessionId', (req, res) => {
             const streamChunk = JSON.parse(line);
             console.log(`[STREAM-IN] Session ${sessionId}: Received chunk ${chunkCount + 1}`);
             
-            // Forward the chunk to any active streaming clients
-            memory.addMessage(sessionId, streamChunk);
+            // Forward the chunk to any active streaming clients (emit only, don't persist)
+            memory.eventEmitter.emit(`chunk:${sessionId}`, streamChunk);
             chunkCount++;
             
             // Log every 10th chunk to reduce noise

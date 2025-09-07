@@ -9,7 +9,7 @@ export class MemoryStore {
   private messages: StoredMessage[] = [];
   private readonly maxMessageSize: number;
   private readonly memoryFilePath?: string;
-  private eventEmitter: EventEmitter = new EventEmitter();
+  public eventEmitter: EventEmitter = new EventEmitter();
   private completedSessions: Set<string> = new Set();
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
@@ -232,6 +232,13 @@ export class MemoryStore {
     this.eventEmitter.on(`message:${sessionID}`, callback);
     return () => {
       this.eventEmitter.off(`message:${sessionID}`, callback);
+    };
+  }
+
+  subscribeToChunks(sessionID: string, callback: (chunk: Message) => void): () => void {
+    this.eventEmitter.on(`chunk:${sessionID}`, callback);
+    return () => {
+      this.eventEmitter.off(`chunk:${sessionID}`, callback);
     };
   }
 
