@@ -325,6 +325,76 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
   }
 });
 
+// Stream-in endpoint - POST /stream-in/{sessionId} - Receive real-time chunks from ARK controller
+app.post('/stream-in/:sessionId', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    if (!sessionId) {
+      res.status(400).json({ error: 'Session ID parameter is required' });
+      return;
+    }
+    
+    console.log(`Stream-in connection for session ${sessionId}`);
+    
+    // Set headers for newline-delimited JSON streaming
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Connection', 'keep-alive');
+    
+    let chunkCount = 0;
+    let buffer = '';
+    
+    // Handle incoming streaming chunks
+    req.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString('utf-8');
+      
+      // Process complete lines (newline-delimited JSON)
+      while (buffer.includes('\n')) {
+        const newlineIndex = buffer.indexOf('\n');
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        
+        if (line) {
+          try {
+            const streamChunk = JSON.parse(line);
+            console.log(`[STREAM-IN] Session ${sessionId}: Received chunk ${chunkCount + 1}`);
+            
+            // Forward the chunk to any active streaming clients
+            memory.addMessage(sessionId, streamChunk);
+            chunkCount++;
+            
+            // Log every 10th chunk to reduce noise
+            if (chunkCount % 10 === 0) {
+              console.log(`[STREAM-IN] Session ${sessionId}: Processed ${chunkCount} chunks`);
+            }
+          } catch (parseError) {
+            console.error(`[STREAM-IN] Failed to parse chunk for session ${sessionId}:`, parseError);
+          }
+        }
+      }
+    });
+    
+    req.on('end', () => {
+      console.log(`[STREAM-IN] Session ${sessionId}: Stream ended (total chunks: ${chunkCount})`);
+      res.json({
+        status: 'stream_processed',
+        session: sessionId,
+        chunks_received: chunkCount
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error(`[STREAM-IN] Session ${sessionId}: Stream error:`, error);
+      res.status(500).json({ error: 'Stream processing failed' });
+    });
+    
+  } catch (error) {
+    console.error('Failed to handle stream-in request:', error);
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Session completion endpoint - POST /session/{id}/complete
 app.post('/session/:id/complete', (req, res) => {
   try {

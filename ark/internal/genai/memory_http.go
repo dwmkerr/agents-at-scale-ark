@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/openai/openai-go"
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
@@ -65,6 +68,10 @@ type HTTPMemory struct {
 	name       string
 	namespace  string
 	recorder   EventEmitter
+
+	// Persistent streaming connection
+	streamWriter io.WriteCloser
+	streamMutex  sync.Mutex
 }
 
 func NewHTTPMemory(ctx context.Context, k8sClient client.Client, memoryName, namespace string, recorder EventEmitter, config Config) (MemoryInterface, error) {
@@ -328,7 +335,124 @@ func (m *HTTPMemory) isStreamingEnabled(ctx context.Context) (bool, error) {
 	return enabled == "true", nil
 }
 
+func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
+	m.streamMutex.Lock()
+	defer m.streamMutex.Unlock()
+
+	// Establish connection on first chunk
+	if m.streamWriter == nil {
+		if err := m.establishStreamConnection(ctx); err != nil {
+			logf.FromContext(ctx).Error(err, "Failed to establish persistent stream connection", "sessionId", m.sessionId)
+			return fmt.Errorf("failed to establish stream connection: %w", err)
+		}
+	}
+
+	tracker := NewOperationTracker(m.recorder, ctx, "MemoryStreamChunk", m.name, map[string]string{
+		"namespace": m.namespace,
+		"sessionId": m.sessionId,
+	})
+
+	// Convert StreamChunk to StreamResponse format expected by memory service
+	streamResponse := map[string]interface{}{
+		"id":      m.sessionId,
+		"object":  "chat.completion.chunk",
+		"created": time.Now().Unix(),
+		"model":   "ark-streaming",
+		"choices": []map[string]interface{}{{
+			"index": 0,
+			"delta": map[string]interface{}{
+				"content": chunk.Content,
+			},
+		}},
+	}
+
+	// Add ARK metadata if provided
+	if chunk.QueryTarget != "" || chunk.MessageTarget != "" {
+		streamResponse["ark"] = map[string]interface{}{
+			"query_target":   chunk.QueryTarget,
+			"message_target": chunk.MessageTarget,
+			"session_id":     m.sessionId,
+		}
+	}
+
+	// Write chunk as newline-delimited JSON to persistent stream
+	jsonData, err := json.Marshal(streamResponse)
+	if err != nil {
+		tracker.Fail(fmt.Errorf("failed to marshal stream chunk: %w", err))
+		return fmt.Errorf("failed to marshal stream chunk: %w", err)
+	}
+
+	// Write JSON + newline to the stream
+	if _, err := m.streamWriter.Write(append(jsonData, '\n')); err != nil {
+		tracker.Fail(fmt.Errorf("failed to write stream chunk: %w", err))
+		return fmt.Errorf("failed to write stream chunk: %w", err)
+	}
+
+	tracker.Complete("chunk streamed")
+	return nil
+}
+
+// establishStreamConnection creates a persistent streaming connection to memory service
+func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
+	if err := m.resolveAndUpdateAddress(ctx); err != nil {
+		return err
+	}
+
+	// Create a pipe for streaming data
+	pr, pw := io.Pipe()
+
+	requestURL := fmt.Sprintf("%s/stream-in/%s", m.baseURL, url.QueryEscape(m.sessionId))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, pr)
+	if err != nil {
+		return fmt.Errorf("failed to create stream request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-ndjson") // Newline-delimited JSON
+	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("Connection", "keep-alive")
+
+	// Start the HTTP request in background goroutine
+	go func() {
+		defer func() {
+			if closeErr := pr.Close(); closeErr != nil {
+				logf.FromContext(ctx).V(1).Info("Error closing pipe reader", "error", closeErr)
+			}
+		}()
+		resp, err := m.httpClient.Do(req)
+		if err != nil {
+			logf.FromContext(ctx).Error(err, "Failed to establish stream connection")
+			return
+		}
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				logf.FromContext(ctx).V(1).Info("Error closing response body", "error", closeErr)
+			}
+		}()
+
+		// Read and discard response body (memory service will respond when done)
+		if _, copyErr := io.Copy(io.Discard, resp.Body); copyErr != nil {
+			logf.FromContext(ctx).V(1).Info("Error copying response body", "error", copyErr)
+		}
+		logf.FromContext(ctx).Info("Stream connection closed", "sessionId", m.sessionId)
+	}()
+
+	// Store the write end of the pipe
+	m.streamWriter = pw
+
+	logf.FromContext(ctx).Info("Established persistent streaming connection", "sessionId", m.sessionId)
+	return nil
+}
+
 func (m *HTTPMemory) Close() error {
+	m.streamMutex.Lock()
+	defer m.streamMutex.Unlock()
+
+	// Close streaming writer if it exists
+	if m.streamWriter != nil {
+		_ = m.streamWriter.Close() // Ignore error during cleanup
+		m.streamWriter = nil
+	}
+
 	if m.httpClient != nil {
 		m.httpClient.CloseIdleConnections()
 	}

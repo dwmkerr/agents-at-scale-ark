@@ -25,7 +25,17 @@ type MemoryInterface interface {
 	AddMessages(ctx context.Context, queryID string, messages []Message) error
 	GetMessages(ctx context.Context) ([]Message, error)
 	NotifyCompletion(ctx context.Context) error
+	StreamChunk(ctx context.Context, chunk StreamChunk) error
 	Close() error
+}
+
+// StreamChunk represents a real-time chunk sent to memory service
+type StreamChunk struct {
+	Content       string            `json:"content"`
+	Model         string            `json:"model,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	QueryTarget   string            `json:"query_target,omitempty"`
+	MessageTarget string            `json:"message_target,omitempty"`
 }
 
 type Config struct {
