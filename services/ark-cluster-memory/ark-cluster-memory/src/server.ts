@@ -338,17 +338,17 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
   }
 });
 
-// Stream endpoint - POST /stream/{sessionId} - Receive real-time chunks from ARK controller
-app.post('/stream/:sessionId', (req, res) => {
+// Stream endpoint - POST /stream/{query_id} - Receive real-time chunks from ARK controller
+app.post('/stream/:query_id', (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const { query_id } = req.params;
     
-    if (!sessionId) {
-      res.status(400).json({ error: 'Session ID parameter is required' });
+    if (!query_id) {
+      res.status(400).json({ error: 'Query ID parameter is required' });
       return;
     }
     
-    console.log(`Stream POST connection for session ${sessionId}`);
+    console.log(`Stream POST connection for query ${query_id}`);
     
     // Set headers for newline-delimited JSON streaming
     res.setHeader('Content-Type', 'application/json');
@@ -370,34 +370,34 @@ app.post('/stream/:sessionId', (req, res) => {
         if (line) {
           try {
             const streamChunk = JSON.parse(line);
-            console.log(`[STREAM-IN] Session ${sessionId}: Received chunk ${chunkCount + 1}`);
+            console.log(`[STREAM-IN] Query ${query_id}: Received chunk ${chunkCount + 1}`);
             
             // Forward the chunk to any active streaming clients (emit only, don't persist)
-            memory.eventEmitter.emit(`chunk:${sessionId}`, streamChunk);
+            memory.eventEmitter.emit(`chunk:${query_id}`, streamChunk);
             chunkCount++;
             
             // Log every 10th chunk to reduce noise
             if (chunkCount % 10 === 0) {
-              console.log(`[STREAM-IN] Session ${sessionId}: Processed ${chunkCount} chunks`);
+              console.log(`[STREAM-IN] Query ${query_id}: Processed ${chunkCount} chunks`);
             }
           } catch (parseError) {
-            console.error(`[STREAM-IN] Failed to parse chunk for session ${sessionId}:`, parseError);
+            console.error(`[STREAM-IN] Failed to parse chunk for query ${query_id}:`, parseError);
           }
         }
       }
     });
     
     req.on('end', () => {
-      console.log(`[STREAM-IN] Session ${sessionId}: Stream ended (total chunks: ${chunkCount})`);
+      console.log(`[STREAM-IN] Query ${query_id}: Stream ended (total chunks: ${chunkCount})`);
       res.json({
         status: 'stream_processed',
-        session: sessionId,
+        query: query_id,
         chunks_received: chunkCount
       });
     });
     
     req.on('error', (error) => {
-      console.error(`[STREAM-IN] Session ${sessionId}: Stream error:`, error);
+      console.error(`[STREAM-IN] Query ${query_id}: Stream error:`, error);
       res.status(500).json({ error: 'Stream processing failed' });
     });
     
@@ -408,33 +408,27 @@ app.post('/stream/:sessionId', (req, res) => {
   }
 });
 
-// Stream completion endpoint - POST /stream/{sessionId}/complete
-app.post('/stream/:sessionId/complete', (req, res) => {
+// Stream completion endpoint - POST /stream/{query_id}/complete
+app.post('/stream/:query_id/complete', (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const { query_id } = req.params;
     
-    if (!sessionId) {
-      res.status(400).json({ error: 'Session ID parameter is required' });
+    if (!query_id) {
+      res.status(400).json({ error: 'Query ID parameter is required' });
       return;
     }
     
-    console.log(`Completion request for session ${sessionId}`);
+    console.log(`Completion request for query ${query_id}`);
     
-    // Check if session exists
-    if (!memory.sessionExists(sessionId)) {
-      console.log(`Session ${sessionId} not found for completion`);
-      res.status(404).json({ error: 'Session not found' });
-      return;
-    }
-    
-    memory.completeSession(sessionId);
+    // Mark query stream as complete
+    memory.completeQueryStream(query_id);
     
     res.json({
       status: 'completed',
-      session: sessionId
+      query: query_id
     });
   } catch (error) {
-    console.error('Failed to complete session:', error);
+    console.error('Failed to complete query stream:', error);
     const err = error as Error;
     res.status(500).json({ error: err.message });
   }

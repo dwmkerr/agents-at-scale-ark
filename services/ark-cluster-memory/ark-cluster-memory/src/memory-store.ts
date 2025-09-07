@@ -267,9 +267,9 @@ export class MemoryStore {
     this.eventEmitter.emit(`session:${sessionID}:created`);
   }
 
-  completeSession(sessionID: string): void {
-    this.completedSessions.add(sessionID);
-    console.log(`Session ${sessionID} marked as complete`);
+  completeQueryStream(queryID: string): void {
+    this.completedSessions.add(queryID);
+    console.log(`Query stream ${queryID} marked as complete`);
     
     // Send OpenAI-compatible completion marker
     const completionMessage = {
@@ -279,7 +279,7 @@ export class MemoryStore {
       }]
     };
     
-    this.eventEmitter.emit(`message:${sessionID}`, completionMessage);
+    this.eventEmitter.emit(`chunk:${queryID}`, completionMessage);
   }
 
   isSessionComplete(sessionID: string): boolean {
