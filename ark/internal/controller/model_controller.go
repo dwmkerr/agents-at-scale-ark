@@ -92,7 +92,7 @@ func (r *ModelReconciler) reconcileModel(ctx context.Context, obj arkv1alpha1.Mo
 	defer cancel()
 
 	testMessages := []genai.Message{genai.NewUserMessage("Hello")}
-	_, err = resolvedModel.ChatCompletion(validationCtx, testMessages, nil)
+	_, err = resolvedModel.ChatCompletion(validationCtx, testMessages, nil, false, 1)
 	return err
 }
 

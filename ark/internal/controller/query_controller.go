@@ -24,6 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
+	"mckinsey.com/ark/internal/annotations"
 	"mckinsey.com/ark/internal/genai"
 	"mckinsey.com/ark/internal/telemetry"
 )
@@ -239,7 +240,13 @@ func (r *QueryReconciler) setupQueryExecution(opCtx context.Context, obj arkv1al
 		return nil, nil, err
 	}
 
-	memory, err := genai.NewMemoryForQuery(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId)
+	// Check if streaming is enabled via annotation
+	streamingEnabled := false
+	if obj.GetAnnotations() != nil {
+		streamingEnabled = obj.GetAnnotations()[annotations.StreamingEnabled] == "true"
+	}
+
+	memory, err := genai.NewMemoryForQueryWithStreamingCheck(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, streamingEnabled)
 	if err != nil {
 		queryTracker.Fail(fmt.Errorf("failed to create memory client: %w", err))
 		_ = r.updateStatus(opCtx, &obj, statusError)
@@ -648,35 +655,54 @@ func (r *QueryReconciler) executeModel(ctx context.Context, query arkv1alpha1.Qu
 	messages = append(messages, userMessage)
 	allMessages := messages
 
+	// Check if streaming is enabled (annotation + HTTPMemory)
+	streamingEnabled := false
+	if query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingEnabled] == "true" {
+		if _, ok := memory.(*genai.HTTPMemory); ok {
+			streamingEnabled = true
+		}
+	}
+
 	// Create operation tracker for the model call
 	modelTracker := genai.NewOperationTracker(tokenCollector, ctx, "ModelCall", modelName, map[string]string{
-		"model": modelName,
-		"type":  "direct",
+		"model":     modelName,
+		"type":      "direct",
+		"streaming": fmt.Sprintf("%t", streamingEnabled),
 	})
 
-	// Call model directly with chat completion
-	completion, err := model.ChatCompletion(ctx, allMessages, nil)
-	if err != nil {
-		modelTracker.Fail(err)
-		return nil, fmt.Errorf("model chat completion failed: %w", err)
+	var responseMessages []genai.Message
+
+	if streamingEnabled {
+		// Execute with streaming
+		var err error
+		responseMessages, err = r.executeModelWithStreaming(ctx, model, allMessages, memory, modelTracker)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Execute without streaming (existing logic)
+		completion, err := model.ChatCompletion(ctx, allMessages, nil, false, 1)
+		if err != nil {
+			modelTracker.Fail(err)
+			return nil, fmt.Errorf("model chat completion failed: %w", err)
+		}
+
+		// Extract and track token usage
+		tokenUsage := genai.TokenUsage{
+			PromptTokens:     completion.Usage.PromptTokens,
+			CompletionTokens: completion.Usage.CompletionTokens,
+			TotalTokens:      completion.Usage.TotalTokens,
+		}
+		modelTracker.CompleteWithTokens("", tokenUsage)
+
+		if len(completion.Choices) == 0 {
+			return nil, fmt.Errorf("model returned no completion choices")
+		}
+
+		choice := completion.Choices[0]
+		assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
+		responseMessages = []genai.Message{assistantMessage}
 	}
-
-	// Extract and track token usage
-	tokenUsage := genai.TokenUsage{
-		PromptTokens:     completion.Usage.PromptTokens,
-		CompletionTokens: completion.Usage.CompletionTokens,
-		TotalTokens:      completion.Usage.TotalTokens,
-	}
-	modelTracker.CompleteWithTokens("", tokenUsage)
-
-	if len(completion.Choices) == 0 {
-		return nil, fmt.Errorf("model returned no completion choices")
-	}
-
-	choice := completion.Choices[0]
-	assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
-
-	responseMessages := []genai.Message{assistantMessage}
 
 	// Save new messages to memory (user message + response messages)
 	newMessages := append([]genai.Message{userMessage}, responseMessages...)
@@ -860,6 +886,33 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 			log.Error(updateErr, "Failed to update status")
 		}
 	}
+}
+
+func (r *QueryReconciler) executeModelWithStreaming(ctx context.Context, model *genai.Model, messages []genai.Message, memory genai.MemoryInterface, modelTracker *genai.OperationTracker) ([]genai.Message, error) {
+	// Call model with streaming enabled
+	completion, err := model.ChatCompletion(ctx, messages, memory, true, 1)
+	if err != nil {
+		modelTracker.Fail(err)
+		return nil, fmt.Errorf("model streaming completion failed: %w", err)
+	}
+
+	// Extract and track token usage
+	tokenUsage := genai.TokenUsage{
+		PromptTokens:     completion.Usage.PromptTokens,
+		CompletionTokens: completion.Usage.CompletionTokens,
+		TotalTokens:      completion.Usage.TotalTokens,
+	}
+	modelTracker.CompleteWithTokens("streamed", tokenUsage)
+
+	if len(completion.Choices) == 0 {
+		return nil, fmt.Errorf("model returned no completion choices")
+	}
+
+	choice := completion.Choices[0]
+	assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
+	responseMessages := []genai.Message{assistantMessage}
+
+	return responseMessages, nil
 }
 
 func (r *QueryReconciler) SetupWithManager(mgr ctrl.Manager) error {

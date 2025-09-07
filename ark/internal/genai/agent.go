@@ -113,7 +113,7 @@ func (a *Agent) executeModelCall(ctx context.Context, agentMessages []Message, t
 	// Truncate schema name to 64 chars for OpenAI API compatibility - name is purely an identifier
 	a.Model.SchemaName = fmt.Sprintf("%.64s", fmt.Sprintf("namespace-%s-agent-%s", a.Namespace, a.Name))
 
-	response, err := a.Model.ChatCompletion(ctx, agentMessages, tools)
+	response, err := a.Model.ChatCompletion(ctx, agentMessages, nil, false, 1, tools)
 	if err != nil {
 		llmTracker.Fail(err)
 		return nil, fmt.Errorf("agent %s execution failed: %w", a.FullName(), err)
