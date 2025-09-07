@@ -7,6 +7,11 @@ metadata:
   {{- else }}
   name: {{ include "ark-cluster-memory.fullname" . }}
   {{- end }}
+  annotations:
+    # Enable event streaming support for real-time query response streaming
+    # This allows clients using OpenAI completions API with stream=true to receive
+    # Server-Sent Events for live response updates during query execution
+    ark.mckinsey.com/memory-event-stream-enabled: "true"
   labels:
     {{- include "ark-cluster-memory.labels" . | nindent 4 }}
 spec:
