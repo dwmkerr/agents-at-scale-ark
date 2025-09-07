@@ -36,6 +36,15 @@ spec:
               value: {{ .Values.memory.port | quote }}
             - name: MAX_MESSAGE_SIZE
               value: {{ .Values.memory.maxMessageSize | quote }}
+            {{- if .Values.persistence.enabled }}
+            - name: MEMORY_FILE_PATH
+              value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.fileName }}"
+            {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -52,6 +61,17 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "ark-cluster-memory.fullname" . }}-data
+          {{- end }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

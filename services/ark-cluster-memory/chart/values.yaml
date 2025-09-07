@@ -39,6 +39,22 @@ memory:
   # Maximum message size in bytes (10MB)
   maxMessageSize: 10485760
 
+# Persistence configuration
+persistence:
+  enabled: false
+  # Storage class for the PVC (uses default if not specified)
+  storageClass: ""
+  # Access mode for the PVC
+  accessMode: ReadWriteOnce
+  # Size of the persistent volume
+  size: 1Gi
+  # Path where memory data will be stored
+  mountPath: /data
+  # Filename for the memory data
+  fileName: memory.json
+  # Use existing PVC instead of creating a new one
+  existingClaim: ""
+
 serviceAccount:
   create: true
   name: ""

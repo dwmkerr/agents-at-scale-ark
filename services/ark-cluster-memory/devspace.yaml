@@ -36,6 +36,9 @@ deployments:
               cpu: "200m"
         memory:
           setAsDefault: true
+        persistence:
+          enabled: true
+          size: 1Gi
 
 dev:
   ark-cluster-memory:

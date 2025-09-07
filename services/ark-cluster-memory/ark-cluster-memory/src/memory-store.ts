@@ -1,12 +1,19 @@
 import { Message, StoredMessage } from './types.js';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { dirname } from 'path';
+import { mkdirSync } from 'fs';
 
 export class MemoryStore {
   // Flat list of all messages with metadata
   private messages: StoredMessage[] = [];
   private readonly maxMessageSize: number;
+  private readonly memoryFilePath?: string;
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
     this.maxMessageSize = maxMessageSize;
+    this.memoryFilePath = process.env.MEMORY_FILE_PATH;
+    
+    this.loadFromFile();
   }
 
   private validateSessionID(sessionID: string): void {
@@ -34,6 +41,7 @@ export class MemoryStore {
     };
     
     this.messages.push(storedMessage);
+    this.saveToFile();
   }
 
   addMessages(sessionID: string, messages: Message[]): void {
@@ -52,6 +60,7 @@ export class MemoryStore {
     }));
     
     this.messages.push(...storedMessages);
+    this.saveToFile();
   }
 
   addMessagesWithMetadata(sessionID: string, queryID: string, messages: Message[]): void {
@@ -74,6 +83,7 @@ export class MemoryStore {
     }));
     
     this.messages.push(...storedMessages);
+    this.saveToFile();
   }
 
   getMessages(sessionID: string): Message[] {
@@ -96,6 +106,7 @@ export class MemoryStore {
   clearSession(sessionID: string): void {
     this.validateSessionID(sessionID);
     this.messages = this.messages.filter(m => m.session_id !== sessionID);
+    this.saveToFile();
   }
 
   getSessions(): string[] {
@@ -125,5 +136,56 @@ export class MemoryStore {
 
   isHealthy(): boolean {
     return true;
+  }
+
+  private loadFromFile(): void {
+    if (!this.memoryFilePath) {
+      console.log('[MEMORY LOAD] File persistence disabled - memory will not be saved');
+      return;
+    }
+    
+    try {
+      if (existsSync(this.memoryFilePath)) {
+        const data = readFileSync(this.memoryFilePath, 'utf-8');
+        const parsed = JSON.parse(data);
+        
+        if (Array.isArray(parsed)) {
+          this.messages = parsed;
+          const sessions = new Set(this.messages.map(m => m.session_id)).size;
+          console.log(`[MEMORY LOAD] Loaded ${this.messages.length} messages from ${sessions} sessions from ${this.memoryFilePath}`);
+        } else {
+          console.warn('Invalid data format in memory file, starting fresh');
+        }
+      } else {
+        console.log(`[MEMORY LOAD] Memory file not found at ${this.memoryFilePath}, starting with 0 messages`);
+      }
+    } catch (error) {
+      console.error(`[MEMORY LOAD] Failed to load memory from file: ${error}`);
+    }
+  }
+
+  private saveToFile(): void {
+    if (!this.memoryFilePath) return;
+    
+    try {
+      const dir = dirname(this.memoryFilePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      
+      writeFileSync(this.memoryFilePath, JSON.stringify(this.messages, null, 2), 'utf-8');
+      const sessions = new Set(this.messages.map(m => m.session_id)).size;
+      console.log(`[MEMORY SAVE] Saved ${this.messages.length} messages from ${sessions} sessions to ${this.memoryFilePath}`);
+    } catch (error) {
+      console.error(`[MEMORY SAVE] Failed to save memory to file: ${error}`);
+    }
+  }
+
+  saveMemory(): void {
+    if (!this.memoryFilePath) {
+      console.log('[MEMORY SAVE] File persistence disabled - memory not saved');
+      return;
+    }
+    this.saveToFile();
   }
 }

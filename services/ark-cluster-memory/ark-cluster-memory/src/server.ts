@@ -145,23 +145,44 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, () => {
   console.log(`ARK Cluster Memory service running on port ${PORT}`);
+  if (process.env.MEMORY_FILE_PATH) {
+    console.log(`Memory persistence enabled at: ${process.env.MEMORY_FILE_PATH}`);
+  }
 });
 
+// Periodic save every 30 seconds if file persistence is enabled
+let saveInterval: NodeJS.Timeout | undefined;
+if (process.env.MEMORY_FILE_PATH) {
+  saveInterval = setInterval(() => {
+    memory.saveMemory();
+  }, 30000);
+}
+
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+const gracefulShutdown = () => {
+  console.log('Shutting down gracefully');
+  
+  if (saveInterval) {
+    clearInterval(saveInterval);
+  }
+  
+  // Save memory before exit
+  memory.saveMemory();
+  
   server.close(() => {
     console.log('Process terminated');
     process.exit(0);
   });
+};
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received');
+  gracefulShutdown();
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
-  });
+  console.log('SIGINT received');
+  gracefulShutdown();
 });
 
 export default app;
