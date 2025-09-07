@@ -83,21 +83,45 @@ func NewMemoryWithConfig(ctx context.Context, k8sClient client.Client, memoryNam
 }
 
 func NewMemoryForQuery(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId string) (MemoryInterface, error) {
+	return NewMemoryForQueryWithStreamingCheck(ctx, k8sClient, memoryRef, namespace, recorder, sessionId, false)
+}
+
+// NewMemoryForQueryWithStreamingCheck creates a memory interface with optional streaming capability validation
+func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId string, requiresStreaming bool) (MemoryInterface, error) {
 	config := DefaultConfig()
 	config.SessionId = sessionId
+
+	var memoryName, memoryNamespace string
 
 	if memoryRef == nil {
 		// Try to load "default" memory from the same namespace
 		_, err := getMemoryResource(ctx, k8sClient, "default", namespace)
 		if err != nil {
-			// If default memory doesn't exist, use noop memory
+			// If default memory doesn't exist, use noop memory (doesn't support streaming)
+			if requiresStreaming {
+				return nil, fmt.Errorf("streaming required but no default memory available and noop memory doesn't support streaming")
+			}
 			return NewNoopMemory(), nil
 		}
-		return NewMemoryWithConfig(ctx, k8sClient, "default", namespace, recorder, config)
+		memoryName, memoryNamespace = "default", namespace
+	} else {
+		memoryName = memoryRef.Name
+		memoryNamespace = resolveNamespace(memoryRef.Namespace, namespace)
 	}
 
-	memoryNamespace := resolveNamespace(memoryRef.Namespace, namespace)
-	return NewMemoryWithConfig(ctx, k8sClient, memoryRef.Name, memoryNamespace, recorder, config)
+	memory, err := NewMemoryWithConfig(ctx, k8sClient, memoryName, memoryNamespace, recorder, config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate streaming capability if required
+	if requiresStreaming {
+		if _, ok := memory.(*HTTPMemory); !ok {
+			return nil, fmt.Errorf("streaming requires HTTPMemory, got %T", memory)
+		}
+	}
+
+	return memory, nil
 }
 
 func getMemoryResource(ctx context.Context, k8sClient client.Client, name, namespace string) (*arkv1alpha1.Memory, error) {
