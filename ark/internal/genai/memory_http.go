@@ -65,6 +65,7 @@ type HTTPMemory struct {
 	httpClient *http.Client
 	baseURL    string
 	sessionId  string
+	queryName  string
 	name       string
 	namespace  string
 	recorder   EventEmitter
@@ -104,6 +105,7 @@ func NewHTTPMemory(ctx context.Context, k8sClient client.Client, memoryName, nam
 		httpClient: httpClient,
 		baseURL:    strings.TrimSuffix(*memory.Status.LastResolvedAddress, "/"),
 		sessionId:  sessionId,
+		queryName:  config.QueryName,
 		name:       memoryName,
 		namespace:  namespace,
 		recorder:   recorder,
@@ -288,7 +290,7 @@ func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
 		"sessionId": m.sessionId,
 	})
 
-	requestURL := fmt.Sprintf("%s"+CompletionEndpoint, m.baseURL, url.QueryEscape(m.sessionId))
+	requestURL := fmt.Sprintf("%s"+CompletionEndpoint, m.baseURL, url.QueryEscape(m.queryName))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, nil)
 	if err != nil {
 		tracker.Fail(fmt.Errorf("failed to create request: %w", err))
@@ -401,7 +403,7 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 	// Create a pipe for streaming data
 	pr, pw := io.Pipe()
 
-	requestURL := fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.sessionId))
+	requestURL := fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.queryName))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, pr)
 	if err != nil {
 		return fmt.Errorf("failed to create stream request: %w", err)

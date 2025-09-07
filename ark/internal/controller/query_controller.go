@@ -246,7 +246,7 @@ func (r *QueryReconciler) setupQueryExecution(opCtx context.Context, obj arkv1al
 		streamingEnabled = obj.GetAnnotations()[annotations.StreamingEnabled] == "true"
 	}
 
-	memory, err := genai.NewMemoryForQueryWithStreamingCheck(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, streamingEnabled)
+	memory, err := genai.NewMemoryForQueryWithStreamingCheck(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name, streamingEnabled)
 	if err != nil {
 		queryTracker.Fail(fmt.Errorf("failed to create memory client: %w", err))
 		_ = r.updateStatus(opCtx, &obj, statusError)

@@ -59,7 +59,7 @@ func (ap *AzureProvider) ChatCompletionStream(ctx context.Context, messages []Me
 
 	client := ap.createClient(ctx)
 	stream := client.Chat.Completions.NewStreaming(ctx, params)
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	var fullResponse *openai.ChatCompletion
 	for stream.Next() {

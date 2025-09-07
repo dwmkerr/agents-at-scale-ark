@@ -43,6 +43,7 @@ type Config struct {
 	MaxRetries int
 	RetryDelay time.Duration
 	SessionId  string
+	QueryName  string
 }
 
 type MessagesRequest struct {
@@ -82,14 +83,15 @@ func NewMemoryWithConfig(ctx context.Context, k8sClient client.Client, memoryNam
 	return NewHTTPMemory(ctx, k8sClient, memoryName, namespace, recorder, config)
 }
 
-func NewMemoryForQuery(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId string) (MemoryInterface, error) {
-	return NewMemoryForQueryWithStreamingCheck(ctx, k8sClient, memoryRef, namespace, recorder, sessionId, false)
+func NewMemoryForQuery(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId, queryName string) (MemoryInterface, error) {
+	return NewMemoryForQueryWithStreamingCheck(ctx, k8sClient, memoryRef, namespace, recorder, sessionId, queryName, false)
 }
 
 // NewMemoryForQueryWithStreamingCheck creates a memory interface with optional streaming capability validation
-func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId string, requiresStreaming bool) (MemoryInterface, error) {
+func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId, queryName string, requiresStreaming bool) (MemoryInterface, error) {
 	config := DefaultConfig()
 	config.SessionId = sessionId
+	config.QueryName = queryName
 
 	var memoryName, memoryNamespace string
 
