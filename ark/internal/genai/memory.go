@@ -12,17 +12,19 @@ import (
 )
 
 const (
-	DefaultTimeout   = 30 * time.Second
-	ContentTypeJSON  = "application/json"
-	MessagesEndpoint = "/messages"
-	MaxRetries       = 3
-	RetryDelay       = 100 * time.Millisecond
-	UserAgent        = "ark-memory-client/1.0"
+	DefaultTimeout     = 30 * time.Second
+	ContentTypeJSON    = "application/json"
+	MessagesEndpoint   = "/messages"
+	CompletionEndpoint = "/session/%s/complete"
+	MaxRetries         = 3
+	RetryDelay         = 100 * time.Millisecond
+	UserAgent          = "ark-memory-client/1.0"
 )
 
 type MemoryInterface interface {
 	AddMessages(ctx context.Context, queryID string, messages []Message) error
 	GetMessages(ctx context.Context) ([]Message, error)
+	NotifyCompletion(ctx context.Context) error
 	Close() error
 }
 

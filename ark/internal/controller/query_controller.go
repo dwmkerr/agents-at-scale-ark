@@ -566,6 +566,11 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 		return nil, fmt.Errorf("failed to save new messages to memory: %w", err)
 	}
 
+	// Notify completion for streaming if enabled
+	if err := memory.NotifyCompletion(ctx); err != nil {
+		log.V(1).Info("Failed to notify completion", "error", err)
+	}
+
 	return responseMessages, nil
 }
 
@@ -602,6 +607,12 @@ func (r *QueryReconciler) executeTeam(ctx context.Context, query arkv1alpha1.Que
 
 	if err := memory.AddMessages(ctx, query.Name, responseMessages); err != nil {
 		return nil, fmt.Errorf("failed to save new messages to memory: %w", err)
+	}
+
+	// Notify completion for streaming if enabled
+	log := logf.FromContext(ctx)
+	if err := memory.NotifyCompletion(ctx); err != nil {
+		log.V(1).Info("Failed to notify completion", "error", err)
 	}
 
 	return responseMessages, nil
@@ -671,6 +682,12 @@ func (r *QueryReconciler) executeModel(ctx context.Context, query arkv1alpha1.Qu
 	newMessages := append([]genai.Message{userMessage}, responseMessages...)
 	if err := memory.AddMessages(ctx, query.Name, newMessages); err != nil {
 		return nil, fmt.Errorf("failed to save new messages to memory: %w", err)
+	}
+
+	// Notify completion for streaming if enabled
+	log := logf.FromContext(ctx)
+	if err := memory.NotifyCompletion(ctx); err != nil {
+		log.V(1).Info("Failed to notify completion", "error", err)
 	}
 
 	return responseMessages, nil

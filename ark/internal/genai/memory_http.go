@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go"
+	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
 	"mckinsey.com/ark/internal/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -252,6 +253,79 @@ func (m *HTTPMemory) GetMessages(ctx context.Context) ([]Message, error) {
 	tracker.metadata["messages"] = fmt.Sprintf("%d", len(messages))
 	tracker.Complete("retrieved")
 	return messages, nil
+}
+
+func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
+	// Check if streaming is enabled via annotation
+	streamingEnabled, err := m.isStreamingEnabled(ctx)
+	if err != nil {
+		logf.FromContext(ctx).V(1).Info("Failed to check streaming annotation", "error", err)
+		return nil // Don't fail the operation
+	}
+
+	if !streamingEnabled {
+		logf.FromContext(ctx).V(2).Info("Memory streaming disabled - skipping completion notification",
+			"memory", fmt.Sprintf("%s/%s", m.namespace, m.name))
+		return nil
+	}
+
+	logf.FromContext(ctx).V(1).Info("Memory streaming enabled - sending completion notification",
+		"memory", fmt.Sprintf("%s/%s", m.namespace, m.name))
+
+	if err := m.resolveAndUpdateAddress(ctx); err != nil {
+		return err
+	}
+
+	tracker := NewOperationTracker(m.recorder, ctx, "MemoryNotifyCompletion", m.name, map[string]string{
+		"namespace": m.namespace,
+		"sessionId": m.sessionId,
+	})
+
+	requestURL := fmt.Sprintf("%s"+CompletionEndpoint, m.baseURL, url.QueryEscape(m.sessionId))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, nil)
+	if err != nil {
+		tracker.Fail(fmt.Errorf("failed to create request: %w", err))
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", ContentTypeJSON)
+	req.Header.Set("User-Agent", UserAgent)
+
+	resp, err := m.httpClient.Do(req)
+	if err != nil {
+		tracker.Fail(fmt.Errorf("HTTP request failed: %w", err))
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logf.FromContext(ctx).V(1).Info("Error closing response body", "error", closeErr)
+		}
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		tracker.Fail(fmt.Errorf("HTTP %d: completion notification failed", resp.StatusCode))
+		return fmt.Errorf("HTTP %d: completion notification failed", resp.StatusCode)
+	}
+
+	tracker.Complete("completion notified")
+	return nil
+}
+
+func (m *HTTPMemory) isStreamingEnabled(ctx context.Context) (bool, error) {
+	var memory arkv1alpha1.Memory
+	key := client.ObjectKey{Name: m.name, Namespace: m.namespace}
+
+	if err := m.client.Get(ctx, key, &memory); err != nil {
+		return false, fmt.Errorf("failed to get memory resource %s/%s: %w", m.namespace, m.name, err)
+	}
+
+	annotations := memory.GetAnnotations()
+	if annotations == nil {
+		return false, nil
+	}
+
+	enabled := annotations["ark.mckinsey.com/memory-event-stream-enabled"]
+	return enabled == "true", nil
 }
 
 func (m *HTTPMemory) Close() error {

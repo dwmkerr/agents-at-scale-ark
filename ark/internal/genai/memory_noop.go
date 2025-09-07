@@ -22,6 +22,11 @@ func (n *NoopMemory) GetMessages(ctx context.Context) ([]Message, error) {
 	return []Message{}, nil
 }
 
+func (n *NoopMemory) NotifyCompletion(ctx context.Context) error {
+	logf.FromContext(ctx).V(2).Info("NoopMemory: NotifyCompletion called - no action needed")
+	return nil
+}
+
 func (n *NoopMemory) Close() error {
 	logf.Log.V(2).Info("NoopMemory: Close called - no cleanup needed")
 	return nil
