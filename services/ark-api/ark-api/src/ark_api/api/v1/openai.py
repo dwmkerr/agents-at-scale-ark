@@ -106,9 +106,11 @@ async def proxy_streaming_response(streaming_url: str):
             if response.status_code != 200:
                 return  # Streaming failed, exit generator
             
-            async for chunk in response.aiter_text():
-                if chunk.strip():  # Skip empty lines
-                    yield chunk
+            # Use aiter_lines() for line-by-line streaming without buffering
+            async for line in response.aiter_lines():
+                if line.strip():  # Skip empty lines
+                    # SSE format: each chunk is on its own line
+                    yield line + "\n\n"  # Add back SSE double newline separator
 
 
 @router.post("/chat/completions")
