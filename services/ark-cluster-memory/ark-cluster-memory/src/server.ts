@@ -294,6 +294,7 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
         if (streamResp.choices?.[0]?.finish_reason === 'stop') {
           console.log(`[STREAM] Session ${uid}: Sending completion marker and closing stream`);
           res.write('data: [DONE]\n\n');
+          res.end();
           unsubscribe();
           return;
         }
