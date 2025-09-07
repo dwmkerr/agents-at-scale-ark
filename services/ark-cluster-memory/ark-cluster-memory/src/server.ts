@@ -226,8 +226,18 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
   try {
     const { uid } = req.params;
     const fromBeginning = req.query['from-beginning'] === 'true';
-    const waitForSession = req.query['wait-for-session'] === 'true';
-    const timeout = parseTimeout(req.query.timeout as string, 30000);
+    // Parse wait-for-session parameter - can be timeout value (e.g., "30s") or boolean
+    const waitForSessionParam = req.query['wait-for-session'] as string;
+    let waitForSession = false;
+    let timeout = 30000; // default 30 seconds
+    
+    if (waitForSessionParam && waitForSessionParam !== 'false') {
+      waitForSession = true;
+      // If it's not just 'true', parse as timeout
+      if (waitForSessionParam !== 'true') {
+        timeout = parseTimeout(waitForSessionParam, 30000);
+      }
+    }
     
     // Parse max chunk size, default to 50 characters
     let maxChunkSize = 50;
@@ -238,7 +248,7 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
       }
     }
 
-    console.log(`SSE stream request for session ${uid}, from-beginning=${fromBeginning}, wait-for-session=${waitForSession}, timeout=${timeout}ms, max-chunk-size=${maxChunkSize}`);
+    console.log(`SSE stream request for session ${uid}, from-beginning=${fromBeginning}, wait-for-session=${waitForSessionParam}, timeout=${timeout}ms, max-chunk-size=${maxChunkSize}`);
 
     // Check if session exists
     const exists = memory.sessionExists(uid);

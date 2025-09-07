@@ -146,8 +146,7 @@ Establishes a Server-Sent Events (SSE) connection to stream messages in real-tim
 
 **Query Parameters:**
 - `from-beginning=true` - Send all existing messages first, then stream new ones
-- `wait-for-session=true` - Wait for session creation if it doesn't exist yet  
-- `timeout=30s` - How long to wait for session creation (default 30s)
+- `wait-for-session=<timeout>` - Wait for session creation if it doesn't exist yet, with specified timeout (e.g., `wait-for-session=30s`)
 
 **Response Format:**
 OpenAI-compatible streaming chunks sent as SSE events:
@@ -175,7 +174,7 @@ data: {
 
 **Example Usage:**
 ```bash
-curl -N "http://memory-service:8080/stream/my-session?from-beginning=true"
+curl -N "http://memory-service:8080/stream/my-session?from-beginning=true&wait-for-session=30s"
 ```
 
 This enables real-time streaming of agent responses as they're generated, providing immediate feedback to users during long-running queries.
