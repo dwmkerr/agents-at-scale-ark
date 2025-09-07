@@ -15,8 +15,7 @@ from ...models.queries import (
     QueryListResponse,
     QueryCreateRequest,
     QueryUpdateRequest,
-    QueryDetailResponse,
-    StreamingInfo
+    QueryDetailResponse
 )
 from .exceptions import handle_k8s_errors
 
@@ -53,17 +52,6 @@ def query_to_detail_response(query: dict) -> QueryDetailResponse:
     spec = query["spec"]
     metadata = query["metadata"]
     
-    # Handle streaming info
-    streaming_info = None
-    annotations = metadata.get("annotations", {})
-    if annotations.get("ark.mckinsey.com/streaming-enabled") == "true":
-        session_id = spec.get("sessionId") or str(metadata.get("uid", ""))
-        streaming_info = StreamingInfo(
-            enabled=True,
-            url=f"/api/v1/namespaces/{metadata['namespace']}/queries/{metadata['name']}/stream",
-            sessionId=session_id
-        )
-    
     return QueryDetailResponse(
         name=metadata["name"],
         namespace=metadata["namespace"],
@@ -73,13 +61,13 @@ def query_to_detail_response(query: dict) -> QueryDetailResponse:
         selector=spec.get("selector"),
         serviceAccount=spec.get("serviceAccount"),
         sessionId=spec.get("sessionId"),
-        streaming=streaming_info,
         targets=spec.get("targets"),
         timeout=spec.get("timeout"),
         ttl=spec.get("ttl"),
         cancel=spec.get("cancel"),
         evaluators=spec.get("evaluators"),
         evaluatorSelector=spec.get("evaluatorSelector"),
+        metadata=metadata,
         status=query.get("status")
     )
 

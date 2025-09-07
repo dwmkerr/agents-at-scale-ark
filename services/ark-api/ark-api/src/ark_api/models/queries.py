@@ -114,6 +114,13 @@ class QueryUpdateRequest(BaseModel):
     evaluatorSelector: Optional[LabelSelector] = None
 
 
+class StreamingInfo(BaseModel):
+    """Streaming information for a query."""
+    enabled: bool
+    url: Optional[str] = None
+    sessionId: Optional[str] = None
+
+
 class QueryDetailResponse(BaseModel):
     """Detailed query response."""
     name: str
@@ -124,18 +131,11 @@ class QueryDetailResponse(BaseModel):
     selector: Optional[LabelSelector] = None
     serviceAccount: Optional[str] = None
     sessionId: Optional[str] = None
-    streaming: Optional[StreamingInfo] = None
     targets: Optional[List[Target]] = None
     timeout: Optional[str] = None
     ttl: Optional[str] = None
     cancel: Optional[bool] = None
     evaluators: Optional[List[Memory]] = None  # Using Memory model as it has same structure (name, namespace)
     evaluatorSelector: Optional[LabelSelector] = None
+    metadata: Optional[Dict[str, Any]] = None
     status: Optional[Dict[str, Any]] = None
-
-
-class StreamingInfo(BaseModel):
-    """Streaming information for a query."""
-    enabled: bool
-    url: Optional[str] = None
-    sessionId: Optional[str] = None
