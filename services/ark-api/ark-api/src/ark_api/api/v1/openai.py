@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from ark_sdk.client import with_ark_client
 from ...utils.query_targets import parse_model_to_query_target
 from ...utils.query_polling import poll_query_completion
+from ...constants.annotations import STREAMING_ENABLED_ANNOTATION
 
 router = APIRouter(prefix="/openai/v1", tags=["OpenAI"])
 logger = logging.getLogger(__name__)
@@ -65,9 +66,16 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
     input_text = "\n".join([f"{msg.role}: {msg.content}" for msg in messages])
     query_name = f"openai-query-{uuid.uuid4().hex[:8]}"
 
+    # Handle streaming annotation
+    metadata = {"name": query_name, "namespace": "default"}
+    if request.stream:
+        metadata["annotations"] = {
+            STREAMING_ENABLED_ANNOTATION: "true"
+        }
+
     # Create the QueryV1alpha1 object like the queries API does
     query_resource = QueryV1alpha1(
-        metadata={"name": query_name, "namespace": "default"},
+        metadata=metadata,
         spec=QueryV1alpha1Spec(input=input_text, targets=[target]),
     )
 
