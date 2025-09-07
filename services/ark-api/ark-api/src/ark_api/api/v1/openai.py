@@ -6,9 +6,11 @@ from typing import List, Optional
 from ark_sdk import QueryV1alpha1Spec
 from ark_sdk.models.query_v1alpha1 import QueryV1alpha1
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from openai.types.chat import ChatCompletion
 from openai.types import Model
 from pydantic import BaseModel
+import httpx
 
 from ark_sdk.client import with_ark_client
 from ...utils.query_targets import parse_model_to_query_target
@@ -55,6 +57,60 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
+async def try_get_streaming_url(ark_client, query_name: str, namespace: str = "default") -> Optional[str]:
+    """Try to get streaming URL, return None if memory doesn't support streaming."""
+    try:
+        # Get query to find memory reference
+        query = await ark_client.queries.a_get(query_name)
+        query_dict = query.to_dict()
+        
+        # Resolve memory name
+        memory_spec = query_dict.get("spec", {}).get("memory")
+        if memory_spec and memory_spec.get("name"):
+            memory_name = memory_spec["name"]
+        else:
+            memory_name = "default"
+            
+        # Try to get memory resource
+        memory = await ark_client.memories.a_get(memory_name)
+        memory_dict = memory.to_dict()
+        
+        # Check if memory supports streaming via annotation
+        annotations = memory_dict.get("metadata", {}).get("annotations", {})
+        streaming_enabled = annotations.get("ark.mckinsey.com/memory-event-stream-enabled") == "true"
+        
+        if not streaming_enabled:
+            return None
+        
+        # Check if memory has resolved address
+        status = memory_dict.get("status", {})
+        base_url = status.get("lastResolvedAddress")
+        
+        if not base_url:
+            return None
+        
+        # Use query name for streaming endpoint (query-based streaming)
+        # Return streaming URL with wait-for-query to handle query execution timing
+        return f"{base_url}/stream/{query_name}?from-beginning=true&wait-for-query=30s"
+        
+    except Exception:
+        # Any error means streaming not available
+        return None
+
+
+async def proxy_streaming_response(streaming_url: str):
+    """Proxy streaming chunks from memory service."""
+    timeout = httpx.Timeout(10.0, read=None)  # 10s connect, infinite read
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream("GET", streaming_url) as response:
+            if response.status_code != 200:
+                return  # Streaming failed, exit generator
+            
+            async for chunk in response.aiter_text():
+                if chunk.strip():  # Skip empty lines
+                    yield chunk
+
+
 @router.post("/chat/completions")
 async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
     model = request.model
@@ -87,7 +143,25 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
             await ark_client.queries.a_create(query_resource)
             logger.info(f"Created query: {query_name}")
 
-            # Poll for completion using helper function
+            # OpenAI spec: if stream=true, client expects SSE format regardless of downstream support
+            if request.stream:
+                streaming_url = await try_get_streaming_url(ark_client, query_name)
+                if streaming_url:
+                    logger.info(f"Streaming available for query: {query_name}")
+                    return StreamingResponse(
+                        proxy_streaming_response(streaming_url),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                        }
+                    )
+                else:
+                    # OpenAI spec: if downstream doesn't support streaming, return complete response
+                    # but still in SSE format since client expects it
+                    logger.info(f"Streaming not available, falling back to complete response")
+
+            # Standard complete response for stream=false or streaming fallback
             return await poll_query_completion(
                 ark_client, query_name, model, input_text
             )

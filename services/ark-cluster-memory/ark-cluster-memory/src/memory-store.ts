@@ -10,7 +10,8 @@ export class MemoryStore {
   private readonly maxMessageSize: number;
   private readonly memoryFilePath?: string;
   public eventEmitter: EventEmitter = new EventEmitter();
-  private completedSessions: Set<string> = new Set();
+  
+  private streamChunks: Map<string, any[]> = new Map();
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
     this.maxMessageSize = maxMessageSize;
@@ -125,6 +126,16 @@ export class MemoryStore {
     // Return just the message content for backward compatibility
     return this.messages
       .filter(m => m.session_id === sessionID)
+      .map(m => m.message);
+  }
+
+  getMessagesByQuery(queryID: string): Message[] {
+    if (!queryID) {
+      throw new Error('Query ID cannot be empty');
+    }
+    // Return messages filtered by query_id
+    return this.messages
+      .filter(m => m.query_id === queryID)
       .map(m => m.message);
   }
 
@@ -267,11 +278,20 @@ export class MemoryStore {
     this.eventEmitter.emit(`session:${sessionID}:created`);
   }
 
+  addStreamChunk(queryID: string, chunk: any): void {
+    if (!this.streamChunks.has(queryID)) {
+      this.streamChunks.set(queryID, []);
+    }
+    this.streamChunks.get(queryID)!.push(chunk);
+  }
+
+  getStreamChunks(queryID: string): any[] {
+    return this.streamChunks.get(queryID) || [];
+  }
+
   completeQueryStream(queryID: string): void {
-    this.completedSessions.add(queryID);
     console.log(`Query stream ${queryID} marked as complete`);
     
-    // Send OpenAI-compatible completion marker
     const completionMessage = {
       choices: [{
         finish_reason: 'stop',
@@ -279,10 +299,8 @@ export class MemoryStore {
       }]
     };
     
+    this.addStreamChunk(queryID, completionMessage);
+    
     this.eventEmitter.emit(`chunk:${queryID}`, completionMessage);
-  }
-
-  isSessionComplete(sessionID: string): boolean {
-    return this.completedSessions.has(sessionID);
   }
 }

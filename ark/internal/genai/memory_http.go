@@ -316,6 +316,9 @@ func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
 		return fmt.Errorf("HTTP %d: completion notification failed", resp.StatusCode)
 	}
 
+	// Close the streaming connection cleanly after completion notification
+	m.closeStreamConnection(ctx)
+	
 	tracker.Complete("completion notified")
 	return nil
 }
@@ -349,11 +352,6 @@ func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
 		}
 	}
 
-	tracker := NewOperationTracker(m.recorder, ctx, "MemoryStreamChunk", m.name, map[string]string{
-		"namespace": m.namespace,
-		"sessionId": m.sessionId,
-	})
-
 	// Convert StreamChunk to StreamResponse format expected by memory service
 	streamResponse := map[string]interface{}{
 		"id":      m.sessionId,
@@ -380,17 +378,14 @@ func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
 	// Write chunk as newline-delimited JSON to persistent stream
 	jsonData, err := json.Marshal(streamResponse)
 	if err != nil {
-		tracker.Fail(fmt.Errorf("failed to marshal stream chunk: %w", err))
 		return fmt.Errorf("failed to marshal stream chunk: %w", err)
 	}
 
 	// Write JSON + newline to the stream
 	if _, err := m.streamWriter.Write(append(jsonData, '\n')); err != nil {
-		tracker.Fail(fmt.Errorf("failed to write stream chunk: %w", err))
 		return fmt.Errorf("failed to write stream chunk: %w", err)
 	}
 
-	tracker.Complete("chunk streamed")
 	return nil
 }
 
@@ -443,6 +438,20 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 
 	logf.FromContext(ctx).Info("Established persistent streaming connection", "sessionId", m.sessionId)
 	return nil
+}
+
+// closeStreamConnection cleanly closes the streaming connection
+func (m *HTTPMemory) closeStreamConnection(ctx context.Context) {
+	m.streamMutex.Lock()
+	defer m.streamMutex.Unlock()
+
+	if m.streamWriter != nil {
+		logf.FromContext(ctx).Info("Closing streaming connection", "sessionId", m.sessionId)
+		if err := m.streamWriter.Close(); err != nil {
+			logf.FromContext(ctx).V(1).Info("Error closing stream writer", "error", err, "sessionId", m.sessionId)
+		}
+		m.streamWriter = nil
+	}
 }
 
 func (m *HTTPMemory) Close() error {

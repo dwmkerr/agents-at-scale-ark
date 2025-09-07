@@ -237,12 +237,17 @@ function QueryStreamingField({ mode, value, onChange, label, tooltip, metadata }
         </TooltipProvider>
       </td>
       <td className="px-3 py-2">
-        <Checkbox
-          id="streaming"
-          checked={isStreamingEnabled}
-          onCheckedChange={mode === 'new' ? onChange : undefined}
-          disabled={mode === 'view'}
-        />
+        {mode === 'view' ? (
+          <span className="text-xs text-gray-700 dark:text-gray-300">
+            {isStreamingEnabled ? "Yes" : "No"}
+          </span>
+        ) : (
+          <Checkbox
+            id="streaming"
+            checked={isStreamingEnabled}
+            onCheckedChange={onChange}
+          />
+        )}
       </td>
     </tr>
   )
