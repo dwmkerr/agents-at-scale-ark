@@ -221,7 +221,7 @@ app.get('/sessions', (req, res) => {
   }
 });
 
-// Streaming endpoint - GET /stream/{uid}
+// Stream endpoint - GET /stream/{sessionId} - Serve real-time chunks to dashboard
 app.get('/stream/:uid', validateSessionParam, async (req, res) => {
   try {
     const { uid } = req.params;
@@ -325,8 +325,8 @@ app.get('/stream/:uid', validateSessionParam, async (req, res) => {
   }
 });
 
-// Stream-in endpoint - POST /stream-in/{sessionId} - Receive real-time chunks from ARK controller
-app.post('/stream-in/:sessionId', (req, res) => {
+// Stream endpoint - POST /stream/{sessionId} - Receive real-time chunks from ARK controller
+app.post('/stream/:sessionId', (req, res) => {
   try {
     const { sessionId } = req.params;
     
@@ -335,7 +335,7 @@ app.post('/stream-in/:sessionId', (req, res) => {
       return;
     }
     
-    console.log(`Stream-in connection for session ${sessionId}`);
+    console.log(`Stream POST connection for session ${sessionId}`);
     
     // Set headers for newline-delimited JSON streaming
     res.setHeader('Content-Type', 'application/json');
@@ -389,36 +389,36 @@ app.post('/stream-in/:sessionId', (req, res) => {
     });
     
   } catch (error) {
-    console.error('Failed to handle stream-in request:', error);
+    console.error('Failed to handle stream POST request:', error);
     const err = error as Error;
     res.status(500).json({ error: err.message });
   }
 });
 
-// Session completion endpoint - POST /session/{id}/complete
-app.post('/session/:id/complete', (req, res) => {
+// Stream completion endpoint - POST /stream/{sessionId}/complete
+app.post('/stream/:sessionId/complete', (req, res) => {
   try {
-    const { id } = req.params;
+    const { sessionId } = req.params;
     
-    if (!id) {
+    if (!sessionId) {
       res.status(400).json({ error: 'Session ID parameter is required' });
       return;
     }
     
-    console.log(`Completion request for session ${id}`);
+    console.log(`Completion request for session ${sessionId}`);
     
     // Check if session exists
-    if (!memory.sessionExists(id)) {
-      console.log(`Session ${id} not found for completion`);
+    if (!memory.sessionExists(sessionId)) {
+      console.log(`Session ${sessionId} not found for completion`);
       res.status(404).json({ error: 'Session not found' });
       return;
     }
     
-    memory.completeSession(id);
+    memory.completeSession(sessionId);
     
     res.json({
       status: 'completed',
-      session: id
+      session: sessionId
     });
   } catch (error) {
     console.error('Failed to complete session:', error);

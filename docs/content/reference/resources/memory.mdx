@@ -72,7 +72,8 @@ Memory is implemented as a simple HTTP server:
 | GET | `/sessions` | List all session IDs |
 | GET | `/health` | Health check |
 | GET | `/stream/{session_id}` | **Optional:** Server-Sent Events stream |
-| POST | `/session/{session_id}/complete` | **Optional:** Mark session complete |
+| POST | `/stream/{session_id}` | **Optional:** Receive streaming chunks |
+| POST | `/stream/{session_id}/complete` | **Optional:** Mark session complete |
 
 ### Store Messages
 
@@ -179,15 +180,39 @@ curl -N "http://memory-service:8080/stream/my-session?from-beginning=true"
 
 This enables real-time streaming of agent responses as they're generated, providing immediate feedback to users during long-running queries.
 
-### Complete Session
+### Receive Stream Chunks
 
-**POST** `/session/{session_id}/complete`
+**POST** `/stream/{session_id}`
 
-Marks a session as complete, triggering completion events to all active streaming clients.
+Receives real-time chunks from the ARK controller for streaming to connected clients. This endpoint accepts newline-delimited JSON chunks in OpenAI streaming format.
+
+**Content-Type:** `application/x-ndjson`
+
+**Request Body:** Stream of OpenAI-compatible chunks:
+```json
+{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "Hello"}}]}
+{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"delta": {"content": " world"}}]}
+{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"finish_reason": "stop"}]}
+```
 
 **Example Usage:**
 ```bash
-curl -X POST "http://memory-service:8080/session/my-session/complete"
+curl -X POST "http://memory-service:8080/stream/my-session" \
+  -H "Content-Type: application/x-ndjson" \
+  --data-raw '{"id": "my-session", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "Hello world"}}]}'
+```
+
+### Complete Stream
+
+**POST** `/stream/{session_id}/complete`
+
+Signals that query execution is complete and marks the streaming session as finished. This endpoint is called by the ARK controller when query execution finishes to notify streaming clients that no more chunks will be sent.
+
+**Why this is needed:** In ARK's distributed architecture, the controller orchestrates execution across multiple agents/teams/models, so it needs to explicitly signal completion to the memory service. Unlike direct LLM APIs where the model sends completion as part of the stream, ARK's controller manages the execution lifecycle separately.
+
+**Example Usage:**
+```bash
+curl -X POST "http://memory-service:8080/stream/my-session/complete"
 ```
 
 **Response:**
@@ -198,7 +223,7 @@ curl -X POST "http://memory-service:8080/session/my-session/complete"
 }
 ```
 
-When a session is marked complete, streaming clients receive a final chunk with `finish_reason: "stop"` followed by the termination marker `data: [DONE]`.
+When a stream is marked complete, all connected streaming clients receive a final chunk with `finish_reason: "stop"` followed by the termination marker `data: [DONE]`.
 
 ## PostgreSQL Memory
 

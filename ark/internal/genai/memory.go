@@ -15,7 +15,7 @@ const (
 	DefaultTimeout     = 30 * time.Second
 	ContentTypeJSON    = "application/json"
 	MessagesEndpoint   = "/messages"
-	CompletionEndpoint = "/session/%s/complete"
+	CompletionEndpoint = "/stream/%s/complete"
 	MaxRetries         = 3
 	RetryDelay         = 100 * time.Millisecond
 	UserAgent          = "ark-memory-client/1.0"

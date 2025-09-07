@@ -401,7 +401,7 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 	// Create a pipe for streaming data
 	pr, pw := io.Pipe()
 
-	requestURL := fmt.Sprintf("%s/stream-in/%s", m.baseURL, url.QueryEscape(m.sessionId))
+	requestURL := fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.sessionId))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, pr)
 	if err != nil {
 		return fmt.Errorf("failed to create stream request: %w", err)
