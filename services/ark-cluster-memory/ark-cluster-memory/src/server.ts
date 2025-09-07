@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { MemoryStore } from './memory-store.js';
-import { AddMessageRequest, AddMessagesRequest, MessagesResponse } from './types.js';
+import { AddMessageRequest, AddMessagesRequest, MessagesResponse, StreamResponse, StreamError, Message } from './types.js';
 
 const app = express();
 const memory = new MemoryStore();
@@ -24,6 +24,97 @@ const validateSessionParam = (req: express.Request, res: express.Response, next:
     return;
   }
   next();
+};
+
+// Helper function to parse timeout parameter
+const parseTimeout = (timeoutStr: string | undefined, defaultTimeout: number): number => {
+  if (!timeoutStr) return defaultTimeout;
+  const timeout = parseInt(timeoutStr);
+  return isNaN(timeout) ? defaultTimeout : Math.max(1000, Math.min(timeout * 1000, 300000));
+};
+
+// Helper function to chunk content into smaller pieces
+const chunkContent = (content: string, maxChunkSize: number): string[] => {
+  if (content.length <= maxChunkSize) {
+    return [content];
+  }
+  
+  const chunks: string[] = [];
+  for (let i = 0; i < content.length; i += maxChunkSize) {
+    chunks.push(content.slice(i, i + maxChunkSize));
+  }
+  return chunks;
+};
+
+// Helper function to create OpenAI-compatible stream responses (with chunking support)
+const createStreamResponses = (sessionID: string, message: Message, index: number, maxChunkSize: number = 50): StreamResponse[] => {
+  // Handle completion messages specially
+  if (typeof message === 'object' && message !== null) {
+    const msgObj = message as any;
+    if (msgObj.type === 'completion' && msgObj.finish_reason === 'stop') {
+      return [{
+        id: sessionID,
+        object: 'chat.completion.chunk',
+        created: Math.floor(Date.now() / 1000),
+        model: 'ark-cluster-memory',
+        choices: [{
+          index: 0,
+          delta: {},
+          finish_reason: 'stop'
+        }]
+      }];
+    }
+  }
+
+  let content: string;
+  try {
+    if (typeof message === 'string') {
+      content = message;
+    } else if (typeof message === 'object' && message !== null) {
+      const msgObj = message as any;
+      content = msgObj.content || JSON.stringify(message);
+    } else {
+      content = String(message);
+    }
+  } catch (error) {
+    content = '[Unable to parse message content]';
+  }
+
+  // Chunk the content and create multiple responses
+  const chunks = chunkContent(content, maxChunkSize);
+  
+  // Log chunking activity
+  if (chunks.length > 1) {
+    console.log(`[STREAM] Session ${sessionID}: Split content (${content.length} chars) into ${chunks.length} chunks of max ${maxChunkSize} chars`);
+  }
+  
+  return chunks.map((chunk, idx) => {
+    if (chunks.length > 1) {
+      console.log(`[STREAM] Session ${sessionID}: Chunk ${idx + 1}/${chunks.length}: "${chunk.substring(0, 20)}${chunk.length > 20 ? '...' : ''}" (${chunk.length} chars)`);
+    }
+    
+    return {
+      id: sessionID,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model: 'ark-cluster-memory',
+      choices: [{
+        index: 0,
+        delta: { content: chunk }
+      }]
+    };
+  });
+};
+
+// Helper function to write SSE event
+const writeSSEEvent = (res: express.Response, data: StreamResponse): boolean => {
+  try {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    return true;
+  } catch (error) {
+    console.error('Error writing SSE event:', error);
+    return false;
+  }
 };
 
 // Health check - same as postgres-memory
@@ -127,6 +218,142 @@ app.get('/sessions', (req, res) => {
     console.error('Failed to get sessions:', error);
     const err = error as Error;
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Streaming endpoint - GET /stream/{uid}
+app.get('/stream/:uid', validateSessionParam, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const fromBeginning = req.query['from-beginning'] === 'true';
+    const waitForSession = req.query['wait-for-session'] === 'true';
+    const timeout = parseTimeout(req.query.timeout as string, 30000);
+    
+    // Parse max chunk size, default to 50 characters
+    let maxChunkSize = 50;
+    if (req.query['max-chunk-size']) {
+      const size = parseInt(req.query['max-chunk-size'] as string);
+      if (!isNaN(size) && size > 0) {
+        maxChunkSize = size;
+      }
+    }
+
+    console.log(`SSE stream request for session ${uid}, from-beginning=${fromBeginning}, wait-for-session=${waitForSession}, timeout=${timeout}ms, max-chunk-size=${maxChunkSize}`);
+
+    // Check if session exists
+    const exists = memory.sessionExists(uid);
+
+    if (!exists && !waitForSession) {
+      console.log(`Session ${uid} not found, returning 404`);
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    if (!exists && waitForSession) {
+      console.log(`Waiting for session ${uid} (timeout: ${timeout}ms)`);
+      
+      const sessionCreated = await memory.waitForSession(uid, timeout);
+      if (!sessionCreated) {
+        console.log(`Session ${uid} creation timeout after ${timeout}ms`);
+        res.status(408).json({ error: 'Session creation timeout' });
+        return;
+      }
+      
+      console.log(`Session ${uid} created, starting stream`);
+    }
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Subscribe to new messages
+    const unsubscribe = memory.subscribe(uid, (message: Message) => {
+      const streamResponses = createStreamResponses(uid, message, 0, maxChunkSize);
+      console.log(`[STREAM] Session ${uid}: Broadcasting ${streamResponses.length} chunk(s) to streaming client`);
+      
+      for (const streamResp of streamResponses) {
+        if (!writeSSEEvent(res, streamResp)) {
+          console.log(`[STREAM] Session ${uid}: Error writing SSE event, closing stream`);
+          unsubscribe();
+          return;
+        }
+        
+        // If this is a completion message, send [DONE] and close
+        if (streamResp.choices?.[0]?.finish_reason === 'stop') {
+          console.log(`[STREAM] Session ${uid}: Sending completion marker and closing stream`);
+          res.write('data: [DONE]\n\n');
+          unsubscribe();
+          return;
+        }
+      }
+    });
+
+    // If from-beginning, send existing messages first
+    if (fromBeginning) {
+      const existingMessages = memory.getMessages(uid);
+      console.log(`Sending ${existingMessages.length} existing messages for session ${uid}`);
+      
+      for (let i = 0; i < existingMessages.length; i++) {
+        const streamResponses = createStreamResponses(uid, existingMessages[i], i, maxChunkSize);
+        for (const streamResp of streamResponses) {
+          if (!writeSSEEvent(res, streamResp)) {
+            console.log(`Error writing existing message for session ${uid}`);
+            unsubscribe();
+            return;
+          }
+        }
+      }
+    }
+
+    // Handle client disconnect
+    req.on('close', () => {
+      console.log(`Stream connection closed for session ${uid}`);
+      unsubscribe();
+    });
+
+    req.on('error', (error) => {
+      console.log(`Stream connection error for session ${uid}:`, error);
+      unsubscribe();
+    });
+
+  } catch (error) {
+    console.error('Failed to handle stream request:', error);
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Session completion endpoint - POST /session/{id}/complete
+app.post('/session/:id/complete', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      res.status(400).json({ error: 'Session ID parameter is required' });
+      return;
+    }
+    
+    console.log(`Completion request for session ${id}`);
+    
+    // Check if session exists
+    if (!memory.sessionExists(id)) {
+      console.log(`Session ${id} not found for completion`);
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    
+    memory.completeSession(id);
+    
+    res.json({
+      status: 'completed',
+      session: id
+    });
+  } catch (error) {
+    console.error('Failed to complete session:', error);
+    const err = error as Error;
+    res.status(500).json({ error: err.message });
   }
 });
 

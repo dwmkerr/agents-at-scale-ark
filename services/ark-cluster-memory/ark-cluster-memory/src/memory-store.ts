@@ -2,12 +2,15 @@ import { Message, StoredMessage } from './types.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { dirname } from 'path';
 import { mkdirSync } from 'fs';
+import { EventEmitter } from 'events';
 
 export class MemoryStore {
   // Flat list of all messages with metadata
   private messages: StoredMessage[] = [];
   private readonly maxMessageSize: number;
   private readonly memoryFilePath?: string;
+  private eventEmitter: EventEmitter = new EventEmitter();
+  private completedSessions: Set<string> = new Set();
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
     this.maxMessageSize = maxMessageSize;
@@ -33,6 +36,9 @@ export class MemoryStore {
     this.validateSessionID(sessionID);
     this.validateMessage(message);
 
+    // Check if this is a new session for event emission
+    const isNewSession = !this.messages.some(m => m.session_id === sessionID);
+    
     const storedMessage: StoredMessage = {
       timestamp: new Date().toISOString(),
       session_id: sessionID,
@@ -42,6 +48,12 @@ export class MemoryStore {
     
     this.messages.push(storedMessage);
     this.saveToFile();
+    
+    // Emit events for streaming
+    if (isNewSession) {
+      this.emitSessionCreated(sessionID);
+    }
+    this.eventEmitter.emit(`message:${sessionID}`, message);
   }
 
   addMessages(sessionID: string, messages: Message[]): void {
@@ -50,6 +62,9 @@ export class MemoryStore {
     for (const message of messages) {
       this.validateMessage(message);
     }
+
+    // Check if this is a new session for event emission
+    const isNewSession = !this.messages.some(m => m.session_id === sessionID);
 
     const timestamp = new Date().toISOString();
     const storedMessages = messages.map(msg => ({
@@ -61,6 +76,14 @@ export class MemoryStore {
     
     this.messages.push(...storedMessages);
     this.saveToFile();
+    
+    // Emit events for streaming
+    if (isNewSession) {
+      this.emitSessionCreated(sessionID);
+    }
+    for (const message of messages) {
+      this.eventEmitter.emit(`message:${sessionID}`, message);
+    }
   }
 
   addMessagesWithMetadata(sessionID: string, queryID: string, messages: Message[]): void {
@@ -74,6 +97,9 @@ export class MemoryStore {
       this.validateMessage(message);
     }
 
+    // Check if this is a new session for event emission
+    const isNewSession = !this.messages.some(m => m.session_id === sessionID);
+
     const timestamp = new Date().toISOString();
     const storedMessages = messages.map(msg => ({
       timestamp,
@@ -84,6 +110,14 @@ export class MemoryStore {
     
     this.messages.push(...storedMessages);
     this.saveToFile();
+    
+    // Emit events for streaming
+    if (isNewSession) {
+      this.emitSessionCreated(sessionID);
+    }
+    for (const message of messages) {
+      this.eventEmitter.emit(`message:${sessionID}`, message);
+    }
   }
 
   getMessages(sessionID: string): Message[] {
@@ -187,5 +221,59 @@ export class MemoryStore {
       return;
     }
     this.saveToFile();
+  }
+
+  // Streaming support methods
+  sessionExists(sessionID: string): boolean {
+    return this.messages.some(m => m.session_id === sessionID);
+  }
+
+  subscribe(sessionID: string, callback: (message: Message) => void): () => void {
+    this.eventEmitter.on(`message:${sessionID}`, callback);
+    return () => {
+      this.eventEmitter.off(`message:${sessionID}`, callback);
+    };
+  }
+
+  waitForSession(sessionID: string, timeout: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (this.sessionExists(sessionID)) {
+        resolve(true);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        this.eventEmitter.off(`session:${sessionID}:created`, onCreated);
+        resolve(false);
+      }, timeout);
+
+      const onCreated = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+
+      this.eventEmitter.once(`session:${sessionID}:created`, onCreated);
+    });
+  }
+
+  private emitSessionCreated(sessionID: string): void {
+    this.eventEmitter.emit(`session:${sessionID}:created`);
+  }
+
+  completeSession(sessionID: string): void {
+    this.completedSessions.add(sessionID);
+    console.log(`Session ${sessionID} marked as complete`);
+    
+    // Send OpenAI-compatible completion marker
+    const completionMessage = {
+      type: 'completion',
+      finish_reason: 'stop'
+    };
+    
+    this.eventEmitter.emit(`message:${sessionID}`, completionMessage);
+  }
+
+  isSessionComplete(sessionID: string): boolean {
+    return this.completedSessions.has(sessionID);
   }
 }

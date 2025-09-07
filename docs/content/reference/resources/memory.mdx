@@ -13,6 +13,9 @@ apiVersion: ark.mckinsey.com/v1alpha1
 kind: Memory
 metadata:
   name: postgres-memory
+  annotations:
+    # Enable event streaming support for this memory service
+    ark.mckinsey.com/memory-event-stream-enabled: "true"
 spec:
   # The address of the service that handles memory API calls.
   address:
@@ -24,6 +27,10 @@ spec:
         name: postgres-memory
         port: 8080
 ```
+
+### Annotations
+
+- **`ark.mckinsey.com/memory-event-stream-enabled`** - When set to `"true"`, enables event streaming capabilities for this memory service. The service must implement the [Event Streaming API](#event-streaming-api) endpoints to support real-time message delivery during query execution.
 
 ## Usage
 
@@ -64,6 +71,8 @@ Memory is implemented as a simple HTTP server:
 | GET | `/messages` | Retrieve messages with optional filtering |
 | GET | `/sessions` | List all session IDs |
 | GET | `/health` | Health check |
+| GET | `/stream/{session_id}` | **Optional:** Server-Sent Events stream |
+| POST | `/session/{session_id}/complete` | **Optional:** Mark session complete |
 
 ### Store Messages
 
@@ -123,6 +132,73 @@ Returns object with session IDs:
 ```json
 {"sessions": ["session-1", "session-2", "session-3"]}
 ```
+
+## Event Streaming API
+
+Memory services can optionally implement real-time streaming endpoints for live message delivery during query execution.
+
+### Stream Messages
+
+**GET** `/stream/{session_id}`
+
+Establishes a Server-Sent Events (SSE) connection to stream messages in real-time.
+
+**Query Parameters:**
+- `from-beginning=true` - Send all existing messages first, then stream new ones
+- `wait-for-session=true` - Wait for session creation if it doesn't exist yet  
+- `timeout=30s` - How long to wait for session creation (default 30s)
+
+**Response Format:**
+OpenAI-compatible streaming chunks sent as SSE events:
+
+```
+event: message
+data: {
+  "id": "session-uuid",
+  "object": "chat.completion.chunk", 
+  "created": 1704067200,
+  "model": "memory-service",
+  "choices": [{
+    "index": 0,
+    "delta": {
+      "content": "Hello world"
+    }
+  }]
+}
+
+```
+
+**Special Events:**
+- `[LIVE_MODE]` - Indicates switch from historical to live streaming
+- `[STREAM_END]` - Signals completion when session is marked complete
+
+**Example Usage:**
+```bash
+curl -N "http://memory-service:8080/stream/my-session?from-beginning=true"
+```
+
+This enables real-time streaming of agent responses as they're generated, providing immediate feedback to users during long-running queries.
+
+### Complete Session
+
+**POST** `/session/{session_id}/complete`
+
+Marks a session as complete, triggering completion events to all active streaming clients.
+
+**Example Usage:**
+```bash
+curl -X POST "http://memory-service:8080/session/my-session/complete"
+```
+
+**Response:**
+```json
+{
+  "status": "completed", 
+  "session": "my-session"
+}
+```
+
+When a session is marked complete, streaming clients receive a final chunk with `finish_reason: "stop"` followed by the termination marker `data: [DONE]`.
 
 ## PostgreSQL Memory
 
