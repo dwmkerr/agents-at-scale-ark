@@ -90,9 +90,10 @@ Request body includes session/query context and message array:
 
 ### Retrieve Messages
 
-**GET** `/messages?session_id={id}&query_id={id}`
+**GET** `/messages?session_id={id}&query_id={id}&limit={n}&offset={n}`
 
-Returns timestamped message records:
+Returns timestamped message records. All parameters optional.
+Without session_id, returns all messages with pagination:
 
 ```json
 {
@@ -106,7 +107,10 @@ Returns timestamped message records:
         "content": "What is the weather like?"
       }
     }
-  ]
+  ],
+  "total": 100,
+  "limit": 50,
+  "offset": 0
 }
 ```
 
@@ -114,10 +118,10 @@ Returns timestamped message records:
 
 **GET** `/sessions`
 
-Returns array of session IDs:
+Returns object with session IDs:
 
 ```json
-["session-1", "session-2", "session-3"]
+{"sessions": ["session-1", "session-2", "session-3"]}
 ```
 
 ## PostgreSQL Memory

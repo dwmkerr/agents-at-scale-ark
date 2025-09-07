@@ -10,6 +10,12 @@ const memory = new MemoryStore();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  next();
+});
+
 // Validation middleware
 const validateSessionParam = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
   const { uid } = req.params;
@@ -35,53 +41,30 @@ app.get('/health', (req, res) => {
   }
 });
 
-// Single message endpoint - PUT /message/{uid}
-app.put('/message/:uid', validateSessionParam, (req, res) => {
+// Store messages - POST /messages
+app.post('/messages', (req, res) => {
   try {
-    const { uid } = req.params;
-    const { message }: AddMessageRequest = req.body;
+    const { session_id, query_id, messages } = req.body;
     
-    if (message === undefined) {
-      res.status(400).json({ error: 'Message is required' });
+    console.log(`POST /messages - session_id: ${session_id}, query_id: ${query_id}, messages: ${messages?.length}`);
+    
+    if (!session_id) {
+      res.status(400).json({ error: 'session_id is required' });
       return;
     }
     
-    memory.addMessage(uid, message);
-    res.status(200).send();
-  } catch (error) {
-    console.error('Failed to add message:', error);
-    const err = error as Error;
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Single message endpoint - GET /message/{uid}
-app.get('/message/:uid', validateSessionParam, (req, res) => {
-  try {
-    const { uid } = req.params;
-    const messages = memory.getMessages(uid);
-    
-    const response: MessagesResponse = { messages };
-    res.json(response);
-  } catch (error) {
-    console.error('Failed to get messages:', error);
-    const err = error as Error;
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Multiple messages endpoint - PUT /messages/{uid}
-app.put('/messages/:uid', validateSessionParam, (req, res) => {
-  try {
-    const { uid } = req.params;
-    const { messages }: AddMessagesRequest = req.body;
+    if (!query_id) {
+      res.status(400).json({ error: 'query_id is required' });
+      return;
+    }
     
     if (!messages || !Array.isArray(messages)) {
-      res.status(400).json({ error: 'Messages array is required' });
+      res.status(400).json({ error: 'messages array is required' });
       return;
     }
     
-    memory.addMessages(uid, messages);
+    // Store messages with full metadata
+    memory.addMessagesWithMetadata(session_id, query_id, messages);
     res.status(200).send();
   } catch (error) {
     console.error('Failed to add messages:', error);
@@ -90,16 +73,58 @@ app.put('/messages/:uid', validateSessionParam, (req, res) => {
   }
 });
 
-// Multiple messages endpoint - GET /messages/{uid}
-app.get('/messages/:uid', validateSessionParam, (req, res) => {
+// Retrieve messages - GET /messages?session_id={id}&query_id={id}
+app.get('/messages', (req, res) => {
   try {
-    const { uid } = req.params;
-    const messages = memory.getMessages(uid);
+    const session_id = req.query.session_id as string;
+    const query_id = req.query.query_id as string;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
     
-    const response: MessagesResponse = { messages };
-    res.json(response);
+    if (session_id) {
+      // Get messages for specific session (optionally filtered by query_id)
+      const messages = memory.getMessages(session_id);
+      
+      // Filter by query_id if provided (not implemented in memory store yet)
+      // For now, return all messages for the session
+      
+      const response = {
+        messages: messages.map(msg => ({
+          timestamp: new Date().toISOString(),
+          session_id,
+          query_id: query_id || '',
+          message: msg
+        }))
+      };
+      res.json(response);
+    } else {
+      // Get all messages across all sessions (matching postgres-memory behavior)
+      const allMessages = memory.getAllMessages();
+      const paginatedMessages = allMessages.slice(offset, offset + limit);
+      
+      const response = {
+        messages: paginatedMessages,
+        total: allMessages.length,
+        limit,
+        offset
+      };
+      res.json(response);
+    }
   } catch (error) {
     console.error('Failed to get messages:', error);
+    const err = error as Error;
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// List sessions - GET /sessions
+app.get('/sessions', (req, res) => {
+  try {
+    // Get all unique session IDs from the memory store
+    const sessions = memory.getAllSessions();
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Failed to get sessions:', error);
     const err = error as Error;
     res.status(400).json({ error: err.message });
   }

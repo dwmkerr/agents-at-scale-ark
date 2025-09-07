@@ -1,7 +1,8 @@
-import { Message } from './types.js';
+import { Message, StoredMessage } from './types.js';
 
 export class MemoryStore {
-  private sessions: Map<string, Message[]> = new Map();
+  // Flat list of all messages with metadata
+  private messages: StoredMessage[] = [];
   private readonly maxMessageSize: number;
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
@@ -25,11 +26,14 @@ export class MemoryStore {
     this.validateSessionID(sessionID);
     this.validateMessage(message);
 
-    if (!this.sessions.has(sessionID)) {
-      this.sessions.set(sessionID, []);
-    }
+    const storedMessage: StoredMessage = {
+      timestamp: new Date().toISOString(),
+      session_id: sessionID,
+      query_id: '', // Legacy method without query_id
+      message
+    };
     
-    this.sessions.get(sessionID)!.push(message);
+    this.messages.push(storedMessage);
   }
 
   addMessages(sessionID: string, messages: Message[]): void {
@@ -39,36 +43,83 @@ export class MemoryStore {
       this.validateMessage(message);
     }
 
-    if (!this.sessions.has(sessionID)) {
-      this.sessions.set(sessionID, []);
+    const timestamp = new Date().toISOString();
+    const storedMessages = messages.map(msg => ({
+      timestamp,
+      session_id: sessionID,
+      query_id: '', // Legacy method without query_id
+      message: msg
+    }));
+    
+    this.messages.push(...storedMessages);
+  }
+
+  addMessagesWithMetadata(sessionID: string, queryID: string, messages: Message[]): void {
+    this.validateSessionID(sessionID);
+    
+    if (!queryID) {
+      throw new Error('Query ID cannot be empty');
     }
     
-    this.sessions.get(sessionID)!.push(...messages);
+    for (const message of messages) {
+      this.validateMessage(message);
+    }
+
+    const timestamp = new Date().toISOString();
+    const storedMessages = messages.map(msg => ({
+      timestamp,
+      session_id: sessionID,
+      query_id: queryID,
+      message: msg
+    }));
+    
+    this.messages.push(...storedMessages);
   }
 
   getMessages(sessionID: string): Message[] {
     this.validateSessionID(sessionID);
-    return this.sessions.get(sessionID) || [];
+    // Return just the message content for backward compatibility
+    return this.messages
+      .filter(m => m.session_id === sessionID)
+      .map(m => m.message);
+  }
+
+  getMessagesWithMetadata(sessionID: string, queryID?: string): StoredMessage[] {
+    this.validateSessionID(sessionID);
+    let filtered = this.messages.filter(m => m.session_id === sessionID);
+    if (queryID) {
+      filtered = filtered.filter(m => m.query_id === queryID);
+    }
+    return filtered;
   }
 
   clearSession(sessionID: string): void {
     this.validateSessionID(sessionID);
-    this.sessions.delete(sessionID);
+    this.messages = this.messages.filter(m => m.session_id !== sessionID);
   }
 
   getSessions(): string[] {
-    return Array.from(this.sessions.keys());
+    // Get unique session IDs from the flat list
+    const sessionSet = new Set(this.messages.map(m => m.session_id));
+    return Array.from(sessionSet);
+  }
+
+  getAllSessions(): string[] {
+    // Alias for getSessions() for clarity
+    return this.getSessions();
+  }
+
+  getAllMessages(): StoredMessage[] {
+    // Return all messages from the flat list
+    return this.messages;
   }
 
   getStats(): { sessions: number; totalMessages: number } {
-    let totalMessages = 0;
-    for (const messages of this.sessions.values()) {
-      totalMessages += messages.length;
-    }
+    const uniqueSessions = new Set(this.messages.map(m => m.session_id));
     
     return {
-      sessions: this.sessions.size,
-      totalMessages
+      sessions: uniqueSessions.size,
+      totalMessages: this.messages.length
     };
   }
 
