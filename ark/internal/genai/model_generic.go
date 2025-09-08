@@ -55,14 +55,8 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 	// Use streaming if enabled and memory interface is provided
 	if streamingEnabled && memory != nil {
 		response, err = m.Provider.ChatCompletionStream(ctx, messages, n, func(chunk *openai.ChatCompletionChunk) error {
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-				streamChunk := StreamChunk{
-					Content: chunk.Choices[0].Delta.Content,
-					Model:   chunk.Model,
-				}
-				return memory.StreamChunk(ctx, streamChunk)
-			}
-			return nil
+			// Forward all chunks as-is to preserve tool calls, finish_reason, and other OpenAI fields
+			return memory.StreamChunk(ctx, chunk)
 		}, tools...)
 
 		// Notify completion after streaming finishes (only for streaming)

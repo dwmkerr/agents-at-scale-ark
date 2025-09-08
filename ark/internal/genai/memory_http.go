@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/openai/openai-go"
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
@@ -318,7 +317,7 @@ func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
 
 	// Close the streaming connection cleanly after completion notification
 	m.closeStreamConnection(ctx)
-	
+
 	tracker.Complete("completion notified")
 	return nil
 }
@@ -340,7 +339,7 @@ func (m *HTTPMemory) isStreamingEnabled(ctx context.Context) (bool, error) {
 	return enabled == "true", nil
 }
 
-func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
+func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk interface{}) error {
 	m.streamMutex.Lock()
 	defer m.streamMutex.Unlock()
 
@@ -352,31 +351,9 @@ func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
 		}
 	}
 
-	// Convert StreamChunk to StreamResponse format expected by memory service
-	streamResponse := map[string]interface{}{
-		"id":      m.sessionId,
-		"object":  "chat.completion.chunk",
-		"created": time.Now().Unix(),
-		"model":   "ark-streaming",
-		"choices": []map[string]interface{}{{
-			"index": 0,
-			"delta": map[string]interface{}{
-				"content": chunk.Content,
-			},
-		}},
-	}
-
-	// Add ARK metadata if provided
-	if chunk.QueryTarget != "" || chunk.MessageTarget != "" {
-		streamResponse["ark"] = map[string]interface{}{
-			"query_target":   chunk.QueryTarget,
-			"message_target": chunk.MessageTarget,
-			"session_id":     m.sessionId,
-		}
-	}
-
-	// Write chunk as newline-delimited JSON to persistent stream
-	jsonData, err := json.Marshal(streamResponse)
+	// Forward the chunk as-is (already in OpenAI format)
+	// The chunk is already an *openai.ChatCompletionChunk which marshals correctly
+	jsonData, err := json.Marshal(chunk)
 	if err != nil {
 		return fmt.Errorf("failed to marshal stream chunk: %w", err)
 	}
@@ -441,6 +418,11 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 }
 
 // closeStreamConnection cleanly closes the streaming connection
+// GetStreamingURL returns the streaming endpoint URL for this query
+func (m *HTTPMemory) GetStreamingURL() string {
+	return fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.queryName))
+}
+
 func (m *HTTPMemory) closeStreamConnection(ctx context.Context) {
 	m.streamMutex.Lock()
 	defer m.streamMutex.Unlock()

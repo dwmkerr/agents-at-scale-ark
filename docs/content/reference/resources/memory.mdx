@@ -30,17 +30,24 @@ spec:
 
 ### Annotations
 
-- **`ark.mckinsey.com/memory-event-stream-enabled`** - When set to `"true"`, enables event streaming capabilities for this memory service. The service must implement the [Event Streaming API](#event-streaming-api) endpoints to support real-time message delivery during query execution.
+- **`ark.mckinsey.com/memory-event-stream-enabled`** - When set to `"true"`, enables event streaming capabilities for this memory service. This annotation is used to configure the Memory resource as a streaming resource, allowing real-time message delivery during query execution. 
+
+  > **Note:** In a future release, streaming functionality will be extracted into a dedicated resource type. For detailed information about implementing and using streaming, see the [Streaming Developer Guide](/developer-guide/queries/streaming).
 
 ## Usage
 
-Memory can be specified in a query resource:
+Memory can be specified in a query resource. If a Memory resource named `default` exists in the namespace, it will be automatically selected for queries that don't explicitly specify a memory.
+
+Memory in a query resource:
 
 ```yaml
 apiVersion: ark.mckinsey.com/v1alpha1
 kind: Query
 metadata:
   name: chat-with-memory
+  annotations:
+    # Enable streaming for real-time response delivery
+    ark.mckinsey.com/streaming-enabled: "true"
 spec:
   input: "What did we discuss earlier?"
   targets:
@@ -134,95 +141,6 @@ Returns object with session IDs:
 {"sessions": ["session-1", "session-2", "session-3"]}
 ```
 
-## Event Streaming API
-
-Memory services can optionally implement real-time streaming endpoints for live message delivery during query execution.
-
-### Stream Messages
-
-**GET** `/stream/{query_id}`
-
-Establishes a Server-Sent Events (SSE) connection to stream messages in real-time during query execution.
-
-**Query Parameters:**
-- `from-beginning=true` - Send all existing messages first, then stream new ones
-- `wait-for-query=<timeout>` - Wait for query execution to start if it doesn't exist yet, with specified timeout (e.g., `wait-for-query=30s`)
-
-**Response Format:**
-OpenAI-compatible streaming chunks sent as SSE events:
-
-```
-event: message
-data: {
-  "id": "session-uuid",
-  "object": "chat.completion.chunk", 
-  "created": 1704067200,
-  "model": "memory-service",
-  "choices": [{
-    "index": 0,
-    "delta": {
-      "content": "Hello world"
-    }
-  }]
-}
-
-```
-
-**Special Events:**
-- `[LIVE_MODE]` - Indicates switch from historical to live streaming
-- `[STREAM_END]` - Signals completion when session is marked complete
-
-**Example Usage:**
-```bash
-curl -N "http://memory-service:8080/stream/my-session?from-beginning=true&wait-for-session=30s"
-```
-
-This enables real-time streaming of agent responses as they're generated, providing immediate feedback to users during long-running queries.
-
-### Receive Stream Chunks
-
-**POST** `/stream/{query_id}`
-
-Receives real-time chunks from the ARK controller during query execution for streaming to connected clients. This endpoint accepts newline-delimited JSON chunks in OpenAI streaming format.
-
-**Content-Type:** `application/x-ndjson`
-
-**Request Body:** Stream of OpenAI-compatible chunks:
-```json
-{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "Hello"}}]}
-{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"delta": {"content": " world"}}]}
-{"id": "session-uuid", "object": "chat.completion.chunk", "choices": [{"finish_reason": "stop"}]}
-```
-
-**Example Usage:**
-```bash
-curl -X POST "http://memory-service:8080/stream/my-session" \
-  -H "Content-Type: application/x-ndjson" \
-  --data-raw '{"id": "my-session", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "Hello world"}}]}'
-```
-
-### Complete Stream
-
-**POST** `/stream/{query_id}/complete`
-
-Signals that query execution is complete and marks the streaming context as finished. This endpoint is called by the ARK controller when query execution finishes to notify streaming clients that no more chunks will be sent.
-
-**Why this is needed:** In ARK's distributed architecture, the controller orchestrates execution across multiple agents/teams/models, so it needs to explicitly signal completion to the memory service. Unlike direct LLM APIs where the model sends completion as part of the stream, ARK's controller manages the execution lifecycle separately.
-
-**Example Usage:**
-```bash
-curl -X POST "http://memory-service:8080/stream/my-query-id/complete"
-```
-
-**Response:**
-```json
-{
-  "status": "completed", 
-  "query": "my-query-id"
-}
-```
-
-When a stream is marked complete, all connected streaming clients receive a final chunk with `finish_reason: "stop"` followed by the termination marker `data: [DONE]`.
 
 ## PostgreSQL Memory
 

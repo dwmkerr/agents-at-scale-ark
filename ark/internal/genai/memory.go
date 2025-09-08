@@ -25,17 +25,8 @@ type MemoryInterface interface {
 	AddMessages(ctx context.Context, queryID string, messages []Message) error
 	GetMessages(ctx context.Context) ([]Message, error)
 	NotifyCompletion(ctx context.Context) error
-	StreamChunk(ctx context.Context, chunk StreamChunk) error
+	StreamChunk(ctx context.Context, chunk interface{}) error
 	Close() error
-}
-
-// StreamChunk represents a real-time chunk sent to memory service
-type StreamChunk struct {
-	Content       string            `json:"content"`
-	Model         string            `json:"model,omitempty"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
-	QueryTarget   string            `json:"query_target,omitempty"`
-	MessageTarget string            `json:"message_target,omitempty"`
 }
 
 type Config struct {
@@ -84,11 +75,6 @@ func NewMemoryWithConfig(ctx context.Context, k8sClient client.Client, memoryNam
 }
 
 func NewMemoryForQuery(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId, queryName string) (MemoryInterface, error) {
-	return NewMemoryForQueryWithStreamingCheck(ctx, k8sClient, memoryRef, namespace, recorder, sessionId, queryName, false)
-}
-
-// NewMemoryForQueryWithStreamingCheck creates a memory interface with optional streaming capability validation
-func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.Client, memoryRef *arkv1alpha1.MemoryRef, namespace string, recorder EventEmitter, sessionId, queryName string, requiresStreaming bool) (MemoryInterface, error) {
 	config := DefaultConfig()
 	config.SessionId = sessionId
 	config.QueryName = queryName
@@ -99,10 +85,7 @@ func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.C
 		// Try to load "default" memory from the same namespace
 		_, err := getMemoryResource(ctx, k8sClient, "default", namespace)
 		if err != nil {
-			// If default memory doesn't exist, use noop memory (doesn't support streaming)
-			if requiresStreaming {
-				return nil, fmt.Errorf("streaming required but no default memory available and noop memory doesn't support streaming")
-			}
+			// If default memory doesn't exist, use noop memory
 			return NewNoopMemory(), nil
 		}
 		memoryName, memoryNamespace = "default", namespace
@@ -114,13 +97,6 @@ func NewMemoryForQueryWithStreamingCheck(ctx context.Context, k8sClient client.C
 	memory, err := NewMemoryWithConfig(ctx, k8sClient, memoryName, memoryNamespace, recorder, config)
 	if err != nil {
 		return nil, err
-	}
-
-	// Validate streaming capability if required
-	if requiresStreaming {
-		if _, ok := memory.(*HTTPMemory); !ok {
-			return nil, fmt.Errorf("streaming requires HTTPMemory, got %T", memory)
-		}
 	}
 
 	return memory, nil

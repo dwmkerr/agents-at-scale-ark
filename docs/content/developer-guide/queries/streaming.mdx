@@ -1,0 +1,207 @@
+# Streaming
+
+> Note: This is a work-in-progress specification for an upcoming feature. This document will change as the implementation evoles and is tested. Streaming is currently implemented as additional endpoints within a Memory resource. In future releases, a dedicated EventStream resource will be introduced. A single service can optionally implement both Memory and streaming APIs.
+
+Real-time message streaming allows users to see agent responses as they're generated during query execution.
+
+Streaming is implemented in line with the [OpenAI Streaming Responses](https://platform.openai.com/docs/guides/streaming-responses) specification, meaning that any client that supports the OpenAI spec can read streaming responses from Ark queries. The OpenAI `v1/completions` [Ark Api](/reference/ark-apis) streams responses when the `stream=True` parameter is set.
+
+## Enabling Streaming
+
+Enable streaming for a query by setting the `ark.mckinsey.com/streaming-enabled` annotation:
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: my-query
+  annotations:
+    # Enable streaming for this query.
+    ark.mckinsey.com/streaming-enabled: "true"
+spec:
+  input: "Hello"
+  # Point to a memory resource that implemnts the event stream API.
+  memory: "streaming-memory"
+  targets:
+    - name: my-agent
+```
+
+A dedicated event-stream resource will later be created. At this stage, a `Memory` resource which implements the [Event Stream API](#event-stream-api) can be used. Set the `ark.mckinsey.com/memory-event-stream-enabled` annotation to indicate that a memory supports streaming. The `ark-cluster-memory` service implements this API.
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Memory
+metadata:
+  name: streaming-memory
+  annotations:
+    # Indicates that this memory service offers the event stream API.
+    ark.mckinsey.com/memory-event-stream-enabled: "true"
+spec:
+  address:
+    valueFrom:
+      serviceRef:
+        name: streaming-memory
+        port: 8080
+```
+
+The Ark OpenAI completions API can return a streaming response:
+
+```bash
+# Curl the ark api completions endpoint with streaming enabled.
+curl -N -X POST http://localhost:8080/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "model/gpt-4",
+    "messages": [
+      {"role": "user", "content": "Write a haiku about streaming data"}
+    ],
+    "stream": true
+  }'
+```
+
+The response will be Server-Sent Events (SSE) with streaming chunks as shown in the [Read Stream](#read-stream) API format, which is fully OpenAI compatible. This means that consumers can query Ark and stream responses as if it was an LLM, and use existing OpenAI SDKs etc.
+
+## Event Streaming Architecture
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Query Controller
+    participant Streaming Service
+    participant ARK API
+
+    Client->>Query Controller: Create Query resource
+    Query Controller->>Streaming Service: POST /stream/{query_id} (chunks)
+    ARK API->>Streaming Service: GET /stream/{query_id} (SSE)
+    Client->>ARK API: GET /namespaces/{ns}/queries/{name}/stream (SSE)
+    Query Controller->>Streaming Service: POST /stream/{query_id}/complete
+```
+
+When streaming is enabled:
+
+1. Client creates a Query resource through the Kubernetes API
+2. Query Controller writes OpenAI-compatible chunks using the [Write Stream](#write-stream) API as they're generated from LLMs
+3. Consumers connect and read events in real-time using the [Read Stream](#read-stream) API
+4. Query Controller calls the [Complete Stream](#complete-stream) API when the entire query execution finishes (which may involve multiple LLM completions across agents and teams)
+
+All OpenAI-compatible chunks are passed through as-is, including text content, tool calls, and finish reasons. When queries involve teams or multiple agents, intermediate `finish_reason` chunks are forwarded but do not close the stream - only the explicit completion signal from the Query Controller ends the stream with `data: [DONE]`.
+
+If a query target does not support streaming (as is currently the case for some models), then as-per the OpenAI specification the streaming APIs will return the entire response in a single chunk at the end of query execution. OpenAI and Azure OpenAI models currently support stream, Amazon Bedrock models do not yet have streaming implemented. Streaming for agents and teams is not yet supported.
+
+### Tool/Function Calling in Streams
+
+OpenAI's Chat Completions API supports streaming tool calls. Unlike text content which appears in `delta.content`, tool calls appear in `delta.tool_calls` and must be accumulated by index.
+
+Tool call delta structure:
+- `index`: Identifies which function call the delta is for
+- `id`: Tool call ID (only in first delta)
+- `function.name`: Function name (only in first delta)
+- `function.arguments`: Argument fragments to accumulate
+- `type`: Always "function" (only in first delta)
+
+Example chunks showing `delta.tool_calls`:
+```json
+[{"index": 0, "id": "call_abc", "function": {"arguments": "", "name": "get_weather"}, "type": "function"}]
+[{"index": 0, "function": {"arguments": "{\"location\":"}}]
+[{"index": 0, "function": {"arguments": "\"Paris, France\"}"}}]
+```
+
+Clients must concatenate `function.arguments` across all deltas with the same index to reconstruct complete tool calls.
+
+## Event Stream API
+
+The event stream API can be used to read and write message chunks.
+
+### Read Stream
+
+`/stream/{query_id}`
+
+Establishes SSE connection for receiving real-time messages.
+
+**Query Parameters:**
+
+- `from-beginning=true` - Send all existing messages first, then stream new ones
+- `wait-for-query=<timeout>` - Wait for query execution to start (e.g., `wait-for-query=30s`)
+
+**Response Format:**
+
+OpenAI-compatible streaming chunks sent as SSE events:
+
+```
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+data: [DONE]
+```
+
+**Completion Signal:**
+
+When streaming completes, the service sends:
+1. A chunk with `finish_reason: "stop"`
+2. Followed by `data: [DONE]`
+
+### Write Stream
+
+`/stream/{query_id}`
+
+Write chunks to a stream.
+
+**Content-Type:** `application/x-ndjson`
+
+**Request Body:**
+
+Newline-delimited JSON chunks in OpenAI format:
+
+```json
+{"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+{"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+{"id":"chatcmpl-123","object":"chat.completion.chunk","created":1704067200,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+```
+
+### Complete Stream
+
+`/stream/{query_id}/complete`
+
+Marks query execution as complete. Closes connections to consumers.
+
+**Response:**
+```json
+{
+  "status": "completed", 
+  "query": "my-query-id"
+}
+```
+
+ARK's controller orchestrates execution across multiple agents/models and must explicitly signal completion to the memory service.
+
+## Upcoming Changes
+
+The following items are in testing:
+
+- [ ] feat: send full response as a single chunk when downstream streaming not enabled
+- [ ] feat/docs: spec for metadata in stream chunks and target metadata in stream responses as well as query id and session id
+- [ ] feat: ensure initial connect timeout vs absolute timeout is properly configured
+- [ ] feat: review of a2a basic content (messages, not tasks)
+- [ ] feat: ensure tool calls are shown in cli / dashboard / query page
+- [ ] feat: multi target / stream ui for teams
+- [ ] feat: query view
+- [ ] feat: chat view
+- [ ] feat: watch for query resource
+- [ ] feat: 'watch' for memory
+- [ ] feat: memory sequence
+- [ ] feat: bedrock and check other model types
+- [ ] bug: if an incoming stream connection ends without DONE we need to have it as an aborted stream
+- [ ] feat: cancellation on stream terminate CR openai stream spec
+- [ ] refactor: streaming endpoint in query status CRD rather than annotation
+- [ ] bug: the annotation exposes an internal address
+- [ ] test: full review of log and event output
+- [ ] test: chainsaw tests for all targets without streaming, all targets with wait for stream, resume stream and read completed stream
+- [ ] feat: demo videos
+
+  ---
+
+ark api watch
+
+## Testing
+
+- [ ] review all docs

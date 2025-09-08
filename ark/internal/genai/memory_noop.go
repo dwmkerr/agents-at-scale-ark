@@ -27,8 +27,8 @@ func (n *NoopMemory) NotifyCompletion(ctx context.Context) error {
 	return nil
 }
 
-func (n *NoopMemory) StreamChunk(ctx context.Context, chunk StreamChunk) error {
-	logf.FromContext(ctx).V(2).Info("NoopMemory: StreamChunk called - chunk discarded", "content", chunk.Content)
+func (n *NoopMemory) StreamChunk(ctx context.Context, chunk interface{}) error {
+	logf.FromContext(ctx).V(2).Info("NoopMemory: StreamChunk called - chunk discarded")
 	return nil
 }
 

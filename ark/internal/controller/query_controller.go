@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,6 +127,12 @@ func (r *QueryReconciler) handleQueryExecution(ctx context.Context, req ctrl.Req
 	case statusRunning:
 		return r.handleRunningPhase(ctx, req, obj)
 	default:
+		// Check if streaming is supported before transitioning to running
+		if err := r.checkAndSetupStreaming(ctx, &obj); err != nil {
+			// Log error but don't fail the query - streaming is optional
+			logf.FromContext(ctx).Info("Failed to setup streaming", "error", err)
+		}
+
 		if err := r.updateStatus(ctx, &obj, statusRunning); err != nil {
 			return ctrl.Result{
 				RequeueAfter: time.Until(expiry),
@@ -240,13 +247,9 @@ func (r *QueryReconciler) setupQueryExecution(opCtx context.Context, obj arkv1al
 		return nil, nil, err
 	}
 
-	// Check if streaming is enabled via annotation
-	streamingEnabled := false
-	if obj.GetAnnotations() != nil {
-		streamingEnabled = obj.GetAnnotations()[annotations.StreamingEnabled] == "true"
-	}
-
-	memory, err := genai.NewMemoryForQueryWithStreamingCheck(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name, streamingEnabled)
+	// Streaming support has already been determined in checkAndSetupStreaming
+	// If StreamingURL annotation exists, streaming is both requested and supported
+	memory, err := genai.NewMemoryForQuery(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
 	if err != nil {
 		queryTracker.Fail(fmt.Errorf("failed to create memory client: %w", err))
 		_ = r.updateStatus(opCtx, &obj, statusError)
@@ -644,13 +647,8 @@ func (r *QueryReconciler) executeModel(ctx context.Context, query arkv1alpha1.Qu
 	messages = append(messages, userMessage)
 	allMessages := messages
 
-	// Check if streaming is enabled (annotation + HTTPMemory)
-	streamingEnabled := false
-	if query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingEnabled] == "true" {
-		if _, ok := memory.(*genai.HTTPMemory); ok {
-			streamingEnabled = true
-		}
-	}
+	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
+	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
 
 	// Create operation tracker for the model call
 	modelTracker := genai.NewOperationTracker(tokenCollector, ctx, "ModelCall", modelName, map[string]string{
@@ -812,6 +810,69 @@ func (r *QueryReconciler) getClientForQuery(query arkv1alpha1.Query) (client.Cli
 	}
 
 	return impersonatedClient, nil
+}
+
+func (r *QueryReconciler) checkAndSetupStreaming(ctx context.Context, query *arkv1alpha1.Query) error {
+	// Check if streaming is requested
+	if query.GetAnnotations() == nil || query.GetAnnotations()[annotations.StreamingEnabled] != "true" {
+		return nil // Streaming not requested
+	}
+
+	// NOTE: Current implementation uses Memory resource with streaming annotation.
+	// In a future release, this will be replaced with a dedicated EventStream CRD
+	// that will provide more robust event streaming capabilities independent of memory storage.
+
+	// Determine memory name and namespace
+	var memoryName, memoryNamespace string
+	if query.Spec.Memory == nil {
+		memoryName = "default"
+		memoryNamespace = query.Namespace
+	} else {
+		memoryName = query.Spec.Memory.Name
+		if query.Spec.Memory.Namespace != "" {
+			memoryNamespace = query.Spec.Memory.Namespace
+		} else {
+			memoryNamespace = query.Namespace
+		}
+	}
+
+	// Get the Memory resource
+	var memory arkv1alpha1.Memory
+	key := client.ObjectKey{Name: memoryName, Namespace: memoryNamespace}
+	if err := r.Get(ctx, key, &memory); err != nil {
+		return fmt.Errorf("failed to get memory resource: %w", err)
+	}
+
+	// Check if memory supports streaming via annotation
+	// NOTE: Replace with EventStream resource check in future release
+	memAnnotations := memory.GetAnnotations()
+	if memAnnotations == nil || memAnnotations["ark.mckinsey.com/memory-event-stream-enabled"] != "true" {
+		return nil // Memory doesn't support streaming
+	}
+
+	// Check if memory has a resolved address
+	if memory.Status.LastResolvedAddress == nil || *memory.Status.LastResolvedAddress == "" {
+		return fmt.Errorf("memory has no resolved address")
+	}
+
+	// Construct the streaming URL from memory's address
+	// NOTE: In future, this will come from EventStream resource
+	baseURL := strings.TrimSuffix(*memory.Status.LastResolvedAddress, "/")
+	streamingURL := fmt.Sprintf("%s/stream/%s", baseURL, query.Name)
+
+	// Set the streaming URL annotation
+	if query.Annotations == nil {
+		query.Annotations = make(map[string]string)
+	}
+	query.Annotations[annotations.StreamingURL] = streamingURL
+
+	// Update the query with the new annotation
+	if err := r.Update(ctx, query); err != nil {
+		return fmt.Errorf("failed to update query with streaming URL: %w", err)
+	}
+
+	logf.FromContext(ctx).Info("Streaming URL configured", "query", query.Name, "url", streamingURL)
+	return nil
 }
 
 func (r *QueryReconciler) cleanupExistingOperation(namespacedName types.NamespacedName) {

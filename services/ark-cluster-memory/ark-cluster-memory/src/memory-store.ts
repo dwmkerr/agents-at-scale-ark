@@ -292,15 +292,8 @@ export class MemoryStore {
   completeQueryStream(queryID: string): void {
     console.log(`Query stream ${queryID} marked as complete`);
     
-    const completionMessage = {
-      choices: [{
-        finish_reason: 'stop',
-        delta: {}
-      }]
-    };
-    
-    this.addStreamChunk(queryID, completionMessage);
-    
-    this.eventEmitter.emit(`chunk:${queryID}`, completionMessage);
+    // Emit a special completion event to signal the entire query is done
+    // This is separate from finish_reason chunks which may occur multiple times (e.g., teams)
+    this.eventEmitter.emit(`complete:${queryID}`);
   }
 }

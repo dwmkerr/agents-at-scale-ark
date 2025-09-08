@@ -130,13 +130,25 @@ export function createStreamRouter(memory: MemoryStore): Router {
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('Access-Control-Allow-Origin', '*');
 
+      // Set up timeout if wait-for-query is specified
+      let timeoutHandle: NodeJS.Timeout | undefined;
+      let hasReceivedChunks = false;
+
       // Subscribe to streaming chunks for this query
       let outboundChunkCount = 0;
-      const unsubscribe = memory.subscribeToChunks(query_name, (chunk: any) => {
-        // Chunks are already in OpenAI format, just forward them
+      const unsubscribeChunks = memory.subscribeToChunks(query_name, (chunk: any) => {
+        hasReceivedChunks = true;
+        
+        // Clear timeout on first chunk
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = undefined;
+        }
+        // Chunks are already in OpenAI format, just forward them (including finish_reason chunks)
         if (!writeSSEEvent(res, chunk)) {
           console.log(`[STREAM-OUT] Query ${query_name}: Error writing SSE event, closing stream`);
-          unsubscribe();
+          unsubscribeChunks();
+          unsubscribeComplete();
           return;
         }
         
@@ -147,15 +159,30 @@ export function createStreamRouter(memory: MemoryStore): Router {
           console.log(`[STREAM-OUT] Query ${query_name}: Sent ${outboundChunkCount} chunks`);
         }
         
-        // If this is a completion message, send [DONE] and close
-        if (chunk.choices?.[0]?.finish_reason === 'stop') {
-          console.log(`[STREAM-OUT] Query ${query_name}: Sending completion marker and closing stream (total chunks: ${outboundChunkCount})`);
-          res.write('data: [DONE]\n\n');
-          res.end();
-          unsubscribe();
-          return;
-        }
       });
+      
+      // Subscribe to completion event - this signals the entire query is done
+      const completeHandler = () => {
+        console.log(`[STREAM-OUT] Query ${query_name}: Query complete, sending [DONE] and closing stream (total chunks: ${outboundChunkCount})`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        unsubscribeChunks();
+        memory.eventEmitter.off(`complete:${query_name}`, completeHandler);
+      };
+      const unsubscribeComplete = () => memory.eventEmitter.off(`complete:${query_name}`, completeHandler);
+      memory.eventEmitter.on(`complete:${query_name}`, completeHandler);
+      
+      // Set up timeout if wait-for-query is specified
+      if (waitForQuery) {
+        timeoutHandle = setTimeout(() => {
+          if (!hasReceivedChunks) {
+            console.log(`[STREAM] Query ${query_name}: Timeout after ${timeout}ms waiting for chunks (no chunks received)`);
+            res.end();
+            unsubscribeChunks();
+            unsubscribeComplete();
+          }
+        }, timeout);
+      }
 
       // If from-beginning, send existing chunks first  
       if (fromBeginning) {
@@ -168,30 +195,8 @@ export function createStreamRouter(memory: MemoryStore): Router {
           // Chunks are already in OpenAI format, just forward them
           if (!writeSSEEvent(res, chunk)) {
             console.log(`[STREAM] Error writing existing chunk for query ${query_name}`);
-            unsubscribe();
-            return;
-          }
-          
-          // Check if this is the completion marker
-          if (chunk.choices?.[0]?.finish_reason === 'stop') {
-            console.log(`[STREAM] Query ${query_name}: Found completion marker in stored chunks, closing stream`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-            unsubscribe();
-            return;
-          }
-        }
-      } else {
-        // Not from-beginning - check if stream is already complete
-        const existingChunks = memory.getStreamChunks(query_name);
-        console.log(`[STREAM] Checking completion for ${query_name}: ${existingChunks.length} chunks exist`);
-        if (existingChunks.length > 0) {
-          const lastChunk = existingChunks[existingChunks.length - 1];
-          console.log(`[STREAM] Last chunk finish_reason: ${lastChunk.choices?.[0]?.finish_reason}`);
-          if (lastChunk.choices?.[0]?.finish_reason === 'stop') {
-            console.log(`[STREAM] Query ${query_name} already complete (no from-beginning), nothing to send, closing connection`);
-            res.end();
-            unsubscribe();
+            unsubscribeChunks();
+            unsubscribeComplete();
             return;
           }
         }
@@ -200,12 +205,20 @@ export function createStreamRouter(memory: MemoryStore): Router {
       // Handle client disconnect
       req.on('close', () => {
         console.log(`[STREAM] Connection closed for query ${query_name}`);
-        unsubscribe();
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        unsubscribeChunks();
+        unsubscribeComplete();
       });
 
       req.on('error', (error) => {
         console.log(`[STREAM] Connection error for query ${query_name}:`, error);
-        unsubscribe();
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        unsubscribeChunks();
+        unsubscribeComplete();
       });
 
     } catch (error) {
