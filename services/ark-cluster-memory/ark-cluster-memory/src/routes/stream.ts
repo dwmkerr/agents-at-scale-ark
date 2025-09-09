@@ -146,7 +146,7 @@ export function createStreamRouter(memory: MemoryStore): Router {
         }
         // Chunks are already in OpenAI format, just forward them (including finish_reason chunks)
         if (!writeSSEEvent(res, chunk)) {
-          console.log(`[STREAM-OUT] Query ${query_name}: Error writing SSE event, closing stream`);
+          console.log(`[STREAM-OUT] Query ${query_name}: Client disconnected (write failed)`);
           unsubscribeChunks();
           unsubscribeComplete();
           return;
@@ -204,7 +204,7 @@ export function createStreamRouter(memory: MemoryStore): Router {
 
       // Handle client disconnect
       req.on('close', () => {
-        console.log(`[STREAM] Connection closed for query ${query_name}`);
+        console.log(`[STREAM-OUT] Query ${query_name}: Client disconnected`);
         if (timeoutHandle) {
           clearTimeout(timeoutHandle);
         }
@@ -212,8 +212,12 @@ export function createStreamRouter(memory: MemoryStore): Router {
         unsubscribeComplete();
       });
 
-      req.on('error', (error) => {
-        console.log(`[STREAM] Connection error for query ${query_name}:`, error);
+      req.on('error', (error: any) => {
+        if (error.code === 'ECONNRESET') {
+          console.log(`[STREAM-OUT] Query ${query_name}: Client connection reset`);
+        } else {
+          console.error(`[STREAM-OUT] Query ${query_name}: Client connection error:`, error);
+        }
         if (timeoutHandle) {
           clearTimeout(timeoutHandle);
         }
@@ -288,8 +292,12 @@ export function createStreamRouter(memory: MemoryStore): Router {
         });
       });
       
-      req.on('error', (error) => {
-        console.error(`[STREAM-IN] Query ${query_id}: Stream error:`, error);
+      req.on('error', (error: any) => {
+        if (error.code === 'ECONNRESET') {
+          console.error(`[STREAM-IN] Query ${query_id}: ARK controller disconnected unexpectedly (ECONNRESET) - likely timeout or network issue`);
+        } else {
+          console.error(`[STREAM-IN] Query ${query_id}: Stream error from ARK controller:`, error);
+        }
         res.status(500).json({ error: 'Stream processing failed' });
       });
       

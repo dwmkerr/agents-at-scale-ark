@@ -392,7 +392,13 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 				logf.FromContext(ctx).V(1).Info("Error closing pipe reader", "error", closeErr)
 			}
 		}()
-		resp, err := m.httpClient.Do(req)
+		// Create a separate HTTP client without timeout for streaming
+		// Streaming connections are long-lived and will be closed explicitly
+		streamClient := &http.Client{
+			Transport: m.httpClient.Transport,
+			// No timeout for streaming connections
+		}
+		resp, err := streamClient.Do(req)
 		if err != nil {
 			logf.FromContext(ctx).Error(err, "Failed to establish stream connection")
 			return
