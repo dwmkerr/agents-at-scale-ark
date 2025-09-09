@@ -116,7 +116,7 @@ The event stream API can be used to read and write message chunks.
 
 `/stream/{query_id}`
 
-Establishes SSE connection for receiving real-time messages.
+Establishes SSE connection for receiving real-time messages. On disconnect, reconnect with `from-beginning=true` to replay stored chunks.
 
 **Query Parameters:**
 
@@ -144,7 +144,7 @@ When streaming completes, the service sends:
 
 `/stream/{query_id}`
 
-Write chunks to a stream.
+Write chunks to a stream. Controller disconnects (ECONNRESET) indicate timeout or network issues.
 
 **Content-Type:** `application/x-ndjson`
 
@@ -204,4 +204,68 @@ ark api watch
 
 ## Testing
 
-- [ ] review all docs
+To create a query, `kubectl apply` a resource like:
+
+```yaml
+kind: Query
+  metadata:
+    name: streaming-test-3
+    namespace: default
+    annotations:
+      ark.mckinsey.com/streaming-enabled: "true"
+  spec:
+    input: "Input message"
+      memory: default
+      targets:
+        - name: default
+          type: model
+```
+
+Basic Integration Test:
+
+Waiting for a stream:
+
+- open a connection to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream?from-beginning=true&wait-for-query=30s`
+- create a query with name `{query_name}` targting `model/default` with memory `default` asking for a long story about streaming
+- the streaming endpoint should stream back results and then complete
+
+Joining a stream:
+
+- create a query with name `{query_name}` targting `model/default` with memory `default` asking for a long story about streaming
+- wait 1 seconds then open a connection to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream?from-beginning=true&wait-for-query=30s`
+- the streaming endpoint should stream back results and then complete
+
+Reading a completed stream:
+
+- create a query with name `{query_name}` targting `model/default` with memory `default` asking what is the capital of paris
+- wait 15 seconds which should be enough for the query to complete then open a connection to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream?from-beginning=true&wait-for-query=30s`
+- the streaming endpoint should stream back results and then complete
+
+Client reconnection:
+
+- create a query with name `{query_name}` targeting `model/default` asking for a long story
+- connect to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream` with 1s timeout
+- reconnect to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream?from-beginning=true` 
+- the streaming endpoint should replay all stored chunks and continue streaming new ones
+
+Troubleshooting:
+
+To hit the event stream service directly:
+
+```bash
+# port forward the cluster memory which exposes the `stream` endpoints
+kubectl port-forward service/ark-cluster-memory 8089:80 &
+# curl -N http://localhost:8089/events/{query_name}
+# check logs:
+kubectl logs deployment/ark-cluster-memory --tail=10
+$ check query:
+kubectl get query {query_name}
+```
+
+Key files to troubleshoot:
+
+```
+ark/internal/genai/memory_http.go  - This is the main file with streaming implementation
+ark/internal/genai/model_generic.go - This is where chunks are forwarded from the LLM
+```
+
