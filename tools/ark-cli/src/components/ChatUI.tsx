@@ -20,11 +20,18 @@ interface ChatUIProps {
   initialTargetId?: string;
 }
 
-// Check if markdown rendering is enabled via environment variable (default: disabled)
-const ENABLE_MARKDOWN = process.env.ARK_ENABLE_MARKDOWN === '1';
+// Output format configuration (default: text)
+type OutputFormat = 'text' | 'markdown';
+const DEFAULT_OUTPUT_FORMAT: OutputFormat = 'text';
 
-// Configure marked with terminal renderer if markdown is enabled
-if (ENABLE_MARKDOWN) {
+// Get output format from environment variable
+const getOutputFormat = (): OutputFormat => {
+  const format = process.env.ARK_OUTPUT_FORMAT?.toLowerCase();
+  return format === 'markdown' ? 'markdown' : 'text';
+};
+
+// Configure marked with terminal renderer for markdown output
+const configureMarkdown = () => {
   marked.setOptions({
     renderer: new TerminalRenderer({
       showSectionPrefix: false,
@@ -33,7 +40,7 @@ if (ENABLE_MARKDOWN) {
       preserveNewlines: true,
     })
   });
-}
+};
 
 const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -46,6 +53,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
   const [targetIndex, setTargetIndex] = React.useState(0);
   const [abortController, setAbortController] = React.useState<AbortController | null>(null);
   const [showCommands, setShowCommands] = React.useState(false);
+  const [outputFormat, setOutputFormat] = React.useState<OutputFormat>(getOutputFormat());
   
   // Initialize chat config from environment variable
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
@@ -54,6 +62,13 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
   });
   
   const chatClientRef = React.useRef<ChatClient | undefined>(undefined);
+
+  // Configure markdown when output format changes
+  React.useEffect(() => {
+    if (outputFormat === 'markdown') {
+      configureMarkdown();
+    }
+  }, [outputFormat]);
 
   // Initialize chat client and fetch targets on mount
   React.useEffect(() => {
@@ -171,6 +186,46 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
     if (!value.trim() || !target || !chatClientRef.current) return;
     
     // Check for slash commands
+    if (value.startsWith('/output')) {
+      const parts = value.split(' ');
+      const arg = parts[1]?.toLowerCase();
+      
+      if (arg === 'text' || arg === 'markdown') {
+        // Set output format
+        setOutputFormat(arg);
+        
+        // Update environment variable for consistency
+        process.env.ARK_OUTPUT_FORMAT = arg;
+        
+        // Add system message to show the change
+        const systemMessage: Message = {
+          role: 'system',
+          content: `Output format set to ${arg}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, systemMessage]);
+      } else if (!arg) {
+        // Show current format
+        const systemMessage: Message = {
+          role: 'system',
+          content: `Current output format: ${outputFormat}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, systemMessage]);
+      } else {
+        // Show usage message
+        const systemMessage: Message = {
+          role: 'system',
+          content: `Use 'text' or 'markdown' e.g. /output markdown`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, systemMessage]);
+      }
+      
+      setInput('');
+      return;
+    }
+    
     if (value.startsWith('/streaming')) {
       const parts = value.split(' ');
       const arg = parts[1]?.toLowerCase();
@@ -312,14 +367,26 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
     // Render system messages with special formatting
     if (isSystem) {
       // Check if this is a slash command response
-      const isSlashCommand = msg.content.includes('/streaming') || msg.content.startsWith('Streaming:') || msg.content.startsWith('Streaming ');
+      const isStreamingCommand = msg.content.includes('/streaming') || msg.content.startsWith('Streaming:') || msg.content.startsWith('Streaming ');
+      const isOutputCommand = msg.content.includes('output format') || msg.content.includes('/output');
       const isInterruption = msg.content === 'Interrupted by user';
       
-      if (isSlashCommand) {
+      if (isStreamingCommand) {
         return (
           <Box key={index} flexDirection="column" marginBottom={1}>
             <Box>
               <Text color="gray">› /streaming</Text>
+            </Box>
+            <Box marginLeft={2}>
+              <Text color="gray">⎿  {msg.content}</Text>
+            </Box>
+          </Box>
+        );
+      } else if (isOutputCommand) {
+        return (
+          <Box key={index} flexDirection="column" marginBottom={1}>
+            <Box>
+              <Text color="gray">› /output</Text>
             </Box>
             <Box marginLeft={2}>
               <Text color="gray">⎿  {msg.content}</Text>
@@ -369,7 +436,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         {/* Message content */}
         {msg.content && (
           <Box marginLeft={2}>
-            {ENABLE_MARKDOWN && isAssistant ? (
+            {outputFormat === 'markdown' && isAssistant ? (
               // Render markdown for assistant messages when enabled
               <Text>{marked.parseInline(msg.content)}</Text>
             ) : (
@@ -439,6 +506,10 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         {/* Command menu */}
         {showCommands && (
           <Box marginLeft={1} marginTop={1} flexDirection="column">
+            <Box>
+              <Text color="cyan">/output</Text>
+              <Text color="gray">     Set output format ({outputFormat})</Text>
+            </Box>
             <Box>
               <Text color="cyan">/streaming</Text>
               <Text color="gray">  Toggle streaming mode ({chatConfig.streamingEnabled ? 'on' : 'off'})</Text>

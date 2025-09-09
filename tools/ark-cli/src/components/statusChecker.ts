@@ -10,6 +10,7 @@ import { KubernetesConfigManager } from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
 import axios from 'axios';
 import { ArkClient } from '../lib/arkClient.js';
+import { isCommandAvailable } from '../lib/commandUtils.js';
 
 const execAsync = promisify(exec);
 
@@ -81,21 +82,6 @@ export class StatusChecker {
     this.kubernetesManager = new KubernetesConfigManager();
   }
 
-  /**
-   * Check if a command is available in the system
-   */
-  private async isCommandAvailable(command: string): Promise<boolean> {
-    try {
-      const checkCommand =
-        process.platform === 'win32'
-          ? `where ${command}`
-          : `command -v ${command}`;
-      await execAsync(checkCommand);
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  }
 
   /**
    * Get version of a command
@@ -248,7 +234,7 @@ export class StatusChecker {
     const results: DependencyStatus[] = [];
 
     for (const dep of dependencies) {
-      const installed = await this.isCommandAvailable(dep.command);
+      const installed = await isCommandAvailable(dep.command);
       const version = installed
         ? await this.getCommandVersion({
             command: dep.command,

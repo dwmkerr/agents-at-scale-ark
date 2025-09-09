@@ -13,6 +13,7 @@ import { createClusterCommand } from './commands/cluster/index.js';
 import { createCompletionCommand } from './commands/completion.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createGenerateCommand } from './commands/generate/index.js';
+import { createInstallCommand } from './commands/install.js';
 import { createStatusCommand } from './commands/status.js';
 import { createConfigCommand } from './commands/config.js';
 import { createTargetsCommand } from './commands/targets.js';
@@ -58,6 +59,7 @@ async function main() {
   program.addCommand(createCompletionCommand());
   program.addCommand(createDashboardCommand());
   program.addCommand(createGenerateCommand());
+  program.addCommand(createInstallCommand());
   program.addCommand(createStatusCommand());
   program.addCommand(createConfigCommand());
   program.addCommand(createTargetsCommand());
