@@ -36,7 +36,7 @@ func (a *Agent) FullName() string {
 }
 
 // Execute executes the agent with optional event emission for tool calls
-func (a *Agent) Execute(ctx context.Context, userInput Message, history []Message) ([]Message, error) {
+func (a *Agent) Execute(ctx context.Context, userInput Message, history []Message, eventStream MemoryInterface, streamingEnabled bool) ([]Message, error) {
 	if a.Model == nil {
 		return nil, fmt.Errorf("agent %s has no model configured", a.FullName())
 	}
@@ -63,7 +63,7 @@ func (a *Agent) Execute(ctx context.Context, userInput Message, history []Messag
 		return a.executeWithExecutionEngine(ctx, userInput, history)
 	}
 
-	return a.executeLocally(ctx, userInput, history)
+	return a.executeLocally(ctx, userInput, history, eventStream, streamingEnabled)
 }
 
 func (a *Agent) executeWithExecutionEngine(ctx context.Context, userInput Message, history []Message) ([]Message, error) {
@@ -102,7 +102,10 @@ func (a *Agent) prepareMessages(ctx context.Context, userInput Message, history 
 	return agentMessages, nil
 }
 
-func (a *Agent) executeModelCall(ctx context.Context, agentMessages []Message, tools []openai.ChatCompletionToolParam) (*openai.ChatCompletion, error) {
+// executeModelCall executes a single model call with optional streaming support.
+// eventStream is currently implemented via MemoryInterface as a single backend,
+// but will be split into a dedicated EventStreamInterface in a future release.
+func (a *Agent) executeModelCall(ctx context.Context, agentMessages []Message, tools []openai.ChatCompletionToolParam, eventStream MemoryInterface, streamingEnabled bool) (*openai.ChatCompletion, error) {
 	llmTracker := NewOperationTracker(a.Recorder, ctx, "LLMCall", a.Model.Model, map[string]string{
 		"agent": a.FullName(),
 		"model": a.Model.Model,
@@ -113,7 +116,7 @@ func (a *Agent) executeModelCall(ctx context.Context, agentMessages []Message, t
 	// Truncate schema name to 64 chars for OpenAI API compatibility - name is purely an identifier
 	a.Model.SchemaName = fmt.Sprintf("%.64s", fmt.Sprintf("namespace-%s-agent-%s", a.Namespace, a.Name))
 
-	response, err := a.Model.ChatCompletion(ctx, agentMessages, nil, false, 1, tools)
+	response, err := a.Model.ChatCompletion(ctx, agentMessages, eventStream, streamingEnabled, 1, tools)
 	if err != nil {
 		llmTracker.Fail(err)
 		return nil, fmt.Errorf("agent %s execution failed: %w", a.FullName(), err)
@@ -198,7 +201,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, toolCalls []openai.ChatCom
 }
 
 // executeLocally executes the agent using the built-in OpenAI-compatible engine
-func (a *Agent) executeLocally(ctx context.Context, userInput Message, history []Message) ([]Message, error) {
+func (a *Agent) executeLocally(ctx context.Context, userInput Message, history []Message, eventStream MemoryInterface, streamingEnabled bool) ([]Message, error) {
 	var tools []openai.ChatCompletionToolParam
 	if a.Tools != nil {
 		tools = a.Tools.ToOpenAITools()
@@ -216,7 +219,7 @@ func (a *Agent) executeLocally(ctx context.Context, userInput Message, history [
 			return newMessages, ctx.Err()
 		}
 
-		response, err := a.executeModelCall(ctx, agentMessages, tools)
+		response, err := a.executeModelCall(ctx, agentMessages, tools, eventStream, streamingEnabled)
 		if err != nil {
 			return nil, err
 		}

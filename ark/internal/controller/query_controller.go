@@ -565,7 +565,10 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 
 	userMessage := genai.NewUserMessage(resolvedInput)
 
-	responseMessages, err := agent.Execute(ctx, userMessage, messages)
+	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
+	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
+
+	responseMessages, err := agent.Execute(ctx, userMessage, messages, memory, streamingEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +608,8 @@ func (r *QueryReconciler) executeTeam(ctx context.Context, query arkv1alpha1.Que
 
 	userMessage := genai.NewUserMessage(resolvedInput)
 
-	responseMessages, err := team.Execute(ctx, userMessage, messages)
+	// Teams don't support streaming yet, pass nil and false
+	responseMessages, err := team.Execute(ctx, userMessage, messages, nil, false)
 	if err != nil {
 		return nil, err
 	}
