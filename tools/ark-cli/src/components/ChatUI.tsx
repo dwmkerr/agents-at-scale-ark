@@ -8,12 +8,15 @@ import {marked} from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
 
+type SlashCommand = '/output' | '/streaming';
+
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
   targetName?: string; // Store the target name with the message
   cancelled?: boolean; // Track if message was cancelled
+  command?: SlashCommand; // The slash command that generated this system message
 }
 
 interface ChatUIProps {
@@ -226,6 +229,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
           role: 'system',
           content: `Output format set to ${arg}`,
           timestamp: new Date(),
+          command: '/output',
         };
         setMessages((prev) => [...prev, systemMessage]);
       } else if (!arg) {
@@ -234,6 +238,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
           role: 'system',
           content: `Current output format: ${outputFormat}`,
           timestamp: new Date(),
+          command: '/output',
         };
         setMessages((prev) => [...prev, systemMessage]);
       } else {
@@ -242,6 +247,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
           role: 'system',
           content: `Use 'text' or 'markdown' e.g. /output markdown`,
           timestamp: new Date(),
+          command: '/output',
         };
         setMessages((prev) => [...prev, systemMessage]);
       }
@@ -266,6 +272,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
           role: 'system',
           content: `Streaming ${newState ? 'enabled' : 'disabled'}`,
           timestamp: new Date(),
+          command: '/streaming',
         };
         setMessages((prev) => [...prev, systemMessage]);
       } else {
@@ -274,6 +281,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
           role: 'system',
           content: `Use either 'on' or 'off' e.g. /streaming on`,
           timestamp: new Date(),
+          command: '/streaming',
         };
         setMessages((prev) => [...prev, systemMessage]);
       }
@@ -429,8 +437,23 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
     // Render system messages with consistent formatting
     if (isSystem) {
       const isInterruption = msg.content === 'Interrupted by user';
-      const color = isInterruption ? 'yellow' : 'gray';
       
+      // If it's a slash command response, show with special formatting
+      if (msg.command) {
+        return (
+          <Box key={index} flexDirection="column" marginBottom={1}>
+            <Box>
+              <Text color="gray">› {msg.command}</Text>
+            </Box>
+            <Box marginLeft={2}>
+              <Text color="gray">⎿ {msg.content}</Text>
+            </Box>
+          </Box>
+        );
+      }
+      
+      // For other system messages (interruptions, errors, etc.)
+      const color = isInterruption ? 'yellow' : 'gray';
       return (
         <Box key={index} flexDirection="column" marginBottom={1}>
           <Box marginLeft={2}>
