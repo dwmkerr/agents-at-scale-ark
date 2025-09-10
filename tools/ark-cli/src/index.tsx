@@ -1,6 +1,5 @@
 #!/usr/bin/env NODE_NO_WARNINGS=1 node
 
-import chalk from 'chalk';
 import { Command } from 'commander';
 import { render } from 'ink';
 import { createRequire } from 'module';
@@ -17,34 +16,12 @@ import { createInstallCommand } from './commands/install.js';
 import { createStatusCommand } from './commands/status.js';
 import { createConfigCommand } from './commands/config.js';
 import { createTargetsCommand } from './commands/targets.js';
-import { StatusChecker } from './components/statusChecker.js';
-import { ConfigManager } from './config.js';
-import { ArkClient } from './lib/arkClient.js';
 import MainMenu from './ui/MainMenu.js';
-import { StatusFormatter } from './ui/statusFormatter.js';
 
 function showMainMenu() {
   const app = render(<MainMenu />);
   // Store app instance globally so MainMenu can access it
   (global as any).inkApp = app;
-}
-
-async function handleStatusCheck() {
-  try {
-    const configManager = new ConfigManager();
-    const apiBaseUrl = await configManager.getApiBaseUrl();
-    const serviceUrls = await configManager.getServiceUrls();
-    const arkClient = new ArkClient(apiBaseUrl);
-
-    const statusChecker = new StatusChecker(arkClient);
-
-    const statusData = await statusChecker.checkAll(serviceUrls, apiBaseUrl);
-    StatusFormatter.printStatus(statusData);
-    process.exit(0); // Exit cleanly after showing status
-  } catch (error) {
-    console.error(chalk.red('Failed to check status:'), error);
-    process.exit(1);
-  }
 }
 
 async function main() {
@@ -64,17 +41,6 @@ async function main() {
   program.addCommand(createConfigCommand());
   program.addCommand(createTargetsCommand());
 
-  // Add check status command
-  const checkCommand = new Command('check');
-  checkCommand.description('Check various ARK system components');
-
-  checkCommand
-    .command('status')
-    .description('Check system status')
-    .action(handleStatusCheck);
-
-  program.addCommand(checkCommand);
-
   // If no args provided, show interactive menu
   if (process.argv.length === 2) {
     showMainMenu();
@@ -85,6 +51,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(chalk.red('Failed to start ARK CLI:'), error);
+  console.error('Failed to start ARK CLI:', error);
   process.exit(1);
 });

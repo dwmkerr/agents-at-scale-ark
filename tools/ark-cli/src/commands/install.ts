@@ -8,14 +8,13 @@ const CHART_REGISTRY = 'oci://ghcr.io/mckinsey/agents-at-scale-ark/charts';
 const CHART_NAME = 'ark';
 const RELEASE_NAME = 'ark-controller';
 const NAMESPACE = 'ark-system';
-const WAIT_TIMEOUT = '300s';
 
 // Helm values to set
 const HELM_VALUES = {
   'rbac.enable': 'true',
 };
 
-async function installArk(options: { version?: string }) {
+async function installArk(options: { chart?: string }) {
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {
@@ -24,8 +23,9 @@ async function installArk(options: { version?: string }) {
     process.exit(1);
   }
 
-  const versionInfo = options.version ? ` (version ${options.version})` : ' (latest)';
-  console.log(chalk.cyan(`Installing ARK from ${CHART_REGISTRY}/${CHART_NAME}${versionInfo}...`));
+  // Use provided chart or default to registry
+  const chartSource = options.chart || `${CHART_REGISTRY}/${CHART_NAME}`;
+  console.log(chalk.cyan(`Installing ARK from ${chartSource}...`));
 
   try {
     // Build helm arguments
@@ -33,17 +33,10 @@ async function installArk(options: { version?: string }) {
       'upgrade',
       '--install',
       RELEASE_NAME,
-      `${CHART_REGISTRY}/${CHART_NAME}`,
+      chartSource,
       '--namespace', NAMESPACE,
       '--create-namespace',
-      '--wait',
-      '--timeout', WAIT_TIMEOUT,
     ];
-
-    // Add version if specified
-    if (options.version) {
-      helmArgs.push('--version', options.version);
-    }
 
     // Add helm values
     Object.entries(HELM_VALUES).forEach(([key, value]) => {
@@ -71,7 +64,7 @@ export function createInstallCommand() {
   
   command
     .description('Install ARK using Helm')
-    .option('-v, --version <version>', 'Specify ARK version to install (defaults to latest)')
+    .option('-c, --chart <path>', 'Helm chart path (defaults to OCI registry)')
     .action(async (options) => {
       await installArk(options);
     });

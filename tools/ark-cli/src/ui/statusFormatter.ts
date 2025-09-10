@@ -7,17 +7,14 @@ export class StatusFormatter {
    * Print status check results to console
    */
   public static printStatus(statusData: StatusData): void {
-    console.log(chalk.cyan.bold('\n🔍 ARK System Status Check'));
-    console.log(chalk.gray('Checking ARK services and dependencies...\n'));
-
     // Print services status
-    console.log(chalk.cyan.bold('📡 ARK Services:'));
+    console.log(chalk.cyan.bold('\nARK Services:'));
     for (const service of statusData.services) {
       StatusFormatter.printService(service);
     }
 
     // Print dependencies status
-    console.log(chalk.cyan.bold('\n🛠️  System Dependencies:'));
+    console.log(chalk.cyan.bold('\nSystem Dependencies:'));
     for (const dep of statusData.dependencies) {
       StatusFormatter.printDependency(dep);
     }
@@ -33,12 +30,15 @@ export class StatusFormatter {
           ? chalk.red('✗ unhealthy')
           : chalk.yellow('? not installed');
 
-    console.log(`  • ${chalk.bold(service.name)}: ${statusColor}`);
-    if (service.url) {
-      console.log(`    ${chalk.gray(`URL: ${service.url}`)}`);
-    }
-    if (service.details) {
-      console.log(`    ${chalk.gray(service.details)}`);
+    const urlText = service.url ? chalk.gray(` ${service.url}`) : '';
+    console.log(`  ${statusColor} ${chalk.bold(service.name)}${urlText}`);
+    
+    if (service.status !== 'healthy' && service.details) {
+      // Show simplified details on next line for unhealthy services
+      const simplifiedDetails = service.details
+        .replace(`${service.name} is `, '')
+        .replace('or not accessible', 'or accessible');
+      console.log(`    ${chalk.gray(simplifiedDetails)}`);
     }
   }
 
@@ -47,11 +47,11 @@ export class StatusFormatter {
       ? chalk.green('✓ installed')
       : chalk.red('✗ missing');
 
-    console.log(`  • ${chalk.bold(dep.name)}: ${statusColor}`);
-    if (dep.version) {
-      console.log(`    ${chalk.gray(`Version: ${dep.version}`)}`);
-    }
-    if (dep.details) {
+    const versionText = dep.version ? chalk.gray(` ${dep.version}`) : '';
+    console.log(`  ${statusColor} ${chalk.bold(dep.name)}${versionText}`);
+    
+    if (dep.details && !dep.installed) {
+      // Only show details if there's an issue
       console.log(`    ${chalk.gray(dep.details)}`);
     }
   }
