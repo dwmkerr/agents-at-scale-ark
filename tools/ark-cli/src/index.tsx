@@ -7,6 +7,7 @@ import {createRequire} from 'module';
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
 
+import output from './lib/output.js';
 import {createChatCommand} from './commands/chat.js';
 import {createClusterCommand} from './commands/cluster/index.js';
 import {createCompletionCommand} from './commands/completion.js';
@@ -58,6 +59,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Failed to start ARK CLI:', error);
+  output.error('failed to start ark cli: ', error);
   process.exit(1);
 });

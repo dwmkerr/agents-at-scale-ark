@@ -22,9 +22,9 @@ const MainMenu: React.FC = () => {
   ];
 
   useInput((input, key) => {
-    if (key.upArrow) {
+    if (key.upArrow || input === 'k') {
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choices.length - 1));
-    } else if (key.downArrow) {
+    } else if (key.downArrow || input === 'j') {
       setSelectedIndex((prev) => (prev < choices.length - 1 ? prev + 1 : 0));
     } else if (key.return) {
       handleSelect(choices[selectedIndex]);
@@ -145,19 +145,14 @@ const MainMenu: React.FC = () => {
               <Text color="gray" dimColor>
                 {index + 1}.
               </Text>
-              <Box marginLeft={1}>
+              <Box marginLeft={1} width={20}>
                 <Text color={isSelected ? 'green' : 'white'} bold={isSelected}>
                   {choice.label}
                 </Text>
               </Box>
-              <Box marginLeft={2}>
-                <Text color="gray" dimColor>
-                  {choice.description}
-                </Text>
-              </Box>
-              {isSelected && (
-                <Text color="green">✔</Text>
-              )}
+              <Text color="gray">
+                {choice.description}
+              </Text>
             </Box>
           );
         })}
