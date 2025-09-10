@@ -56,6 +56,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
     React.useState<AbortController | null>(null);
   const [showCommands, setShowCommands] = React.useState(false);
   const [filteredCommands, setFilteredCommands] = React.useState<Array<{command: string; description: string}>>([]);
+  const [inputKey, setInputKey] = React.useState(0); // Key to force re-mount of TextInput
   const [outputFormat, setOutputFormat] =
     React.useState<OutputFormat>(getOutputFormat());
 
@@ -156,9 +157,13 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
   useInput((input, key) => {
     // Tab to autocomplete when there's a single matching command
     if (key.tab && !key.shift && showCommands && filteredCommands.length === 1) {
-      setInput(filteredCommands[0].command + ' ');
+      // Set the completed command with a space at the end
+      const completedCommand = filteredCommands[0].command + ' ';
+      setInput(completedCommand);
       setShowCommands(false);
       setFilteredCommands([]);
+      // Force re-mount of TextInput to reset cursor position
+      setInputKey(prev => prev + 1);
       return;
     }
     
@@ -548,6 +553,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
             </Text>
             <Box marginLeft={1} flexGrow={1}>
               <TextInput
+                key={inputKey}
                 value={input}
                 onChange={(value) => {
                   setInput(value);
