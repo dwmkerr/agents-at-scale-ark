@@ -207,9 +207,9 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
   });
 
   const handleSubmit = async (value: string) => {
-    if (!value.trim() || !target || !chatClientRef.current) return;
+    if (!value.trim()) return;
 
-    // Check for slash commands
+    // Check for slash commands first (these work without a target)
     if (value.startsWith('/output')) {
       const parts = value.split(' ');
       const arg = parts[1]?.toLowerCase();
@@ -247,6 +247,8 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
       }
 
       setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
       return;
     }
 
@@ -277,6 +279,22 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
       }
 
       setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    // For regular messages, we need a target and client
+    if (!target || !chatClientRef.current) {
+      const systemMessage: Message = {
+        role: 'system',
+        content: 'No target selected. Use Shift+Tab to select a target.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, systemMessage]);
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
       return;
     }
 
