@@ -160,8 +160,8 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
       // Set the completed command with a space at the end
       const completedCommand = filteredCommands[0].command + ' ';
       setInput(completedCommand);
-      setShowCommands(false);
-      setFilteredCommands([]);
+      // Keep the command hint visible but update to show only the completed command
+      setFilteredCommands([filteredCommands[0]]);
       // Force re-mount of TextInput to reset cursor position
       setInputKey(prev => prev + 1);
       return;
