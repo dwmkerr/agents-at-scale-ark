@@ -1,6 +1,6 @@
-import { Command } from 'commander';
+import {Command} from 'commander';
 
-import { createGetCommand } from './get.js';
+import {createGetCommand} from './get.js';
 
 export function createClusterCommand(): Command {
   const cluster = new Command('cluster');

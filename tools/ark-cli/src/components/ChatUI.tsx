@@ -1,19 +1,19 @@
-import { Box, Text, useInput } from 'ink';
+import {Box, Text, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
 import * as React from 'react';
-import { marked } from 'marked';
+import {marked} from 'marked';
 // @ts-ignore - no types available
 import TerminalRenderer from 'marked-terminal';
-import { ChatClient, QueryTarget, ChatConfig } from '../lib/chatClient.js';
+import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  targetName?: string;  // Store the target name with the message
-  cancelled?: boolean;  // Track if message was cancelled
+  targetName?: string; // Store the target name with the message
+  cancelled?: boolean; // Track if message was cancelled
 }
 
 interface ChatUIProps {
@@ -22,7 +22,6 @@ interface ChatUIProps {
 
 // Output format configuration (default: text)
 type OutputFormat = 'text' | 'markdown';
-const DEFAULT_OUTPUT_FORMAT: OutputFormat = 'text';
 
 // Get output format from environment variable
 const getOutputFormat = (): OutputFormat => {
@@ -38,29 +37,33 @@ const configureMarkdown = () => {
       width: 80,
       reflowText: true,
       preserveNewlines: true,
-    })
+    }),
   });
 };
 
-const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
+const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
   const [target, setTarget] = React.useState<QueryTarget | null>(null);
-  const [availableTargets, setAvailableTargets] = React.useState<QueryTarget[]>([]);
+  const [availableTargets, setAvailableTargets] = React.useState<QueryTarget[]>(
+    []
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [targetIndex, setTargetIndex] = React.useState(0);
-  const [abortController, setAbortController] = React.useState<AbortController | null>(null);
+  const [abortController, setAbortController] =
+    React.useState<AbortController | null>(null);
   const [showCommands, setShowCommands] = React.useState(false);
-  const [outputFormat, setOutputFormat] = React.useState<OutputFormat>(getOutputFormat());
-  
+  const [outputFormat, setOutputFormat] =
+    React.useState<OutputFormat>(getOutputFormat());
+
   // Initialize chat config from environment variable
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
     streamingEnabled: process.env.ARK_ENABLE_STREAMING === '1',
-    currentTarget: undefined
+    currentTarget: undefined,
   });
-  
+
   const chatClientRef = React.useRef<ChatClient | undefined>(undefined);
 
   // Configure markdown when output format changes
@@ -77,50 +80,57 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         const client = new ChatClient();
         await client.initialize();
         chatClientRef.current = client;
-        
+
         const targets = await client.getQueryTargets();
         setAvailableTargets(targets);
-        
+
         if (initialTargetId) {
           // If initialTargetId is provided, find and set the target
-          const matchedTarget = targets.find(t => t.id === initialTargetId);
-          const matchedIndex = targets.findIndex(t => t.id === initialTargetId);
+          const matchedTarget = targets.find((t) => t.id === initialTargetId);
+          const matchedIndex = targets.findIndex(
+            (t) => t.id === initialTargetId
+          );
           if (matchedTarget) {
             setTarget(matchedTarget);
             setTargetIndex(matchedIndex >= 0 ? matchedIndex : 0);
-            setChatConfig(prev => ({ ...prev, currentTarget: matchedTarget }));
+            setChatConfig((prev) => ({...prev, currentTarget: matchedTarget}));
             setMessages([]);
           } else {
             // If target not found, show error and exit
-            console.error(chalk.red('Error:'), `Target "${initialTargetId}" not found`);
-            console.error(chalk.gray('Use "ark targets list" to see available targets'));
+            console.error(
+              chalk.red('Error:'),
+              `Target "${initialTargetId}" not found`
+            );
+            console.error(
+              chalk.gray('Use "ark targets list" to see available targets')
+            );
             process.exit(1);
           }
         } else if (targets.length > 0) {
           // No initial target specified - auto-select first available
           // Priority: agents > models > tools
-          const agents = targets.filter(t => t.type === 'agent');
-          const models = targets.filter(t => t.type === 'model');
-          const tools = targets.filter(t => t.type === 'tool');
-          
+          const agents = targets.filter((t) => t.type === 'agent');
+          const models = targets.filter((t) => t.type === 'model');
+          const tools = targets.filter((t) => t.type === 'tool');
+
           let selectedTarget: QueryTarget | null = null;
           let selectedIndex = 0;
-          
+
           if (agents.length > 0) {
             selectedTarget = agents[0];
-            selectedIndex = targets.findIndex(t => t.id === agents[0].id);
+            selectedIndex = targets.findIndex((t) => t.id === agents[0].id);
           } else if (models.length > 0) {
             selectedTarget = models[0];
-            selectedIndex = targets.findIndex(t => t.id === models[0].id);
+            selectedIndex = targets.findIndex((t) => t.id === models[0].id);
           } else if (tools.length > 0) {
             selectedTarget = tools[0];
-            selectedIndex = targets.findIndex(t => t.id === tools[0].id);
+            selectedIndex = targets.findIndex((t) => t.id === tools[0].id);
           }
-          
+
           if (selectedTarget) {
             setTarget(selectedTarget);
             setTargetIndex(selectedIndex);
-            setChatConfig(prev => ({ ...prev, currentTarget: selectedTarget }));
+            setChatConfig((prev) => ({...prev, currentTarget: selectedTarget}));
             setMessages([]);
           } else {
             setError('No targets available');
@@ -128,10 +138,11 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         } else {
           setError('No agents, models, or tools available');
         }
-        
+
         setIsLoading(false);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize chat';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to initialize chat';
         console.error(chalk.red('Error:'), errorMessage);
         process.exit(1);
       }
@@ -147,18 +158,18 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
       // Cycle to next target
       const nextIndex = (targetIndex + 1) % availableTargets.length;
       const nextTarget = availableTargets[nextIndex];
-      
+
       setTargetIndex(nextIndex);
       setTarget(nextTarget);
-      setChatConfig(prev => ({ ...prev, currentTarget: nextTarget }));
+      setChatConfig((prev) => ({...prev, currentTarget: nextTarget}));
     }
-    
+
     // Esc to cancel current request
     if (key.escape && isTyping && abortController) {
       abortController.abort();
       setAbortController(null);
       setIsTyping(false);
-      
+
       // Mark the assistant message as cancelled and add system message
       setMessages((prev) => {
         const newMessages = [...prev];
@@ -181,22 +192,21 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
     }
   });
 
-
   const handleSubmit = async (value: string) => {
     if (!value.trim() || !target || !chatClientRef.current) return;
-    
+
     // Check for slash commands
     if (value.startsWith('/output')) {
       const parts = value.split(' ');
       const arg = parts[1]?.toLowerCase();
-      
+
       if (arg === 'text' || arg === 'markdown') {
         // Set output format
         setOutputFormat(arg);
-        
+
         // Update environment variable for consistency
         process.env.ARK_OUTPUT_FORMAT = arg;
-        
+
         // Add system message to show the change
         const systemMessage: Message = {
           role: 'system',
@@ -221,20 +231,20 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         };
         setMessages((prev) => [...prev, systemMessage]);
       }
-      
+
       setInput('');
       return;
     }
-    
+
     if (value.startsWith('/streaming')) {
       const parts = value.split(' ');
       const arg = parts[1]?.toLowerCase();
-      
+
       if (arg === 'on' || arg === 'off') {
         // Set streaming based on argument
         const newState = arg === 'on';
-        setChatConfig(prev => ({ ...prev, streamingEnabled: newState }));
-        
+        setChatConfig((prev) => ({...prev, streamingEnabled: newState}));
+
         // Add system message to show the change
         const systemMessage: Message = {
           role: 'system',
@@ -251,7 +261,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         };
         setMessages((prev) => [...prev, systemMessage]);
       }
-      
+
       setInput('');
       return;
     }
@@ -271,28 +281,31 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
       // Create abort controller for this request
       const controller = new AbortController();
       setAbortController(controller);
-      
+
       // Convert messages to format expected by OpenAI API - only include user and assistant messages
       const apiMessages = messages
-        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .map(msg => ({
+        .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+        .map((msg) => ({
           role: msg.role,
-          content: msg.content
+          content: msg.content,
         }));
-      
+
       // Add the new user message
       apiMessages.push({
         role: 'user' as const,
-        content: value
+        content: value,
       });
 
       // Add a placeholder message for the assistant while thinking
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        targetName: target.name,  // Store just the name
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+          targetName: target.name, // Store just the name
+        },
+      ]);
 
       // Send message and get response with abort signal
       const fullResponse = await chatClientRef.current.sendMessage(
@@ -305,7 +318,11 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
             // Only update if not cancelled
-            if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.cancelled) {
+            if (
+              lastMessage &&
+              lastMessage.role === 'assistant' &&
+              !lastMessage.cancelled
+            ) {
               lastMessage.content = (lastMessage.content || '') + chunk;
             }
             return newMessages;
@@ -319,7 +336,11 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
         // Only update if not cancelled and we have a full response
-        if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.cancelled) {
+        if (
+          lastMessage &&
+          lastMessage.role === 'assistant' &&
+          !lastMessage.cancelled
+        ) {
           // If content is empty (no streaming occurred), set the full response
           if (!lastMessage.content) {
             lastMessage.content = fullResponse || 'No response received';
@@ -336,17 +357,22 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         // Request was cancelled, message already updated by Esc handler
         return;
       }
-      
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
+
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMessage);
       setIsTyping(false);
       setAbortController(null);
-      
+
       // Update the assistant's message with the error
       setMessages((prev) => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.cancelled) {
+        if (
+          lastMessage &&
+          lastMessage.role === 'assistant' &&
+          !lastMessage.cancelled
+        ) {
           lastMessage.content = `Error: ${errorMessage}`;
         }
         return newMessages;
@@ -358,19 +384,28 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
     const isUser = msg.role === 'user';
     const isSystem = msg.role === 'system';
     const isAssistant = msg.role === 'assistant';
-    
+
     // Determine if this is the last assistant message and we're typing
-    const isCurrentlyTyping = isAssistant && isTyping && index === messages.length - 1;
-    const hasError = isAssistant && (msg.content.startsWith('Error:') || msg.content === 'No response received');
+    const isCurrentlyTyping =
+      isAssistant && isTyping && index === messages.length - 1;
+    const hasError =
+      isAssistant &&
+      (msg.content.startsWith('Error:') ||
+        msg.content === 'No response received');
     const isCancelled = msg.cancelled === true;
-    
+
     // Render system messages with special formatting
     if (isSystem) {
       // Check if this is a slash command response
-      const isStreamingCommand = msg.content.includes('/streaming') || msg.content.startsWith('Streaming:') || msg.content.startsWith('Streaming ');
-      const isOutputCommand = msg.content.includes('output format') || msg.content.includes('/output');
+      const isStreamingCommand =
+        msg.content.includes('/streaming') ||
+        msg.content.startsWith('Streaming:') ||
+        msg.content.startsWith('Streaming ');
+      const isOutputCommand =
+        msg.content.includes('output format') ||
+        msg.content.includes('/output');
       const isInterruption = msg.content === 'Interrupted by user';
-      
+
       if (isStreamingCommand) {
         return (
           <Box key={index} flexDirection="column" marginBottom={1}>
@@ -378,7 +413,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
               <Text color="gray">› /streaming</Text>
             </Box>
             <Box marginLeft={2}>
-              <Text color="gray">⎿  {msg.content}</Text>
+              <Text color="gray">⎿ {msg.content}</Text>
             </Box>
           </Box>
         );
@@ -389,7 +424,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
               <Text color="gray">› /output</Text>
             </Box>
             <Box marginLeft={2}>
-              <Text color="gray">⎿  {msg.content}</Text>
+              <Text color="gray">⎿ {msg.content}</Text>
             </Box>
           </Box>
         );
@@ -397,20 +432,22 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
         return (
           <Box key={index} flexDirection="column" marginBottom={1}>
             <Box marginLeft={2}>
-              <Text color="yellow">⎿  {msg.content}</Text>
+              <Text color="yellow">⎿ {msg.content}</Text>
             </Box>
           </Box>
         );
       }
       return null;
     }
-    
+
     return (
       <Box key={index} flexDirection="column" marginBottom={1}>
         <Box>
           {/* Status indicator */}
           {isUser && <Text color="cyan">●</Text>}
-          {isAssistant && !isCurrentlyTyping && !hasError && !isCancelled && <Text color="green">●</Text>}
+          {isAssistant && !isCurrentlyTyping && !hasError && !isCancelled && (
+            <Text color="green">●</Text>
+          )}
           {isAssistant && isCurrentlyTyping && (
             <Text color="yellow">
               <Spinner type="dots" />
@@ -419,12 +456,25 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
           {isAssistant && hasError && <Text color="red">●</Text>}
           {isAssistant && isCancelled && <Text color="gray">●</Text>}
           <Text> </Text>
-          
+
           {/* Name */}
-          <Text color={isUser ? 'cyan' : isCurrentlyTyping ? 'yellow' : isCancelled ? 'gray' : hasError ? 'red' : 'green'} bold>
+          <Text
+            color={
+              isUser
+                ? 'cyan'
+                : isCurrentlyTyping
+                  ? 'yellow'
+                  : isCancelled
+                    ? 'gray'
+                    : hasError
+                      ? 'red'
+                      : 'green'
+            }
+            bold
+          >
             {isUser ? 'You' : msg.targetName || target?.name}
           </Text>
-          
+
           {/* Timestamp or interrupt hint */}
           {isAssistant && isCurrentlyTyping ? (
             <Text color="gray"> (esc to interrupt)</Text>
@@ -432,7 +482,7 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
             <Text color="gray"> {msg.timestamp.toLocaleTimeString()}</Text>
           )}
         </Box>
-        
+
         {/* Message content */}
         {msg.content && (
           <Box marginLeft={2}>
@@ -466,7 +516,10 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
       <Box flexDirection="column">
         <Text color="red">⚠ Error: {error}</Text>
         <Box marginTop={1}>
-          <Text color="gray">Please ensure ark-api is running and has available agents, models, or tools.</Text>
+          <Text color="gray">
+            Please ensure ark-api is running and has available agents, models,
+            or tools.
+          </Text>
         </Box>
       </Box>
     );
@@ -479,14 +532,10 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
       </Box>
 
       <Box flexDirection="column">
-        <Box 
-          borderStyle="round" 
-          borderColor="gray"
-          paddingX={1}
-        >
+        <Box borderStyle="round" borderColor="gray" paddingX={1}>
           <Box flexDirection="row" width="100%">
             <Text color="cyan" bold>
-              › 
+              ›
             </Text>
             <Box marginLeft={1} flexGrow={1}>
               <TextInput
@@ -502,21 +551,25 @@ const ChatUI: React.FC<ChatUIProps> = ({ initialTargetId }) => {
             </Box>
           </Box>
         </Box>
-        
+
         {/* Command menu */}
         {showCommands && (
           <Box marginLeft={1} marginTop={1} flexDirection="column">
             <Box>
               <Text color="cyan">/output</Text>
-              <Text color="gray">     Set output format ({outputFormat})</Text>
+              <Text color="gray"> Set output format ({outputFormat})</Text>
             </Box>
             <Box>
               <Text color="cyan">/streaming</Text>
-              <Text color="gray">  Toggle streaming mode ({chatConfig.streamingEnabled ? 'on' : 'off'})</Text>
+              <Text color="gray">
+                {' '}
+                Toggle streaming mode (
+                {chatConfig.streamingEnabled ? 'on' : 'off'})
+              </Text>
             </Box>
           </Box>
         )}
-        
+
         {/* Status bar - only show when menu is not open */}
         {!showCommands && (
           <Box marginLeft={1} marginTop={0}>

@@ -1,9 +1,9 @@
 import * as path from 'path';
 
 import chalk from 'chalk';
-import { simpleGit, SimpleGit } from 'simple-git';
+import {simpleGit, SimpleGit} from 'simple-git';
 
-import { ARK_REPO_ERROR_MESSAGE } from '../consts.js';
+import {ARK_REPO_ERROR_MESSAGE} from '../consts.js';
 
 // Initialize simple-git instance
 const git: SimpleGit = simpleGit();

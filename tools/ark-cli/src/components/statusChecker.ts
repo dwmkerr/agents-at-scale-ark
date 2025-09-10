@@ -1,16 +1,16 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import {exec} from 'child_process';
+import {promisify} from 'util';
 import {
   DependencyStatus,
   ServiceStatus,
   StatusData,
   CommandVersionConfig,
 } from '../lib/types.js';
-import { KubernetesConfigManager } from '../lib/kubernetes.js';
+import {KubernetesConfigManager} from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
 import axios from 'axios';
-import { ArkClient } from '../lib/arkClient.js';
-import { isCommandAvailable } from '../lib/commandUtils.js';
+import {ArkClient} from '../lib/arkClient.js';
+import {isCommandAvailable} from '../lib/commandUtils.js';
 
 const execAsync = promisify(exec);
 
@@ -82,7 +82,6 @@ export class StatusChecker {
     this.kubernetesManager = new KubernetesConfigManager();
   }
 
-
   /**
    * Get version of a command
    */
@@ -91,7 +90,7 @@ export class StatusChecker {
   ): Promise<string> {
     try {
       const cmd = `${config.command} ${config.versionArgs}`;
-      const { stdout } = await execAsync(cmd);
+      const {stdout} = await execAsync(cmd);
       return config.versionExtract(stdout);
     } catch (error) {
       throw new Error(
@@ -112,7 +111,7 @@ export class StatusChecker {
     const fullUrl = `${serviceUrl}${healthPath}`;
 
     try {
-      await axios.get(fullUrl, { timeout: 5000 });
+      await axios.get(fullUrl, {timeout: 5000});
       return {
         name: serviceName,
         status: 'healthy',
@@ -224,11 +223,11 @@ export class StatusChecker {
    */
   private async checkDependencies(): Promise<DependencyStatus[]> {
     const dependencies = [
-      { name: 'node', ...getNodeVersion() },
-      { name: 'npm', ...getNpmVersion() },
-      { name: 'kubectl', ...getKubectlVersion() },
-      { name: 'docker', ...getDockerVersion() },
-      { name: 'helm', ...getHelmVersion() },
+      {name: 'node', ...getNodeVersion()},
+      {name: 'npm', ...getNpmVersion()},
+      {name: 'kubectl', ...getKubectlVersion()},
+      {name: 'docker', ...getDockerVersion()},
+      {name: 'helm', ...getHelmVersion()},
     ];
 
     const results: DependencyStatus[] = [];

@@ -2,12 +2,12 @@
  * Configuration management commands for ARK CLI
  */
 
-import { Command } from 'commander';
+import {Command} from 'commander';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import { ConfigManager, DEFAULT_CONFIG } from '../lib/config.js';
-import { ErrorHandler } from '../lib/errors.js';
-import { OutputFormatter, EnhancedPrompts } from '../lib/progress.js';
+import {ConfigManager} from '../lib/config.js';
+import {ErrorHandler} from '../lib/errors.js';
+import {OutputFormatter, EnhancedPrompts} from '../lib/progress.js';
 
 export function createConfigCommand(): Command {
   const config = new Command('config');
@@ -79,7 +79,7 @@ ${chalk.cyan('Examples:')}
         // User preferences
         console.log(chalk.cyan('\n👤 User Preferences:'));
         OutputFormatter.formatKeyValueList([
-          { key: 'Preferred Editor', value: currentConfig.preferredEditor },
+          {key: 'Preferred Editor', value: currentConfig.preferredEditor},
           {
             key: 'Color Output',
             value: currentConfig.colorOutput ? 'enabled' : 'disabled',
@@ -214,7 +214,7 @@ ${chalk.cyan('Examples:')}
               name: 'with-samples (recommended for beginners)',
               value: 'with-samples',
             },
-            { name: 'empty (for experienced users)', value: 'empty' },
+            {name: 'empty (for experienced users)', value: 'empty'},
           ],
           default: currentConfig.defaultProjectType,
         },
@@ -229,11 +229,11 @@ ${chalk.cyan('Examples:')}
           name: 'defaultModelProvider',
           message: 'Default model provider:',
           choices: [
-            { name: 'Azure OpenAI (recommended)', value: 'azure' },
-            { name: 'OpenAI', value: 'openai' },
-            { name: 'Claude (Anthropic)', value: 'claude' },
-            { name: 'Gemini (Google)', value: 'gemini' },
-            { name: 'Custom', value: 'custom' },
+            {name: 'Azure OpenAI (recommended)', value: 'azure'},
+            {name: 'OpenAI', value: 'openai'},
+            {name: 'Claude (Anthropic)', value: 'claude'},
+            {name: 'Gemini (Google)', value: 'gemini'},
+            {name: 'Custom', value: 'custom'},
           ],
           default: currentConfig.defaultModelProvider,
         },
@@ -300,7 +300,7 @@ ${chalk.cyan('Examples:')}
     .action((options) => {
       ErrorHandler.catchAndHandle(async () => {
         if (!options.confirm) {
-          const { confirmReset } = await inquirer.prompt([
+          const {confirmReset} = await inquirer.prompt([
             {
               type: 'confirm',
               name: 'confirmReset',

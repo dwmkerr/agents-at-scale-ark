@@ -24,51 +24,59 @@ const MainMenu: React.FC = () => {
       case 'exit':
         process.exit(0);
         break;
-        
+
       case 'chat': {
         const ChatUI = (await import('../components/ChatUI.js')).default;
         render(<ChatUI />);
         break;
       }
-        
+
       case 'dashboard': {
         // Unmount the current Ink app
-        const app = (global as any).inkApp;
+        interface GlobalWithInkApp {
+          inkApp?: {
+            unmount: () => void;
+          };
+        }
+        const app = (globalThis as GlobalWithInkApp).inkApp;
         if (app) {
           app.unmount();
         }
-        
+
         // Clear the screen
         console.clear();
-        
+
         // Import and run the dashboard command
-        const { createDashboardCommand } = await import('../commands/dashboard.js');
+        const {createDashboardCommand} = await import(
+          '../commands/dashboard.js'
+        );
         const dashboardCmd = createDashboardCommand();
         await dashboardCmd.parseAsync(['node', 'ark', 'dashboard']);
         break;
       }
-        
+
       case 'status': {
-        const StatusView = (await import('../components/StatusView.js')).default;
-        const { StatusChecker } = await import('../components/statusChecker.js');
-        const { ConfigManager } = await import('../config.js');
-        const { ArkClient } = await import('../lib/arkClient.js');
-        
+        const StatusView = (await import('../components/StatusView.js'))
+          .default;
+        const {StatusChecker} = await import('../components/statusChecker.js');
+        const {ConfigManager} = await import('../config.js');
+        const {ArkClient} = await import('../lib/arkClient.js');
+
         const configManager = new ConfigManager();
         const apiBaseUrl = await configManager.getApiBaseUrl();
         const serviceUrls = await configManager.getServiceUrls();
         const arkClient = new ArkClient(apiBaseUrl);
         const statusChecker = new StatusChecker(arkClient);
-        
+
         let statusData = null;
         let error = null;
-        
+
         try {
           statusData = await statusChecker.checkAll(serviceUrls, apiBaseUrl);
         } catch (err) {
           error = err instanceof Error ? err.message : 'Unknown error';
         }
-        
+
         render(
           <StatusView
             statusData={statusData}
@@ -79,9 +87,10 @@ const MainMenu: React.FC = () => {
         );
         break;
       }
-        
+
       case 'generate': {
-        const GeneratorUI = (await import('../components/GeneratorUI.js')).default;
+        const GeneratorUI = (await import('../components/GeneratorUI.js'))
+          .default;
         render(<GeneratorUI />);
         break;
       }
@@ -112,7 +121,7 @@ const MainMenu: React.FC = () => {
         </Text>
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
       </Box>
-      
+
       <SelectInput items={choices} onSelect={handleSelect} />
     </>
   );

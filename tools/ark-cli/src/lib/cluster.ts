@@ -1,4 +1,4 @@
-import { executeCommand } from './exec.js';
+import {executeCommand} from './exec.js';
 
 export interface ClusterInfo {
   type: 'minikube' | 'kind' | 'k3s' | 'docker-desktop' | 'cloud' | 'unknown';
@@ -10,31 +10,34 @@ export interface ClusterInfo {
 
 export async function detectClusterType(): Promise<ClusterInfo> {
   try {
-    const { stdout } = await executeCommand('kubectl', [
+    const {stdout} = await executeCommand('kubectl', [
       'config',
       'current-context',
     ]);
     const context = stdout.trim();
 
     if (context.includes('minikube')) {
-      return { type: 'minikube', context };
+      return {type: 'minikube', context};
     } else if (context.includes('kind')) {
-      return { type: 'kind', context };
+      return {type: 'kind', context};
     } else if (context.includes('k3s')) {
-      return { type: 'k3s', context };
+      return {type: 'k3s', context};
     } else if (context.includes('docker-desktop')) {
-      return { type: 'docker-desktop', context };
+      return {type: 'docker-desktop', context};
     } else if (
       context.includes('gke') ||
       context.includes('eks') ||
       context.includes('aks')
     ) {
-      return { type: 'cloud', context };
+      return {type: 'cloud', context};
     } else {
-      return { type: 'unknown', context };
+      return {type: 'unknown', context};
     }
-  } catch (error: any) {
-    return { type: 'unknown', error: error.message };
+  } catch (error) {
+    return {
+      type: 'unknown',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 
@@ -42,22 +45,30 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
   try {
     // If context is provided, use it
     const contextArgs = context ? ['--context', context] : [];
-    
+
     // Get all config info in one command
-    const { stdout: configJson } = await executeCommand('kubectl', [
+    const {stdout: configJson} = await executeCommand('kubectl', [
       'config',
       'view',
       '--minify',
       '-o',
       'json',
-      ...contextArgs
+      ...contextArgs,
     ]);
-    
+
     const config = JSON.parse(configJson);
     const currentContext = config['current-context'] || '';
-    const contextData = config.contexts?.find((c: any) => c.name === currentContext);
+    interface ContextConfig {
+      name: string;
+      context?: {
+        namespace?: string;
+      };
+    }
+    const contextData = config.contexts?.find(
+      (c: ContextConfig) => c.name === currentContext
+    );
     const namespace = contextData?.context?.namespace || 'default';
-    
+
     // Detect cluster type from context name
     const clusterInfo = await detectClusterType();
     clusterInfo.context = currentContext;
@@ -72,11 +83,11 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
     switch (clusterInfo.type) {
       case 'minikube':
         try {
-          const { stdout } = await executeCommand('minikube', ['ip']);
+          const {stdout} = await executeCommand('minikube', ['ip']);
           ip = stdout.trim();
         } catch {
           // Fallback to kubectl if minikube command fails
-          const { stdout } = await executeCommand('kubectl', [
+          const {stdout} = await executeCommand('kubectl', [
             'get',
             'nodes',
             '-o',
@@ -87,7 +98,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       case 'kind': {
-        const { stdout: kindOutput } = await executeCommand('kubectl', [
+        const {stdout: kindOutput} = await executeCommand('kubectl', [
           'get',
           'nodes',
           '-o',
@@ -102,7 +113,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       case 'k3s': {
-        const { stdout: k3sOutput } = await executeCommand('kubectl', [
+        const {stdout: k3sOutput} = await executeCommand('kubectl', [
           'get',
           'nodes',
           '-o',
@@ -115,7 +126,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
       case 'cloud':
         // For cloud clusters, try to get the external IP or load balancer IP
         try {
-          const { stdout: lbOutput } = await executeCommand('kubectl', [
+          const {stdout: lbOutput} = await executeCommand('kubectl', [
             'get',
             'svc',
             '-n',
@@ -126,7 +137,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
           ]);
           ip = lbOutput.trim();
           if (!ip) {
-            const { stdout: hostnameOutput } = await executeCommand('kubectl', [
+            const {stdout: hostnameOutput} = await executeCommand('kubectl', [
               'get',
               'svc',
               '-n',
@@ -139,7 +150,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
           }
         } catch {
           // Fallback to node IP
-          const { stdout: nodeOutput } = await executeCommand('kubectl', [
+          const {stdout: nodeOutput} = await executeCommand('kubectl', [
             'get',
             'nodes',
             '-o',
@@ -150,7 +161,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       default: {
-        const { stdout: defaultOutput } = await executeCommand('kubectl', [
+        const {stdout: defaultOutput} = await executeCommand('kubectl', [
           'get',
           'nodes',
           '-o',
@@ -161,8 +172,11 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
       }
     }
 
-    return { ...clusterInfo, ip };
-  } catch (error: any) {
-    return { type: 'unknown', error: error.message };
+    return {...clusterInfo, ip};
+  } catch (error) {
+    return {
+      type: 'unknown',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }

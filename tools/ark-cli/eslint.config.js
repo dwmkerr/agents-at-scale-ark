@@ -19,6 +19,9 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         URL: 'readonly',
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+        globalThis: 'readonly',
       },
     },
     rules: {

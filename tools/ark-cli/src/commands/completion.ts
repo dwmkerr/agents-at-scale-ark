@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { Command } from 'commander';
+import {Command} from 'commander';
 
 export function createCompletionCommand(): Command {
   const completion = new Command('completion');
@@ -61,7 +61,7 @@ _ark_completion() {
           # Dynamically fetch available targets using ark targets list
           local targets
           targets=$(ark targets list 2>/dev/null)
-          if [ -z "\$targets" ]; then
+          if [ -z "$targets" ]; then
             # Fallback to common targets if API is not available
             targets="agent/sample-agent agent/math agent/weather model/default"
           fi

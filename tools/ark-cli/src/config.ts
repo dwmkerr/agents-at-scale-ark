@@ -1,19 +1,19 @@
-import { promises as fs } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
+import {promises as fs} from 'fs';
+import {homedir} from 'os';
+import {join} from 'path';
 
 import axios from 'axios';
 import Debug from 'debug';
 
-import { ArkClient } from './lib/arkClient.js';
+import {ArkClient} from './lib/arkClient.js';
 import {
   DEFAULT_ADDRESS_ARK_API,
   CONFIG_DIR_NAME,
   CONFIG_FILE_NAME,
 } from './lib/consts.js';
-import { GatewayManager } from './lib/gatewayManager.js';
-import { KubernetesConfigManager } from './lib/kubernetes.js';
-import { ArkConfig, KubernetesConfig } from './lib/types.js';
+import {GatewayManager} from './lib/gatewayManager.js';
+import {KubernetesConfigManager} from './lib/kubernetes.js';
+import {ArkConfig, KubernetesConfig} from './lib/types.js';
 
 const debug = Debug('ark:config');
 
@@ -43,7 +43,7 @@ export class ConfigManager {
 
   async ensureConfigDir(): Promise<void> {
     try {
-      await fs.mkdir(this.configDir, { recursive: true });
+      await fs.mkdir(this.configDir, {recursive: true});
     } catch (_error) {
       // Directory might already exist
     }
@@ -103,7 +103,7 @@ export class ConfigManager {
 
   async updateConfig(updates: Partial<ArkConfig>): Promise<ArkConfig> {
     const currentConfig = await this.loadConfig();
-    const newConfig = { ...currentConfig, ...updates };
+    const newConfig = {...currentConfig, ...updates};
     await this.saveConfig(newConfig);
     return newConfig;
   }
@@ -127,7 +127,7 @@ export class ConfigManager {
     const config = await this.loadConfig();
 
     const defaultConfig = await this.getDefaultConfig();
-    const mergedConfig = { ...defaultConfig, ...config };
+    const mergedConfig = {...defaultConfig, ...config};
 
     await this.saveConfig(mergedConfig);
     return mergedConfig;

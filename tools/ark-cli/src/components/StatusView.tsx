@@ -1,6 +1,6 @@
-import { Box, Text, useInput } from 'ink';
+import {Box, Text, useInput} from 'ink';
 import * as React from 'react';
-import { StatusData, ServiceStatus } from '../lib/types.js';
+import {StatusData, ServiceStatus} from '../lib/types.js';
 
 interface StatusViewProps {
   statusData: StatusData | null;
@@ -9,7 +9,12 @@ interface StatusViewProps {
   onBack: () => void;
 }
 
-const StatusView: React.FC<StatusViewProps> = ({ statusData, isLoading, error, onBack }) => {
+const StatusView: React.FC<StatusViewProps> = ({
+  statusData,
+  isLoading,
+  error,
+  onBack,
+}) => {
   useInput((input, key) => {
     if (key.escape || input === 'q' || key.return) {
       onBack();
@@ -128,9 +133,7 @@ const StatusView: React.FC<StatusViewProps> = ({ statusData, isLoading, error, o
       {statusData.dependencies.map(renderDependencyStatus)}
 
       <Box marginTop={1}>
-        <Text color="gray">
-          Press ESC, 'q', or Enter to return to menu...
-        </Text>
+        <Text color="gray">Press ESC, 'q', or Enter to return to menu...</Text>
       </Box>
     </Box>
   );

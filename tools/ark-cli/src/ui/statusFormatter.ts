@@ -1,6 +1,5 @@
 import chalk from 'chalk';
-
-import { StatusData, ServiceStatus, DependencyStatus } from '../lib/types.js';
+import {StatusData, ServiceStatus, DependencyStatus} from '../lib/types.js';
 
 export class StatusFormatter {
   /**
@@ -8,13 +7,13 @@ export class StatusFormatter {
    */
   public static printStatus(statusData: StatusData): void {
     // Print services status
-    console.log(chalk.cyan.bold('\nARK Services:'));
+    console.log(chalk.cyan.bold('\nark services:'));
     for (const service of statusData.services) {
       StatusFormatter.printService(service);
     }
 
     // Print dependencies status
-    console.log(chalk.cyan.bold('\nSystem Dependencies:'));
+    console.log(chalk.cyan.bold('\nsystem dependencies:'));
     for (const dep of statusData.dependencies) {
       StatusFormatter.printDependency(dep);
     }
@@ -32,7 +31,7 @@ export class StatusFormatter {
 
     const urlText = service.url ? chalk.gray(` ${service.url}`) : '';
     console.log(`  ${statusColor} ${chalk.bold(service.name)}${urlText}`);
-    
+
     if (service.status !== 'healthy' && service.details) {
       // Show simplified details on next line for unhealthy services
       const simplifiedDetails = service.details
@@ -49,7 +48,7 @@ export class StatusFormatter {
 
     const versionText = dep.version ? chalk.gray(` ${dep.version}`) : '';
     console.log(`  ${statusColor} ${chalk.bold(dep.name)}${versionText}`);
-    
+
     if (dep.details && !dep.installed) {
       // Only show details if there's an issue
       console.log(`    ${chalk.gray(dep.details)}`);
