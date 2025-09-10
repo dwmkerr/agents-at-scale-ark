@@ -1,23 +1,35 @@
-import {Text, Box, render} from 'ink';
-import SelectInput from 'ink-select-input';
+import {Text, Box, render, useInput} from 'ink';
 import * as React from 'react';
 
 type MenuChoice = 'dashboard' | 'status' | 'generate' | 'chat' | 'exit';
 
 interface MenuItem {
   label: string;
+  description: string;
   value: MenuChoice;
   command?: string;
 }
 
 const MainMenu: React.FC = () => {
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  
   const choices: MenuItem[] = [
-    {label: '💬 Chat', value: 'chat', command: 'ark chat'},
-    {label: '🏷️  Dashboard', value: 'dashboard', command: 'ark dashboard'},
-    {label: '🔍 Status Check', value: 'status', command: 'ark status'},
-    {label: '🎯 Generate', value: 'generate', command: 'ark generate'},
-    {label: '👋 Exit', value: 'exit'},
+    {label: 'Chat', description: 'Interactive chat with ARK agents', value: 'chat', command: 'ark chat'},
+    {label: 'Dashboard', description: 'Open ARK dashboard in browser', value: 'dashboard', command: 'ark dashboard'},
+    {label: 'Status Check', description: 'Check ARK services status', value: 'status', command: 'ark status'},
+    {label: 'Generate', description: 'Generate new ARK components', value: 'generate', command: 'ark generate'},
+    {label: 'Exit', description: 'Exit ARK CLI', value: 'exit'},
   ];
+
+  useInput((input, key) => {
+    if (key.upArrow) {
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choices.length - 1));
+    } else if (key.downArrow) {
+      setSelectedIndex((prev) => (prev < choices.length - 1 ? prev + 1 : 0));
+    } else if (key.return) {
+      handleSelect(choices[selectedIndex]);
+    }
+  });
 
   const handleSelect = async (item: MenuItem) => {
     switch (item.value) {
@@ -122,7 +134,34 @@ const MainMenu: React.FC = () => {
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
       </Box>
 
-      <SelectInput items={choices} onSelect={handleSelect} />
+      <Box flexDirection="column" paddingX={4} marginTop={1}>
+        {choices.map((choice, index) => {
+          const isSelected = index === selectedIndex;
+          return (
+            <Box key={choice.value} flexDirection="row" paddingY={0}>
+              <Text color="gray" dimColor>
+                {isSelected ? '❯ ' : '  '}
+              </Text>
+              <Text color="gray" dimColor>
+                {index + 1}.
+              </Text>
+              <Box marginLeft={1}>
+                <Text color={isSelected ? 'green' : 'white'} bold={isSelected}>
+                  {choice.label}
+                </Text>
+              </Box>
+              <Box marginLeft={2}>
+                <Text color="gray" dimColor>
+                  {choice.description}
+                </Text>
+              </Box>
+              {isSelected && (
+                <Text color="green">✔</Text>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
     </>
   );
 };
