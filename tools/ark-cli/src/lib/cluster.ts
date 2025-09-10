@@ -4,6 +4,7 @@ export interface ClusterInfo {
   type: 'minikube' | 'kind' | 'k3s' | 'docker-desktop' | 'cloud' | 'unknown';
   ip?: string;
   context?: string;
+  namespace?: string;
   error?: string;
 }
 
@@ -37,9 +38,30 @@ export async function detectClusterType(): Promise<ClusterInfo> {
   }
 }
 
-export async function getClusterIp(_context?: string): Promise<ClusterInfo> {
+export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
   try {
+    // If context is provided, use it
+    const contextArgs = context ? ['--context', context] : [];
+    
+    // Get all config info in one command
+    const { stdout: configJson } = await executeCommand('kubectl', [
+      'config',
+      'view',
+      '--minify',
+      '-o',
+      'json',
+      ...contextArgs
+    ]);
+    
+    const config = JSON.parse(configJson);
+    const currentContext = config['current-context'] || '';
+    const contextData = config.contexts?.find((c: any) => c.name === currentContext);
+    const namespace = contextData?.context?.namespace || 'default';
+    
+    // Detect cluster type from context name
     const clusterInfo = await detectClusterType();
+    clusterInfo.context = currentContext;
+    clusterInfo.namespace = namespace;
 
     if (clusterInfo.error) {
       return clusterInfo;
