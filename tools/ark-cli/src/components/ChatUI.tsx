@@ -426,50 +426,18 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
         msg.content === 'No response received');
     const isCancelled = msg.cancelled === true;
 
-    // Render system messages with special formatting
+    // Render system messages with consistent formatting
     if (isSystem) {
-      // Check if this is a slash command response
-      const isStreamingCommand =
-        msg.content.includes('/streaming') ||
-        msg.content.startsWith('Streaming:') ||
-        msg.content.startsWith('Streaming ');
-      const isOutputCommand =
-        msg.content.includes('output format') ||
-        msg.content.includes('/output');
       const isInterruption = msg.content === 'Interrupted by user';
-
-      if (isStreamingCommand) {
-        return (
-          <Box key={index} flexDirection="column" marginBottom={1}>
-            <Box>
-              <Text color="gray">› /streaming</Text>
-            </Box>
-            <Box marginLeft={2}>
-              <Text color="gray">⎿ {msg.content}</Text>
-            </Box>
+      const color = isInterruption ? 'yellow' : 'gray';
+      
+      return (
+        <Box key={index} flexDirection="column" marginBottom={1}>
+          <Box marginLeft={2}>
+            <Text color={color}>• {msg.content}</Text>
           </Box>
-        );
-      } else if (isOutputCommand) {
-        return (
-          <Box key={index} flexDirection="column" marginBottom={1}>
-            <Box>
-              <Text color="gray">› /output</Text>
-            </Box>
-            <Box marginLeft={2}>
-              <Text color="gray">⎿ {msg.content}</Text>
-            </Box>
-          </Box>
-        );
-      } else if (isInterruption) {
-        return (
-          <Box key={index} flexDirection="column" marginBottom={1}>
-            <Box marginLeft={2}>
-              <Text color="yellow">⎿ {msg.content}</Text>
-            </Box>
-          </Box>
-        );
-      }
-      return null;
+        </Box>
+      );
     }
 
     return (
