@@ -63,9 +63,10 @@ export class ChatClient {
       return targets;
     } catch (error) {
       // Check if it's a connection error
+      const err = error as {name?: string; message?: string};
       if (
-        error?.name === 'APIConnectionError' ||
-        error?.message?.includes('Connection error')
+        err?.name === 'APIConnectionError' ||
+        err?.message?.includes('Connection error')
       ) {
         throw new Error(
           'Cannot connect to ARK API. Please ensure ark-api is running.'
@@ -94,17 +95,18 @@ export class ChatClient {
     const shouldStream = config.streamingEnabled && !!onChunk;
 
     try {
-      const completion = await this.openai!.chat.completions.create({
+      const openaiClient = this.openai!;
+      const completion = await openaiClient.chat.completions.create({
         model: targetId,
         messages: messages,
         stream: shouldStream,
         signal: signal,
-      } as Parameters<typeof this.openai.chat.completions.create>[0]);
+      } as Parameters<typeof openaiClient.chat.completions.create>[0]);
 
       // Handle streaming response
       if (shouldStream && Symbol.asyncIterator in completion) {
         let fullResponse = '';
-        for await (const chunk of completion as AsyncIterable<any>) {
+        for await (const chunk of completion as AsyncIterable<{choices: Array<{delta?: {content?: string}}>}>) {
           // Check if aborted and break immediately
           if (signal?.aborted) {
             break;

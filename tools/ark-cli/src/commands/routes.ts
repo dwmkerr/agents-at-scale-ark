@@ -15,7 +15,7 @@ async function listRoutes() {
 
   const namespace = 'ark-system';
   const port = 8080;
-  const portSuffix = port === 80 ? '' : `:${port}`;
+  const portSuffix = `:${port}`;
 
   try {
     // Check if localhost-gateway is installed
@@ -123,7 +123,7 @@ async function listRoutes() {
       });
     }
   } catch (error) {
-    output.error('failed to fetch routes:', error.message);
+    output.error('failed to fetch routes:', error instanceof Error ? error.message : 'Unknown error');
     process.exit(1);
   }
 }

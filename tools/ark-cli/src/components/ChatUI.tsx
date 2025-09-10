@@ -55,6 +55,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
   const [abortController, setAbortController] =
     React.useState<AbortController | null>(null);
   const [showCommands, setShowCommands] = React.useState(false);
+  const [filteredCommands, setFilteredCommands] = React.useState<Array<{command: string; description: string}>>([]);
   const [outputFormat, setOutputFormat] =
     React.useState<OutputFormat>(getOutputFormat());
 
@@ -153,6 +154,14 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    // Tab to autocomplete when there's a single matching command
+    if (key.tab && !key.shift && showCommands && filteredCommands.length === 1) {
+      setInput(filteredCommands[0].command + ' ');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+    
     // Shift+Tab to cycle through targets
     if (key.shift && key.tab && availableTargets.length > 0) {
       // Cycle to next target
@@ -543,7 +552,23 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
                 onChange={(value) => {
                   setInput(value);
                   // Show commands menu only when input starts with '/'
-                  setShowCommands(value.startsWith('/'));
+                  const shouldShowCommands = value.startsWith('/');
+                  setShowCommands(shouldShowCommands);
+                  
+                  // Update filtered commands
+                  if (shouldShowCommands) {
+                    const searchTerm = value.slice(1).toLowerCase();
+                    const commands = [
+                      {command: '/output', description: `Set output format (${outputFormat})`},
+                      {command: '/streaming', description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'})`}
+                    ];
+                    const filtered = commands.filter(cmd => 
+                      cmd.command.slice(1).toLowerCase().startsWith(searchTerm)
+                    );
+                    setFilteredCommands(filtered);
+                  } else {
+                    setFilteredCommands([]);
+                  }
                 }}
                 onSubmit={handleSubmit}
                 placeholder="Type your message..."
@@ -553,20 +578,19 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
         </Box>
 
         {/* Command menu */}
-        {showCommands && (
+        {showCommands && filteredCommands.length > 0 && (
           <Box marginLeft={1} marginTop={1} flexDirection="column">
-            <Box>
-              <Text color="cyan">/output</Text>
-              <Text color="gray"> Set output format ({outputFormat})</Text>
-            </Box>
-            <Box>
-              <Text color="cyan">/streaming</Text>
-              <Text color="gray">
-                {' '}
-                Toggle streaming mode (
-                {chatConfig.streamingEnabled ? 'on' : 'off'})
-              </Text>
-            </Box>
+            {filteredCommands.map((cmd, index) => (
+              <Box key={index}>
+                <Text color="cyan">{cmd.command}</Text>
+                <Text color="gray"> {cmd.description}</Text>
+              </Box>
+            ))}
+            {filteredCommands.length === 1 && (
+              <Box marginTop={1}>
+                <Text color="gray" dimColor>Press Tab to complete</Text>
+              </Box>
+            )}
           </Box>
         )}
 

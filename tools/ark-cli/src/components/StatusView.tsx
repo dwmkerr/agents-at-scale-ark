@@ -61,6 +61,7 @@ const StatusView: React.FC<StatusViewProps> = ({
     name: string;
     installed: boolean;
     version?: string;
+    details?: string;
   }) => {
     const statusColor = dep.installed ? 'green' : 'red';
     const statusIcon = dep.installed ? '✓' : '✗';
