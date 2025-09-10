@@ -68,35 +68,24 @@ const MainMenu: React.FC = () => {
       }
 
       case 'status': {
-        const StatusView = (await import('../components/StatusView.js'))
-          .default;
-        const {StatusChecker} = await import('../components/statusChecker.js');
-        const {ConfigManager} = await import('../config.js');
-        const {ArkClient} = await import('../lib/arkClient.js');
-
-        const configManager = new ConfigManager();
-        const apiBaseUrl = await configManager.getApiBaseUrl();
-        const serviceUrls = await configManager.getServiceUrls();
-        const arkClient = new ArkClient(apiBaseUrl);
-        const statusChecker = new StatusChecker(arkClient);
-
-        let statusData = null;
-        let error = null;
-
-        try {
-          statusData = await statusChecker.checkAll(serviceUrls, apiBaseUrl);
-        } catch (err) {
-          error = err instanceof Error ? err.message : 'Unknown error';
+        // Unmount the current Ink app
+        interface GlobalWithInkApp {
+          inkApp?: {
+            unmount: () => void;
+          };
+        }
+        const app = (globalThis as GlobalWithInkApp).inkApp;
+        if (app) {
+          app.unmount();
         }
 
-        render(
-          <StatusView
-            statusData={statusData}
-            isLoading={false}
-            error={error}
-            onBack={() => process.exit(0)}
-          />
-        );
+        // Clear the screen
+        console.clear();
+
+        // Import and run the status command
+        const {createStatusCommand} = await import('../commands/status.js');
+        const statusCmd = createStatusCommand();
+        await statusCmd.parseAsync(['node', 'ark', 'status']);
         break;
       }
 
