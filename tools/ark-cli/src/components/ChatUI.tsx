@@ -575,7 +575,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
                     const inputLower = value.toLowerCase();
                     const commands = [
                       {command: '/output', description: `Set output format (${outputFormat}) - use: /output text|markdown`},
-                      {command: '/streaming', description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'})`}
+                      {command: '/streaming', description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'}) - use: /streaming on|off`}
                     ];
                     
                     // Check if user has typed a complete command (with space or at exact match)
