@@ -61,7 +61,7 @@ export class ChatClient {
       });
 
       return targets;
-    } catch (error: any) {
+    } catch (error) {
       // Check if it's a connection error
       if (
         error?.name === 'APIConnectionError' ||
@@ -99,12 +99,12 @@ export class ChatClient {
         messages: messages,
         stream: shouldStream,
         signal: signal,
-      } as any);
+      } as Parameters<typeof this.openai.chat.completions.create>[0]);
 
       // Handle streaming response
       if (shouldStream && Symbol.asyncIterator in completion) {
         let fullResponse = '';
-        for await (const chunk of completion as any) {
+        for await (const chunk of completion as AsyncIterable<any>) {
           // Check if aborted and break immediately
           if (signal?.aborted) {
             break;
@@ -121,7 +121,9 @@ export class ChatClient {
         return fullResponse;
       } else {
         // Non-streaming response or server doesn't support streaming
-        const response = completion as any;
+        const response = completion as {
+          choices?: Array<{message?: {content?: string}}>;
+        };
 
         if (!response.choices || !response.choices[0]) {
           console.error(

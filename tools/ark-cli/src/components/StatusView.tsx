@@ -57,7 +57,11 @@ const StatusView: React.FC<StatusViewProps> = ({
     );
   };
 
-  const renderDependencyStatus = (dep: any) => {
+  const renderDependencyStatus = (dep: {
+    name: string;
+    installed: boolean;
+    version?: string;
+  }) => {
     const statusColor = dep.installed ? 'green' : 'red';
     const statusIcon = dep.installed ? '✓' : '✗';
     const statusText = dep.installed ? 'installed' : 'missing';

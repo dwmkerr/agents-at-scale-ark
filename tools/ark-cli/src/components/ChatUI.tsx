@@ -351,9 +351,9 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
 
       setIsTyping(false);
       setAbortController(null);
-    } catch (err: any) {
+    } catch (err) {
       // Check if this was cancelled by user
-      if (err?.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         // Request was cancelled, message already updated by Esc handler
         return;
       }

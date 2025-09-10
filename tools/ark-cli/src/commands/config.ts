@@ -170,7 +170,7 @@ ${chalk.cyan('Examples:')}
 
         // Parse value based on the current type
         const currentValue = currentConfig[key as keyof typeof currentConfig];
-        let parsedValue: any = value;
+        let parsedValue: string | boolean | number = value;
 
         if (typeof currentValue === 'boolean') {
           parsedValue = ['true', 'yes', '1', 'on'].includes(
@@ -185,7 +185,7 @@ ${chalk.cyan('Examples:')}
         }
 
         // Update configuration
-        configManager.set(key as any, parsedValue);
+        configManager.set(key as keyof typeof currentConfig, parsedValue);
 
         // Validate the configuration
         configManager.validateConfig();
