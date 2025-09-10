@@ -563,14 +563,26 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
                   
                   // Update filtered commands
                   if (shouldShowCommands) {
-                    const searchTerm = value.slice(1).toLowerCase();
+                    const inputLower = value.toLowerCase();
                     const commands = [
-                      {command: '/output', description: `Set output format (${outputFormat})`},
+                      {command: '/output', description: `Set output format (${outputFormat}) - use: /output text|markdown`},
                       {command: '/streaming', description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'})`}
                     ];
-                    const filtered = commands.filter(cmd => 
-                      cmd.command.slice(1).toLowerCase().startsWith(searchTerm)
-                    );
+                    
+                    // Check if user has typed a complete command (with space or at exact match)
+                    const hasSpace = value.includes(' ');
+                    const baseCommand = hasSpace ? value.split(' ')[0] : value;
+                    
+                    // Filter commands - show matching commands or the current command if fully typed
+                    const filtered = commands.filter(cmd => {
+                      if (hasSpace) {
+                        // If there's a space, only show the exact matching command
+                        return cmd.command === baseCommand;
+                      } else {
+                        // Otherwise show all commands that start with the input
+                        return cmd.command.toLowerCase().startsWith(inputLower);
+                      }
+                    });
                     setFilteredCommands(filtered);
                   } else {
                     setFilteredCommands([]);
@@ -592,11 +604,6 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
                 <Text color="gray"> {cmd.description}</Text>
               </Box>
             ))}
-            {filteredCommands.length === 1 && (
-              <Box marginTop={1}>
-                <Text color="gray" dimColor>Press Tab to complete</Text>
-              </Box>
-            )}
           </Box>
         )}
 
