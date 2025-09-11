@@ -33,9 +33,12 @@ export async function installArk() {
     output.info(
       'please ensure you have a running cluster and kubectl is configured.'
     );
-    output.info(
-      'for local development, you can use minikube, kind, or docker desktop.'
-    );
+    output.info('');
+    output.info('for local development, we recommend minikube:');
+    output.info('• install: https://minikube.sigs.k8s.io/docs/start');
+    output.info('• start cluster: minikube start');
+    output.info('');
+    output.info('alternatively, you can use kind or docker desktop.');
     process.exit(1);
   }
 
