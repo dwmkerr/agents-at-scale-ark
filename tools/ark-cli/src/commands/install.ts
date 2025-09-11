@@ -8,7 +8,7 @@ import output from '../lib/output.js';
 import {charts} from '../charts/charts.js';
 import {dependencies} from '../charts/dependencies.js';
 
-async function installArk() {
+export async function installArk() {
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {

@@ -16,7 +16,7 @@
     "clean": "rm -rf dist",
     "lint": "eslint src/ --fix && prettier --write src/",
     "lint:check": "eslint src/ && prettier --check src/",
-    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --coverage --coverageDirectory=./artifacts/coverage",
     "postinstall": "echo \"ARK CLI installed! Run 'ark' to try it out.\""
   },
   "keywords": [

@@ -29,4 +29,25 @@ export default {
   },
   testMatch: ['**/*.spec.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/*.spec.ts',
+    '!src/**/*.test.ts',
+    '!src/index.tsx',
+    '!src/commands/chat.tsx',
+    '!src/components/*.tsx',
+    '!src/ui/*.tsx'
+  ],
+  coverageReporters: ['text', 'lcov', 'html'],
+  // Coverage thresholds set to 0 to allow builds to pass
+  // TODO: Increase these gradually as more tests are added
+  coverageThreshold: {
+    global: {
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0
+    }
+  },
 };

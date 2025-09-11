@@ -1,7 +1,8 @@
 import {Text, Box, render, useInput} from 'ink';
 import * as React from 'react';
+import {createInstallCommand} from '../commands/install.js';
 
-type MenuChoice = 'dashboard' | 'status' | 'generate' | 'chat' | 'exit';
+type MenuChoice = 'dashboard' | 'status' | 'generate' | 'chat' | 'install' | 'exit';
 
 interface MenuItem {
   label: string;
@@ -10,11 +11,49 @@ interface MenuItem {
   command?: string;
 }
 
+//  Helper function to unmount the main ink app - used when we move from a
+//  React TUI app to basic input/output.
+async function unmountInkApp() {
+  interface GlobalWithInkApp {
+    inkApp?: {
+      unmount: () => void;
+    };
+  }
+  const app = (globalThis as GlobalWithInkApp).inkApp;
+  if (app) {
+    app.unmount();
+    
+    // Remove all existing signal listeners that might interfere with inquirer
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+    process.removeAllListeners('SIGQUIT');
+    process.removeAllListeners('exit');
+    
+    // Reset stdin completely
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdin.removeAllListeners();
+      process.stdin.resume();
+    }
+    
+    // Reset stdout/stderr
+    process.stdout.removeAllListeners();
+    process.stderr.removeAllListeners();
+    
+    console.clear();
+    
+    // Give terminal more time to fully reset
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+}
+
 const MainMenu: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   
   const choices: MenuItem[] = [
     {label: 'Chat', description: 'Interactive chat with ARK agents', value: 'chat', command: 'ark chat'},
+    {label: 'Install', description: 'Install Ark', value: 'install', command: 'ark install'},
     {label: 'Dashboard', description: 'Open ARK dashboard in browser', value: 'dashboard', command: 'ark dashboard'},
     {label: 'Status Check', description: 'Check ARK services status', value: 'status', command: 'ark status'},
     {label: 'Generate', description: 'Generate new ARK components', value: 'generate', command: 'ark generate'},
@@ -43,49 +82,48 @@ const MainMenu: React.FC = () => {
         break;
       }
 
+      case 'install': {
+        //  Unmount fullscreen app and clear screen.
+        await unmountInkApp();
+        
+        // NOTE: We spawn the install command as a separate process to avoid
+        // signal handling conflicts between Ink's useInput and inquirer's prompts.
+        // The signal-exit library used by inquirer conflicts with Ink's signal handlers,
+        // causing ExitPromptError even after proper cleanup. Spawning ensures
+        // a clean process environment for inquirer to work correctly.
+        const {spawn} = await import('child_process');
+        const child = spawn(process.execPath, [process.argv[1], 'install'], {
+          stdio: 'inherit'
+        });
+        
+        await new Promise<void>((resolve, reject) => {
+          child.on('close', (code) => {
+            if (code === 0) {
+              resolve();
+            } else {
+              reject(new Error(`Install command failed with code ${code}`));
+            }
+          });
+          child.on('error', reject);
+        });
+        break;
+      }
+
       case 'dashboard': {
-        // Unmount the current Ink app
-        interface GlobalWithInkApp {
-          inkApp?: {
-            unmount: () => void;
-          };
-        }
-        const app = (globalThis as GlobalWithInkApp).inkApp;
-        if (app) {
-          app.unmount();
-        }
+        //  Unmount fullscreen app and clear screen.
+        await unmountInkApp();
 
-        // Clear the screen
-        console.clear();
-
-        // Import and run the dashboard command
-        const {createDashboardCommand} = await import(
-          '../commands/dashboard.js'
-        );
-        const dashboardCmd = createDashboardCommand();
-        await dashboardCmd.parseAsync(['node', 'ark', 'dashboard']);
+        const {openDashboard} = await import('../commands/dashboard.js');
+        await openDashboard();
         break;
       }
 
       case 'status': {
-        // Unmount the current Ink app
-        interface GlobalWithInkApp {
-          inkApp?: {
-            unmount: () => void;
-          };
-        }
-        const app = (globalThis as GlobalWithInkApp).inkApp;
-        if (app) {
-          app.unmount();
-        }
+        //  Unmount fullscreen app and clear screen.
+        await unmountInkApp();
 
-        // Clear the screen
-        console.clear();
-
-        // Import and run the status command
-        const {createStatusCommand} = await import('../commands/status.js');
-        const statusCmd = createStatusCommand();
-        await statusCmd.parseAsync(['node', 'ark', 'status']);
+        const {checkStatus} = await import('../commands/status.js');
+        await checkStatus();
         break;
       }
 

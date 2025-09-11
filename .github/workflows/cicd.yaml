@@ -602,6 +602,20 @@ jobs:
           npm ci
           npm run build
 
+      - name: Run tests and collect coverage
+        run: |
+          cd tools/ark-cli
+          npm test
+
+      - name: Upload coverage to Codecov
+        if: secrets.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: dwmkerr/agents-at-scale-ark
+          directory: tools/ark-cli/artifacts/coverage
+          name: ark-cli
+
       - name: Create NPM package tarball
         run: |
           cd tools/ark-cli

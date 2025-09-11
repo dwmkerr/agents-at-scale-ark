@@ -5,12 +5,8 @@ import open from 'open';
 
 const DASHBOARD_PORT = 3274; // DASH on phone keypad
 
-export function createDashboardCommand(): Command {
-  const dashboardCommand = new Command('dashboard');
-  dashboardCommand
-    .description('Open the ARK dashboard in your browser')
-    .action(async () => {
-      try {
+export async function openDashboard() {
+  try {
         // Find the dashboard service using kubectl
         const {execSync} = await import('child_process');
 
@@ -127,7 +123,13 @@ export function createDashboardCommand(): Command {
         console.error(chalk.red('Failed to start dashboard:'), error);
         process.exit(1);
       }
-    });
+}
+
+export function createDashboardCommand(): Command {
+  const dashboardCommand = new Command('dashboard');
+  dashboardCommand
+    .description('Open the ARK dashboard in your browser')
+    .action(openDashboard);
 
   return dashboardCommand;
 }
