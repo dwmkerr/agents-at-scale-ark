@@ -123,7 +123,7 @@ GitHub variables and secrets for ARK build and deployment workflows. All configu
 | `SONAR_HOST_URL` | Secret | SonarQube server URL |
 | `ARTIFACTORY_USER` | Secret | Artifactory username for dependency resolution |
 | `ARTIFACTORY_PASS` | Secret | Artifactory password for dependency resolution |
-| `CODECOV_TOKEN` | Secret (Optional) | Codecov authentication token for test coverage reporting. If not set, coverage upload is skipped. |
+| `CODECOV_TOKEN` | Secret (Required for CI) | Codecov authentication token for test coverage reporting. CI builds will fail if not set. |
 
 ## Troubleshooting
 
