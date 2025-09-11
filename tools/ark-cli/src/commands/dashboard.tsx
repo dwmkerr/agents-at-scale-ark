@@ -1,128 +1,41 @@
 import chalk from 'chalk';
 import {Command} from 'commander';
-import {spawn} from 'child_process';
 import open from 'open';
-
-const DASHBOARD_PORT = 3274; // DASH on phone keypad
+import ora from 'ora';
+import {ArkServiceProxy} from '../lib/arkServiceProxy.js';
+import {arkServices} from '../arkServices.js';
 
 export async function openDashboard() {
+  const spinner = ora('Connecting to dashboard').start();
+  
   try {
-        // Find the dashboard service using kubectl
-        const {execSync} = await import('child_process');
+    const dashboardService = arkServices['ark-dashboard'];
+    const proxy = new ArkServiceProxy(dashboardService, 3274); // DASH on phone keypad
 
-        // Get all services and look for ark-dashboard
-        let serviceName = '';
-        let namespace = 'default';
+    const url = await proxy.start();
+    spinner.succeed('Dashboard connected');
+    
+    console.log(`ARK dashboard running on: ${chalk.green(url)}`);
+    console.log(chalk.gray('Press Ctrl+C to stop'));
 
-        try {
-          // Look for service with ark-dashboard in the name
-          const services = execSync(
-            `kubectl get svc -A -o json | jq -r '.items[] | select(.metadata.name | contains("ark-dashboard")) | .metadata.namespace + "/" + .metadata.name'`,
-            {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}
-          ).trim();
+    // Brief pause before opening browser
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          if (services) {
-            const [ns, svc] = services.split('\n')[0].split('/');
-            namespace = ns;
-            serviceName = svc;
-          } else {
-            // Try to find by label
-            const servicesByLabel = execSync(
-              `kubectl get svc -A -l app=ark-dashboard -o json | jq -r '.items[0] | .metadata.namespace + "/" + .metadata.name'`,
-              {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}
-            ).trim();
+    // Open browser
+    await open(url);
 
-            if (servicesByLabel && servicesByLabel !== 'null/null') {
-              const [ns, svc] = servicesByLabel.split('/');
-              namespace = ns;
-              serviceName = svc;
-            }
-          }
-        } catch {
-          // Kubectl or jq might not be available
-        }
+    // Handle Ctrl+C gracefully
+    process.on('SIGINT', () => {
+      proxy.stop();
+      process.exit(0);
+    });
 
-        if (!serviceName) {
-          console.error(
-            chalk.red('Error: ARK dashboard service not found in cluster')
-          );
-          process.exit(1);
-        }
-
-        // Get the service port
-        let servicePort = '3000'; // Default port
-        try {
-          servicePort = execSync(
-            `kubectl get svc ${serviceName} -n ${namespace} -o jsonpath='{.spec.ports[0].port}'`,
-            {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}
-          ).trim();
-        } catch {
-          // Use default port
-        }
-
-        console.log('Connecting to dashboard...');
-
-        const portForward = spawn(
-          'kubectl',
-          [
-            'port-forward',
-            '-n',
-            namespace,
-            `svc/${serviceName}`,
-            `${DASHBOARD_PORT}:${servicePort}`,
-          ],
-          {
-            stdio: ['inherit', 'pipe', 'pipe'],
-          }
-        );
-
-        // Wait a moment for port forward to establish
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Show running message before opening browser
-        const url = `http://localhost:${DASHBOARD_PORT}`;
-        console.log(`ARK dashboard running on: ${chalk.green(url)}`);
-        console.log(chalk.gray('Press Ctrl+C to stop'));
-
-        // Brief pause before opening browser
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Open browser
-        await open(url);
-
-        // Handle errors only
-        portForward.stderr?.on('data', (data) => {
-          const message = data.toString();
-          if (message.includes('bind: address already in use')) {
-            console.error(
-              chalk.red(`\nError: Port ${DASHBOARD_PORT} is already in use`)
-            );
-            console.error(
-              chalk.yellow('Another dashboard session may be running')
-            );
-            process.exit(1);
-          }
-          // Suppress all kubectl output except critical errors
-        });
-
-        portForward.on('close', (code) => {
-          if (code !== 0 && code !== null) {
-            console.error(
-              chalk.red(`\nPort forwarding stopped with code ${code}`)
-            );
-          }
-          process.exit(code || 0);
-        });
-
-        // Handle Ctrl+C gracefully
-        process.on('SIGINT', () => {
-          portForward.kill();
-          process.exit(0);
-        });
-      } catch (error) {
-        console.error(chalk.red('Failed to start dashboard:'), error);
-        process.exit(1);
-      }
+    // Keep process alive
+    process.stdin.resume();
+  } catch (error) {
+    spinner.fail(error instanceof Error ? error.message : 'Failed to start dashboard');
+    process.exit(1);
+  }
 }
 
 export function createDashboardCommand(): Command {

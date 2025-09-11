@@ -1,28 +1,34 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
+import ora from 'ora';
 import {StatusChecker} from '../components/statusChecker.js';
 import {ConfigManager} from '../config.js';
 import {ArkClient} from '../lib/arkClient.js';
 import {StatusFormatter} from '../ui/statusFormatter.js';
 
 export async function checkStatus() {
+  const spinner = ora('Checking system status').start();
+
   try {
     const configManager = new ConfigManager();
+    
+    spinner.text = 'Checking system dependencies';
     const apiBaseUrl = await configManager.getApiBaseUrl();
-    const serviceUrls = await configManager.getServiceUrls();
     const arkClient = new ArkClient(apiBaseUrl);
     const statusChecker = new StatusChecker(arkClient);
 
-    // Check status
-    const statusData = await statusChecker.checkAll(serviceUrls, apiBaseUrl);
+    spinner.text = 'Testing cluster access';
+    
+    spinner.text = 'Checking ARK services';
+    const statusData = await statusChecker.checkAll();
 
-    // Print formatted status
+    spinner.stop();
+
     StatusFormatter.printStatus(statusData);
-
-    // Exit cleanly
     process.exit(0);
   } catch (error) {
-    console.error(chalk.red('Failed to check status:'), error);
+    spinner.fail('Failed to check status');
+    console.error(chalk.red('Error:'), error);
     process.exit(1);
   }
 }

@@ -5,17 +5,31 @@ export class StatusFormatter {
   /**
    * Print status check results to console
    */
-  public static printStatus(statusData: StatusData): void {
-    // Print services status
-    console.log(chalk.cyan.bold('\nark services:'));
-    for (const service of statusData.services) {
-      StatusFormatter.printService(service);
-    }
-
-    // Print dependencies status
+  public static printStatus(statusData: StatusData & {clusterAccess?: boolean}): void {
+    // Print dependencies status first
     console.log(chalk.cyan.bold('\nsystem dependencies:'));
     for (const dep of statusData.dependencies) {
       StatusFormatter.printDependency(dep);
+    }
+
+    // Print cluster status
+    console.log(chalk.cyan.bold('\ncluster access:'));
+    if (statusData.clusterAccess) {
+      console.log(`  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`);
+    } else {
+      console.log(`  ${chalk.red('✗ unreachable')} ${chalk.bold('kubernetes cluster')}`);
+      console.log(`    ${chalk.gray('Install minikube: https://minikube.sigs.k8s.io/docs/start')}`);
+    }
+
+    // Only show ARK services if we have cluster access
+    if (statusData.clusterAccess) {
+      console.log(chalk.cyan.bold('\nark services:'));
+      for (const service of statusData.services) {
+        StatusFormatter.printService(service);
+      }
+    } else {
+      console.log(chalk.cyan.bold('\nark services:'));
+      console.log(`  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`);
     }
 
     console.log();
@@ -27,18 +41,26 @@ export class StatusFormatter {
         ? chalk.green('✓ healthy')
         : service.status === 'unhealthy'
           ? chalk.red('✗ unhealthy')
-          : chalk.yellow('? not installed');
+          : service.status === 'warning'
+            ? chalk.yellow('⚠ warning')
+            : chalk.yellow('? not installed');
 
-    const urlText = service.url ? chalk.gray(` ${service.url}`) : '';
-    console.log(`  ${statusColor} ${chalk.bold(service.name)}${urlText}`);
-
-    if (service.status !== 'healthy' && service.details) {
-      // Show simplified details on next line for unhealthy services
-      const simplifiedDetails = service.details
-        .replace(`${service.name} is `, '')
-        .replace('or not accessible', 'or accessible');
-      console.log(`    ${chalk.gray(simplifiedDetails)}`);
+    // Show version and revision in grey after the name for healthy services
+    let versionInfo = '';
+    if (service.status === 'healthy' && (service.version || service.revision)) {
+      const parts = [];
+      if (service.version) parts.push(`v${service.version}`);
+      if (service.revision) parts.push(`revision ${service.revision}`);
+      versionInfo = chalk.gray(` ${parts.join(', ')}`);
     }
+
+    // Show details inline in grey for all statuses
+    let inlineDetails = '';
+    if (service.details) {
+      inlineDetails = chalk.gray(` ${service.details}`);
+    }
+
+    console.log(`  ${statusColor} ${chalk.bold(service.name)}${versionInfo}${inlineDetails}`);
   }
 
   private static printDependency(dep: DependencyStatus): void {

@@ -5,8 +5,7 @@ import inquirer from 'inquirer';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {getClusterInfo} from '../lib/cluster.js';
 import output from '../lib/output.js';
-import {charts} from '../charts/charts.js';
-import {dependencies} from '../charts/dependencies.js';
+import {getInstallableServices, arkDependencies} from '../arkServices.js';
 
 export async function installArk() {
   // Check if helm is installed
@@ -62,7 +61,7 @@ export async function installArk() {
   ]);
 
   if (shouldInstallDeps) {
-    for (const dep of Object.values(dependencies)) {
+    for (const dep of Object.values(arkDependencies)) {
       output.info(`installing ${dep.description || dep.name}...`);
 
       try {
@@ -78,20 +77,22 @@ export async function installArk() {
     }
   }
 
-  // Iterate through charts in order
-  for (const chart of Object.values(charts)) {
+  // Get installable services and iterate through them
+  const services = getInstallableServices();
+  
+  for (const service of Object.values(services)) {
     // Ask for confirmation
     const {shouldInstall} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'shouldInstall',
-        message: `install ${chalk.bold(chart.name)}? ${chart.description ? chalk.gray(`(${chart.description.toLowerCase()})`) : ''}`,
+        message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
         default: true,
       },
     ]);
 
     if (!shouldInstall) {
-      output.warning(`skipping ${chart.name}`);
+      output.warning(`skipping ${service.name}`);
       continue;
     }
 
@@ -100,15 +101,15 @@ export async function installArk() {
       const helmArgs = [
         'upgrade',
         '--install',
-        chart.name,
-        chart.chartPath,
+        service.helmReleaseName,
+        service.chartPath!,
         '--namespace',
-        chart.namespace,
+        service.namespace,
       ];
 
-      // Add any additional args from the chart definition
-      if (chart.args) {
-        helmArgs.push(...chart.args);
+      // Add any additional args from the service definition
+      if (service.installArgs) {
+        helmArgs.push(...service.installArgs);
       }
 
       // Run helm upgrade --install with streaming output
@@ -118,7 +119,7 @@ export async function installArk() {
 
       console.log(); // Add blank line after command output
     } catch {
-      // Continue with remaining charts on error
+      // Continue with remaining services on error
       console.log(); // Add blank line after error output
     }
   }

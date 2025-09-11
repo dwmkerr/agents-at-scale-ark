@@ -7,6 +7,8 @@ import {marked} from 'marked';
 // @ts-ignore - no types available
 import TerminalRenderer from 'marked-terminal';
 import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
+import {ArkApiClient} from '../lib/arkApiClient.js';
+import {ArkApiProxy} from '../lib/arkApiProxy.js';
 
 type SlashCommand = '/output' | '/streaming';
 
@@ -21,6 +23,8 @@ interface Message {
 
 interface ChatUIProps {
   initialTargetId?: string;
+  arkApiClient: ArkApiClient;
+  arkApiProxy: ArkApiProxy;
 }
 
 // Output format configuration (default: text)
@@ -44,7 +48,7 @@ const configureMarkdown = () => {
   });
 };
 
-const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
+const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiProxy}) => {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
@@ -82,8 +86,8 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
   React.useEffect(() => {
     const initializeChat = async () => {
       try {
-        const client = new ChatClient();
-        await client.initialize();
+        // Use the provided ArkApiClient to create ChatClient
+        const client = new ChatClient(arkApiClient);
         chatClientRef.current = client;
 
         const targets = await client.getQueryTargets();
@@ -154,6 +158,14 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId}) => {
     };
 
     initializeChat();
+
+    // Cleanup function to close port forward when component unmounts
+    return () => {
+      if (arkApiProxy) {
+        arkApiProxy.stop();
+      }
+      chatClientRef.current = undefined;
+    };
   }, [initialTargetId]);
 
   // Handle keyboard input

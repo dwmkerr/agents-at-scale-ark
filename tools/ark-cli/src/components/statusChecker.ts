@@ -5,12 +5,14 @@ import {
   ServiceStatus,
   StatusData,
   CommandVersionConfig,
+  DeploymentStatus,
 } from '../lib/types.js';
 import {KubernetesConfigManager} from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
 import axios from 'axios';
 import {ArkClient} from '../lib/arkClient.js';
 import {isCommandAvailable} from '../lib/commandUtils.js';
+import {arkServices} from '../arkServices.js';
 
 const execAsync = promisify(exec);
 
@@ -116,47 +118,106 @@ export class StatusChecker {
   }
 
   /**
-   * Check health of a service by URL
+   * Check deployment status
    */
-  private async checkServiceHealth(
+  private async checkDeploymentStatus(
     serviceName: string,
-    serviceUrl: string,
-    successMessage: string,
-    healthPath: string = ''
+    deploymentName: string,
+    namespace: string
   ): Promise<ServiceStatus> {
-    const fullUrl = `${serviceUrl}${healthPath}`;
-
     try {
-      await axios.get(fullUrl, {timeout: 5000});
+      const cmd = `kubectl get deployment ${deploymentName} --namespace ${namespace} -o json`;
+      const {stdout} = await execAsync(cmd);
+      const deployment = JSON.parse(stdout);
+      
+      const replicas = deployment.spec?.replicas || 0;
+      const readyReplicas = deployment.status?.readyReplicas || 0;
+      const availableReplicas = deployment.status?.availableReplicas || 0;
+      
+      // Check Kubernetes 'Available' condition - only 'available' deployments are healthy
+      const availableCondition = deployment.status?.conditions?.find(
+        (condition: any) => condition.type === 'Available'
+      );
+      const isAvailable = availableCondition?.status === 'True';
+      const allReplicasReady = readyReplicas === replicas && availableReplicas === replicas;
+      
+      // Only consider healthy if Available=True AND all replicas ready
+      const status = isAvailable && allReplicasReady ? 'healthy' : 'warning';
+      
       return {
         name: serviceName,
-        status: 'healthy',
-        url: serviceUrl,
-        details: successMessage,
+        status,
+        details: `${readyReplicas}/${replicas} replicas ready`,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('not found')) {
+        return {
+          name: serviceName,
+          status: 'not installed',
+          details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
+        };
+      }
+      
       return createErrorServiceStatus(
         serviceName,
-        serviceUrl,
+        '',
         error,
         'unhealthy',
-        `${serviceName} is not running or not accessible`
+        `Failed to check deployment: ${errorMessage}`
       );
     }
   }
 
   /**
-   * Check if ark-api is running and healthy
+   * Check helm release status (fallback for services without deployments)
    */
-  private async checkArkApi(customUrl?: string): Promise<ServiceStatus> {
-    const url = customUrl || this.arkClient.getBaseURL();
-    return this.checkServiceHealth(
-      'ark-api',
-      url,
-      'ARK API is running',
-      '/health'
-    );
+  private async checkHelmStatus(
+    serviceName: string,
+    helmReleaseName: string,
+    namespace: string
+  ): Promise<ServiceStatus> {
+    try {
+      const cmd = `helm list --filter ${helmReleaseName} --namespace ${namespace} --output json`;
+      const {stdout} = await execAsync(cmd);
+      const helmList = JSON.parse(stdout);
+      
+      if (helmList.length === 0) {
+        return {
+          name: serviceName,
+          status: 'not installed',
+          details: `Helm release '${helmReleaseName}' not found in namespace '${namespace}'`,
+        };
+      }
+      
+      const release = helmList[0];
+      const status = release.status?.toLowerCase() || 'unknown';
+      const revision = release.revision || 'unknown';
+      const appVersion = release.app_version || 'unknown';
+      
+      const isHealthy = status === 'deployed';
+      
+      return {
+        name: serviceName,
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        version: appVersion,
+        revision: revision,
+        details: `Status: ${status}`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      return createErrorServiceStatus(
+        serviceName,
+        '',
+        error,
+        'unhealthy',
+        `Failed to check helm status: ${errorMessage}`
+      );
+    }
   }
+
 
   /**
    * Return a "not installed" status for a service
@@ -274,63 +335,48 @@ export class StatusChecker {
   /**
    * Run all checks and return results
    */
-  public async checkAll(
-    serviceUrls: Record<string, string> = {},
-    arkApiUrl?: string
-  ): Promise<StatusData> {
-    // Always check ark-api if provided
-    const serviceChecks: Promise<ServiceStatus>[] = [];
-
-    if (arkApiUrl) {
-      serviceChecks.push(this.checkArkApi(arkApiUrl));
-    }
-
-    // Dynamically check all discovered services
-    for (const [serviceName, serviceUrl] of Object.entries(serviceUrls)) {
-      if (serviceName === 'ark-api' && arkApiUrl) {
-        // Skip if we already added ark-api above
-        continue;
+  public async checkAll(): Promise<StatusData & {clusterAccess: boolean}> {
+    // Check dependencies first
+    const dependencies = await this.checkDependencies();
+    
+    // Test cluster access
+    const configManager = new (await import('../config.js')).ConfigManager();
+    const clusterAccess = await configManager.testClusterAccess();
+    
+    let services: ServiceStatus[] = [];
+    
+    // Only check ARK services if we have cluster access
+    if (clusterAccess) {
+      const serviceChecks: Promise<ServiceStatus>[] = [];
+      
+      for (const [serviceName, service] of Object.entries(arkServices)) {
+        if (service.k8sDeploymentName) {
+          serviceChecks.push(
+            this.checkDeploymentStatus(
+              serviceName,
+              service.k8sDeploymentName,
+              service.namespace
+            )
+          );
+        } else {
+          serviceChecks.push(
+            this.checkHelmStatus(
+              serviceName,
+              service.helmReleaseName,
+              service.namespace
+            )
+          );
+        }
       }
-      serviceChecks.push(
-        this.checkServiceHealth(
-          serviceName,
-          serviceUrl,
-          `${serviceName} is running`,
-          this.getHealthPath(serviceName)
-        )
-      );
+      
+      services = await Promise.all(serviceChecks);
     }
-
-    // Always check dependencies
-    const dependenciesCheck = this.checkDependencies();
-
-    const [dependencies, ...serviceStatuses] = await Promise.all([
-      dependenciesCheck,
-      ...serviceChecks,
-    ]);
 
     return {
-      services: serviceStatuses,
+      services,
       dependencies,
+      clusterAccess,
     };
   }
 
-  /**
-   * Get appropriate health check path for different service types
-   */
-  private getHealthPath(serviceName: string): string {
-    // Some services might need specific health check paths
-    switch (serviceName) {
-      case 'ark-api':
-        return '/health';
-      case 'ark-api-a2a':
-        return '/health'; // ark-api-a2a has a working /health endpoint
-      case 'ark-dashboard':
-        return ''; // Dashboard typically responds to root
-      case 'langfuse':
-        return ''; // Langfuse responds to root path
-      default:
-        return ''; // Default to root path
-    }
-  }
 }

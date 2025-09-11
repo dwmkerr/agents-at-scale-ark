@@ -77,8 +77,17 @@ const MainMenu: React.FC = () => {
         break;
 
       case 'chat': {
+        const {ArkApiProxy} = await import('../lib/arkApiProxy.js');
         const ChatUI = (await import('../components/ChatUI.js')).default;
-        render(<ChatUI />);
+        
+        try {
+          const proxy = new ArkApiProxy();
+          const arkApiClient = await proxy.start();
+          render(<ChatUI arkApiClient={arkApiClient} arkApiProxy={proxy} />);
+        } catch (error) {
+          // Error already shown by ArkApiProxy
+          process.exit(1);
+        }
         break;
       }
 

@@ -1,13 +1,10 @@
 import OpenAI from 'openai';
-import {ConfigManager} from '../config.js';
+import {ArkApiClient, QueryTarget} from './arkApiClient.js';
+import {ArkApiProxy} from './arkApiProxy.js';
 import output from './output.js';
 
-export interface QueryTarget {
-  id: string;
-  name: string;
-  type: 'agent' | 'model' | 'tool' | string;
-  description?: string;
-}
+// Re-export QueryTarget for compatibility
+export {QueryTarget};
 
 export interface ChatConfig {
   streamingEnabled: boolean;
@@ -15,66 +12,14 @@ export interface ChatConfig {
 }
 
 export class ChatClient {
-  private openai?: OpenAI;
-  private configManager: ConfigManager;
+  private arkApiClient: ArkApiClient;
 
-  constructor() {
-    this.configManager = new ConfigManager();
+  constructor(arkApiClient: ArkApiClient) {
+    this.arkApiClient = arkApiClient;
   }
 
-  async initialize(): Promise<void> {
-    const apiBaseUrl = await this.configManager.getApiBaseUrl();
-
-    // Configure OpenAI SDK to use ark-api endpoint
-    this.openai = new OpenAI({
-      baseURL: `${apiBaseUrl}/openai/v1`,
-      apiKey: 'dummy', // ark-api doesn't require an API key
-      dangerouslyAllowBrowser: false,
-    });
-  }
-
-  /**
-   * Get available query targets (agents and models)
-   * The models endpoint returns available targets
-   */
   async getQueryTargets(): Promise<QueryTarget[]> {
-    if (!this.openai) {
-      await this.initialize();
-    }
-
-    try {
-      const models = await this.openai!.models.list();
-
-      // Transform the models into our QueryTarget format
-      const targets: QueryTarget[] = models.data.map((model) => {
-        // Parse the model ID to determine if it's an agent or model
-        // Format is "type/name" e.g., "agent/math", "model/default"
-        const [type, ...nameParts] = model.id.split('/');
-        const name = nameParts.join('/') || model.id;
-
-        return {
-          id: model.id,
-          name: name,
-          type: type,
-          description: undefined,
-        };
-      });
-
-      return targets;
-    } catch (error) {
-      // Check if it's a connection error
-      const err = error as {name?: string; message?: string};
-      if (
-        err?.name === 'APIConnectionError' ||
-        err?.message?.includes('Connection error')
-      ) {
-        throw new Error(
-          'Cannot connect to ARK API. Please ensure ark-api is running.'
-        );
-      }
-      // For other errors, throw them as-is
-      throw error;
-    }
+    return await this.arkApiClient.getQueryTargets();
   }
 
   /**
@@ -87,27 +32,21 @@ export class ChatClient {
     onChunk?: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<string> {
-    if (!this.openai) {
-      await this.initialize();
-    }
 
-    // Use streaming from config
     const shouldStream = config.streamingEnabled && !!onChunk;
 
     try {
-      const openaiClient = this.openai!;
-      const completion = await openaiClient.chat.completions.create({
+      const params = {
         model: targetId,
         messages: messages,
-        stream: shouldStream,
         signal: signal,
-      } as Parameters<typeof openaiClient.chat.completions.create>[0]);
+      };
 
-      // Handle streaming response
-      if (shouldStream && Symbol.asyncIterator in completion) {
+      if (shouldStream) {
         let fullResponse = '';
-        for await (const chunk of completion as AsyncIterable<{choices: Array<{delta?: {content?: string}}>}>) {
-          // Check if aborted and break immediately
+        const stream = this.arkApiClient.createChatCompletionStream(params);
+        
+        for await (const chunk of stream) {
           if (signal?.aborted) {
             break;
           }
@@ -122,32 +61,17 @@ export class ChatClient {
         }
         return fullResponse;
       } else {
-        // Non-streaming response or server doesn't support streaming
-        const response = completion as {
-          choices?: Array<{message?: {content?: string}}>;
-        };
-
-        if (!response.choices || !response.choices[0]) {
-          console.error(
-            'Unexpected response structure:',
-            JSON.stringify(response)
-          );
-          return '';
-        }
-
-        const content = response.choices[0].message?.content || '';
-
-        // If we requested streaming but got a full response, still call onChunk
-        // to maintain consistent behavior
+        const response = await this.arkApiClient.createChatCompletion(params);
+        const content = response.choices[0]?.message?.content || '';
+        
         if (shouldStream && onChunk && content) {
           onChunk(content);
         }
-
+        
         return content;
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       output.error('failed to call openai api:', errorMessage);
       throw error;
     }

@@ -1,6 +1,6 @@
 import {Command} from 'commander';
 import output from '../lib/output.js';
-import {ChatClient} from '../lib/chatClient.js';
+import {ArkApiProxy} from '../lib/arkApiProxy.js';
 
 export function createTargetsCommand(): Command {
   const targets = new Command('targets');
@@ -15,11 +15,13 @@ export function createTargetsCommand(): Command {
     .option('-o, --output <format>', 'output format (json or text)', 'text')
     .option('-t, --type <type>', 'filter by type (agent, team, model, tool)')
     .action(async (options) => {
+      let proxy: ArkApiProxy | undefined;
+      
       try {
-        const client = new ChatClient();
-        await client.initialize();
+        proxy = new ArkApiProxy();
+        const arkApiClient = await proxy.start();
 
-        const allTargets = await client.getQueryTargets();
+        const allTargets = await arkApiClient.getQueryTargets();
 
         // Filter by type if specified
         let filteredTargets = allTargets;
@@ -54,6 +56,10 @@ export function createTargetsCommand(): Command {
           error instanceof Error ? error.message : error
         );
         process.exit(1);
+      } finally {
+        if (proxy) {
+          proxy.stop();
+        }
       }
     });
 

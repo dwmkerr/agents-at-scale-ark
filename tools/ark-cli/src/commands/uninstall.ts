@@ -5,7 +5,7 @@ import inquirer from 'inquirer';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {getClusterInfo} from '../lib/cluster.js';
 import output from '../lib/output.js';
-import {charts} from '../charts/charts.js';
+import {getInstallableServices} from '../arkServices.js';
 
 async function uninstallArk() {
   // Check if helm is installed
@@ -44,22 +44,23 @@ async function uninstallArk() {
   }
   console.log(); // Add blank line after cluster info
 
-  // Iterate through charts in reverse order for clean uninstall
-  const chartEntries = Object.entries(charts).reverse();
+  // Get installable services and iterate through them in reverse order for clean uninstall
+  const services = getInstallableServices();
+  const serviceEntries = Object.entries(services).reverse();
 
-  for (const [, chart] of chartEntries) {
+  for (const [, service] of serviceEntries) {
     // Ask for confirmation
     const {shouldUninstall} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'shouldUninstall',
-        message: `uninstall ${chalk.bold(chart.name)}? ${chart.description ? chalk.gray(`(${chart.description.toLowerCase()})`) : ''}`,
+        message: `uninstall ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
         default: true,
       },
     ]);
 
     if (!shouldUninstall) {
-      output.warning(`skipping ${chart.name}`);
+      output.warning(`skipping ${service.name}`);
       continue;
     }
 
@@ -69,9 +70,9 @@ async function uninstallArk() {
         'helm',
         [
           'uninstall',
-          chart.name,
+          service.helmReleaseName,
           '--namespace',
-          chart.namespace,
+          service.namespace,
           '--ignore-not-found',
         ],
         {
