@@ -6,6 +6,9 @@ dependencies:
   ark-cluster-memory:
     path: ./services/ark-cluster-memory
     pipeline: dev
+#   ark-mcp:
+#     path: ./services/ark-mcp
+#     pipeline: dev
 #   postgres-memory:
 #     path: ./services/postgres-memory
 
@@ -100,7 +103,6 @@ deployments:
             image:
               repository: ${runtime.images.ark-controller.image}
               tag: ${runtime.images.ark-controller.tag}
-            # Override resources for local development
             resources:
               limits:
                 memory: "2048Mi"
