@@ -335,7 +335,9 @@ export class StatusChecker {
   /**
    * Run all checks and return results
    */
-  public async checkAll(): Promise<StatusData & {clusterAccess: boolean; clusterInfo?: any}> {
+  public async checkAll(): Promise<
+    StatusData & {clusterAccess: boolean; clusterInfo?: any}
+  > {
     // Check dependencies first
     const dependencies = await this.checkDependencies();
 

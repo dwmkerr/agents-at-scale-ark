@@ -775,18 +775,14 @@ const ChatUI: React.FC<ChatUIProps> = ({
             ✻ Welcome to ARK Chat!
           </Text>
           <Box marginTop={1}>
-            <Text dimColor>
-              Type your message and press Enter to start
-            </Text>
+            <Text dimColor>Type your message and press Enter to start</Text>
           </Box>
           <Box>
-            <Text dimColor>
-              Type '/' for available commands
-            </Text>
+            <Text dimColor>Type '/' for available commands</Text>
           </Box>
         </Box>
       )}
-      
+
       <Box flexDirection="column" flexGrow={1}>
         {messages.map(renderMessage)}
       </Box>

@@ -114,22 +114,19 @@ const MainMenu: React.FC = () => {
         const {render} = await import('ink');
         const {ArkApiProxy} = await import('../lib/arkApiProxy.js');
         const ChatUI = (await import('../components/ChatUI.js')).default;
-        
+
         try {
           const proxy = new ArkApiProxy();
           const arkApiClient = await proxy.start();
-          
+
           // Render ChatUI as a new Ink app
-          render(
-            <ChatUI
-              arkApiClient={arkApiClient}
-              arkApiProxy={proxy}
-            />
-          );
+          render(<ChatUI arkApiClient={arkApiClient} arkApiProxy={proxy} />);
         } catch (error) {
           const output = (await import('../lib/output.js')).default;
           output.error(
-            error instanceof Error ? error.message : 'Failed to connect to ARK API'
+            error instanceof Error
+              ? error.message
+              : 'Failed to connect to ARK API'
           );
           process.exit(1);
         }

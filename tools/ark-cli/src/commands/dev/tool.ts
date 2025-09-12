@@ -104,9 +104,13 @@ async function initTool() {
     console.log(`\n2. Test your tool:`);
     console.log(chalk.yellow(`   python ${filename}`));
     console.log(`\n3. Add your tool logic in the handler function`);
-    console.log(`\nFor more information, see: https://github.com/jlowin/fastmcp`);
+    console.log(
+      `\nFor more information, see: https://github.com/jlowin/fastmcp`
+    );
   } catch (error) {
-    output.error(`Failed to create tool: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    output.error(
+      `Failed to create tool: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
     process.exit(1);
   }
 }
@@ -120,7 +124,7 @@ function getPythonFastMCPTemplate(toolName: string): string {
   // Convert snake_case to Title Case for description
   const toolDescription = toolName
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   return `#!/usr/bin/env python3
@@ -165,9 +169,7 @@ export function createToolCommand(): Command {
   toolCommand.description('MCP tool development utilities');
 
   const initCommand = new Command('init');
-  initCommand
-    .description('Initialize a new MCP tool')
-    .action(initTool);
+  initCommand.description('Initialize a new MCP tool').action(initTool);
 
   toolCommand.addCommand(initCommand);
 
