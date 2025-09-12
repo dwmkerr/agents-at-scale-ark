@@ -6,7 +6,7 @@ export class StatusFormatter {
    * Print status check results to console
    */
   public static printStatus(
-    statusData: StatusData & {clusterAccess?: boolean}
+    statusData: StatusData & {clusterAccess?: boolean; clusterInfo?: any}
   ): void {
     // Print dependencies status first
     console.log(chalk.cyan.bold('\nsystem dependencies:'));
@@ -16,7 +16,20 @@ export class StatusFormatter {
 
     // Print cluster status
     console.log(chalk.cyan.bold('\ncluster access:'));
-    if (statusData.clusterAccess) {
+    if (statusData.clusterAccess && statusData.clusterInfo) {
+      const clusterName = statusData.clusterInfo.context || 'kubernetes cluster';
+      const clusterDetails = [];
+      if (statusData.clusterInfo.type && statusData.clusterInfo.type !== 'unknown') {
+        clusterDetails.push(statusData.clusterInfo.type);
+      }
+      if (statusData.clusterInfo.ip) {
+        clusterDetails.push(statusData.clusterInfo.ip);
+      }
+      
+      console.log(
+        `  ${chalk.green('✓ accessible')} ${chalk.bold.white(clusterName)}${clusterDetails.length > 0 ? chalk.gray(' ' + clusterDetails.join(', ')) : ''}`
+      );
+    } else if (statusData.clusterAccess) {
       console.log(
         `  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`
       );

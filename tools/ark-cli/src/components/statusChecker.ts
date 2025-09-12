@@ -335,13 +335,20 @@ export class StatusChecker {
   /**
    * Run all checks and return results
    */
-  public async checkAll(): Promise<StatusData & {clusterAccess: boolean}> {
+  public async checkAll(): Promise<StatusData & {clusterAccess: boolean; clusterInfo?: any}> {
     // Check dependencies first
     const dependencies = await this.checkDependencies();
 
     // Test cluster access
     const configManager = new (await import('../config.js')).ConfigManager();
     const clusterAccess = await configManager.testClusterAccess();
+
+    // Get cluster info if accessible
+    let clusterInfo;
+    if (clusterAccess) {
+      const {getClusterInfo} = await import('../lib/cluster.js');
+      clusterInfo = await getClusterInfo();
+    }
 
     let services: ServiceStatus[] = [];
 
@@ -376,6 +383,7 @@ export class StatusChecker {
       services,
       dependencies,
       clusterAccess,
+      clusterInfo,
     };
   }
 }
