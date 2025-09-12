@@ -164,12 +164,16 @@ export class ArkApiClient {
     })) as OpenAI.Chat.Completions.ChatCompletion;
   }
 
-  createChatCompletionStream(
+  async *createChatCompletionStream(
     params: OpenAI.Chat.Completions.ChatCompletionCreateParams
   ): AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk> {
-    return this.openai.chat.completions.create({
+    const stream = await this.openai.chat.completions.create({
       ...params,
       stream: true,
-    }) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+    });
+    
+    for await (const chunk of stream) {
+      yield chunk;
+    }
   }
 }
