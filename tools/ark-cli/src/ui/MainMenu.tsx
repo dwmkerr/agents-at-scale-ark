@@ -107,18 +107,37 @@ const MainMenu: React.FC = () => {
         break;
 
       case 'chat': {
-        const {ArkApiProxy} = await import('../lib/arkApiProxy.js');
-        const ChatUI = (await import('../components/ChatUI.js')).default;
+        // Unmount fullscreen app and clear screen.
+        await unmountInkApp();
 
-        try {
-          const proxy = new ArkApiProxy();
-          const arkApiClient = await proxy.start();
-          render(<ChatUI arkApiClient={arkApiClient} arkApiProxy={proxy} />);
-        } catch (_error) {
-          // Error already shown by ArkApiProxy
-          process.exit(1);
-        }
-        break;
+        // Spawn the chat command as a separate process
+        const {spawn} = await import('child_process');
+        const child = spawn(process.execPath, [process.argv[1], 'chat'], {
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            NODE_NO_WARNINGS: '1',
+          },
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          child.on('close', (code) => {
+            if (code === 0) {
+              resolve();
+            } else if (code === 130) {
+              // 130 is the exit code for SIGINT (Ctrl+C)
+              process.exit(130);
+            } else {
+              reject(new Error(`Chat exited with code ${code}`));
+            }
+          });
+
+          child.on('error', (err) => {
+            reject(err);
+          });
+        });
+
+        process.exit(0);
       }
 
       case 'install': {

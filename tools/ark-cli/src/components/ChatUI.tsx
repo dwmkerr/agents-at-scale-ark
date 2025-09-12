@@ -1,4 +1,4 @@
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useInput, useApp} from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
@@ -63,6 +63,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   arkApiClient,
   arkApiProxy,
 }) => {
+  const {exit} = useApp();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
@@ -133,7 +134,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
             console.error(
               chalk.gray('Use "ark targets list" to see available targets')
             );
-            process.exit(1);
+            if (arkApiProxy) {
+              arkApiProxy.stop();
+            }
+            exit();
           }
         } else if (targets.length > 0) {
           // No initial target specified - auto-select first available
@@ -173,7 +177,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to initialize chat';
         console.error(chalk.red('Error:'), errorMessage);
-        process.exit(1);
+        if (arkApiProxy) {
+          arkApiProxy.stop();
+        }
+        exit();
       }
     };
 
@@ -190,6 +197,20 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
   // Handle keyboard input
   useInput((input, key) => {
+    // Handle Ctrl+C to exit cleanly
+    if (input === '\x03' || (key.ctrl && input === 'c')) {
+      // Clean up resources
+      if (arkApiProxy) {
+        arkApiProxy.stop();
+      }
+      if (abortController) {
+        abortController.abort();
+      }
+      // Exit the app properly
+      exit();
+      return;
+    }
+
     // Tab to autocomplete when there's a single matching command
     if (
       key.tab &&
