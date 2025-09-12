@@ -31,7 +31,7 @@ _ark_completion() {
   
   case \${COMP_CWORD} in
     1)
-      opts="cluster completion check chat targets help"
+      opts="agents chat cluster completion config dashboard generate install models routes status targets teams tools uninstall help"
       COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
       return 0
       ;;
@@ -54,6 +54,31 @@ _ark_completion() {
           ;;
         targets)
           opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        agents)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        models)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        teams)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        tools)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        generate)
+          opts="agent marketplace mcp-server project query team"
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
           return 0
           ;;
@@ -97,11 +122,21 @@ _ark() {
   case $state in
     command)
       _values 'ark commands' \\
+        'agents[List available agents]' \\
+        'chat[Interactive chat with agents and models]' \\
         'cluster[Cluster management commands]' \\
         'completion[Generate shell completion scripts]' \\
-        'check[Check system components]' \\
-        'chat[Interactive chat with agents and models]' \\
+        'config[Configuration management]' \\
+        'dashboard[Open ARK dashboard]' \\
+        'generate[Generate ARK resources]' \\
+        'install[Install ARK services]' \\
+        'models[List available models]' \\
+        'routes[List available routes]' \\
+        'status[Check system status]' \\
         'targets[List available query targets]' \\
+        'teams[List available teams]' \\
+        'tools[List available tools]' \\
+        'uninstall[Uninstall ARK services]' \\
         'help[Show help information]'
       ;;
     subcommand)
@@ -124,6 +159,35 @@ _ark() {
           _values 'targets commands' \\
             'list[List all available targets]' \\
             'ls[List all available targets]'
+          ;;
+        agents)
+          _values 'agents commands' \\
+            'list[List all available agents]' \\
+            'ls[List all available agents]'
+          ;;
+        models)
+          _values 'models commands' \\
+            'list[List all available models]' \\
+            'ls[List all available models]'
+          ;;
+        teams)
+          _values 'teams commands' \\
+            'list[List all available teams]' \\
+            'ls[List all available teams]'
+          ;;
+        tools)
+          _values 'tools commands' \\
+            'list[List all available tools]' \\
+            'ls[List all available tools]'
+          ;;
+        generate)
+          _values 'generate types' \\
+            'agent[Generate a new agent]' \\
+            'marketplace[Generate marketplace content]' \\
+            'mcp-server[Generate MCP server]' \\
+            'project[Generate a new project]' \\
+            'query[Generate a query]' \\
+            'team[Generate a team]'
           ;;
         chat)
           # Get available targets dynamically
