@@ -31,7 +31,7 @@ _ark_completion() {
   
   case \${COMP_CWORD} in
     1)
-      opts="agents chat cluster completion config dashboard generate install models routes status targets teams tools uninstall help"
+      opts="agents chat cluster completion config dashboard dev generate install models routes status targets teams tools uninstall help"
       COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
       return 0
       ;;
@@ -77,6 +77,11 @@ _ark_completion() {
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
           return 0
           ;;
+        dev)
+          opts="tool"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
         generate)
           opts="agent marketplace mcp-server project query team"
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
@@ -92,6 +97,19 @@ _ark_completion() {
           fi
           COMPREPLY=( $(compgen -W "\${targets}" -- \${cur}) )
           return 0
+          ;;
+      esac
+      ;;
+    3)
+      case \${COMP_WORDS[1]} in
+        dev)
+          case \${prev} in
+            tool)
+              opts="init"
+              COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+              return 0
+              ;;
+          esac
           ;;
       esac
       ;;
@@ -128,6 +146,7 @@ _ark() {
         'completion[Generate shell completion scripts]' \\
         'config[Configuration management]' \\
         'dashboard[Open ARK dashboard]' \\
+        'dev[Development tools for ARK]' \\
         'generate[Generate ARK resources]' \\
         'install[Install ARK services]' \\
         'models[List available models]' \\
@@ -179,6 +198,10 @@ _ark() {
           _values 'tools commands' \\
             'list[List all available tools]' \\
             'ls[List all available tools]'
+          ;;
+        dev)
+          _values 'dev commands' \\
+            'tool[MCP tool development utilities]'
           ;;
         generate)
           _values 'generate types' \\
