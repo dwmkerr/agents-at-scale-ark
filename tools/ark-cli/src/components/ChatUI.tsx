@@ -770,18 +770,19 @@ const ChatUI: React.FC<ChatUIProps> = ({
     <Box flexDirection="column" height="100%">
       {/* Welcome header - only show if no messages */}
       {messages.length === 0 && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={1}>
-            <Box flexDirection="column">
-              <Text bold color="green">
-                ✻ Welcome to ARK Chat!
-              </Text>
-              <Box marginTop={1}>
-                <Text dimColor>
-                  Type '/' for available commands
-                </Text>
-              </Box>
-            </Box>
+        <Box flexDirection="column" marginBottom={1} paddingX={2}>
+          <Text bold color="green">
+            ✻ Welcome to ARK Chat!
+          </Text>
+          <Box marginTop={1}>
+            <Text dimColor>
+              Type your message and press Enter to start
+            </Text>
+          </Box>
+          <Box>
+            <Text dimColor>
+              Type '/' for available commands
+            </Text>
           </Box>
         </Box>
       )}
