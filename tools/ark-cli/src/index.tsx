@@ -15,10 +15,13 @@ import {createCompletionCommand} from './commands/completion.js';
 import {createDashboardCommand} from './commands/dashboard.js';
 import {createGenerateCommand} from './commands/generate/index.js';
 import {createInstallCommand} from './commands/install.js';
+import {createModelsCommand} from './commands/models/index.js';
 import {createUninstallCommand} from './commands/uninstall.js';
 import {createStatusCommand} from './commands/status.js';
 import {createConfigCommand} from './commands/config.js';
 import {createTargetsCommand} from './commands/targets.js';
+import {createTeamsCommand} from './commands/teams/index.js';
+import {createToolsCommand} from './commands/tools/index.js';
 import {createRoutesCommand} from './commands/routes.js';
 import MainMenu from './ui/MainMenu.js';
 
@@ -45,10 +48,13 @@ async function main() {
   program.addCommand(createDashboardCommand());
   program.addCommand(createGenerateCommand());
   program.addCommand(createInstallCommand());
+  program.addCommand(createModelsCommand());
   program.addCommand(createUninstallCommand());
   program.addCommand(createStatusCommand());
   program.addCommand(createConfigCommand());
   program.addCommand(createTargetsCommand());
+  program.addCommand(createTeamsCommand());
+  program.addCommand(createToolsCommand());
   program.addCommand(createRoutesCommand());
 
   // If no args provided, show interactive menu

@@ -1,4 +1,4 @@
-import {Box, Text, useInput, useApp} from 'ink';
+import {Box, Text, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
@@ -10,8 +10,17 @@ import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
 import {AgentSelector} from '../commands/agents/selector.js';
+import {ModelSelector} from '../commands/models/selector.js';
+import {TeamSelector} from '../commands/teams/selector.js';
+import {ToolSelector} from '../commands/tools/selector.js';
 
-type SlashCommand = '/output' | '/streaming' | '/agents';
+type SlashCommand =
+  | '/output'
+  | '/streaming'
+  | '/agents'
+  | '/models'
+  | '/teams'
+  | '/tools';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -74,6 +83,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [outputFormat, setOutputFormat] =
     React.useState<OutputFormat>(getOutputFormat());
   const [showAgentSelector, setShowAgentSelector] = React.useState(false);
+  const [showModelSelector, setShowModelSelector] = React.useState(false);
+  const [showTeamSelector, setShowTeamSelector] = React.useState(false);
+  const [showToolSelector, setShowToolSelector] = React.useState(false);
 
   // Initialize chat config from environment variable
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
@@ -319,6 +331,30 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
     if (value.startsWith('/agents')) {
       setShowAgentSelector(true);
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    if (value.startsWith('/models')) {
+      setShowModelSelector(true);
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    if (value.startsWith('/teams')) {
+      setShowTeamSelector(true);
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    if (value.startsWith('/tools')) {
+      setShowToolSelector(true);
       setInput('');
       setShowCommands(false);
       setFilteredCommands([]);
@@ -598,7 +634,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setChatConfig((prev) => ({...prev, currentTarget: agentTarget}));
           setMessages([]);
           setShowAgentSelector(false);
-          
+
           // Add system message about the selection
           const systemMessage: Message = {
             role: 'system',
@@ -609,6 +645,102 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setMessages([systemMessage]);
         }}
         onExit={() => setShowAgentSelector(false)}
+      />
+    );
+  }
+
+  // Show model selector if requested
+  if (showModelSelector) {
+    return (
+      <ModelSelector
+        arkApiClient={arkApiClient}
+        onSelect={(model) => {
+          // Update the target to the selected model
+          const modelTarget: QueryTarget = {
+            id: `model/${model.name}`,
+            name: model.name,
+            type: 'model',
+            description: model.type,
+          };
+          setTarget(modelTarget);
+          setChatConfig((prev) => ({...prev, currentTarget: modelTarget}));
+          setMessages([]);
+          setShowModelSelector(false);
+
+          // Add system message about the selection
+          const systemMessage: Message = {
+            role: 'system',
+            content: `Switched to model: ${model.name}`,
+            timestamp: new Date(),
+            command: '/models',
+          };
+          setMessages([systemMessage]);
+        }}
+        onExit={() => setShowModelSelector(false)}
+      />
+    );
+  }
+
+  // Show team selector if requested
+  if (showTeamSelector) {
+    return (
+      <TeamSelector
+        arkApiClient={arkApiClient}
+        onSelect={(team) => {
+          // Update the target to the selected team
+          const teamTarget: QueryTarget = {
+            id: `team/${team.name}`,
+            name: team.name,
+            type: 'team',
+            description: team.strategy,
+          };
+          setTarget(teamTarget);
+          setChatConfig((prev) => ({...prev, currentTarget: teamTarget}));
+          setMessages([]);
+          setShowTeamSelector(false);
+
+          // Add system message about the selection
+          const systemMessage: Message = {
+            role: 'system',
+            content: `Switched to team: ${team.name}`,
+            timestamp: new Date(),
+            command: '/teams',
+          };
+          setMessages([systemMessage]);
+        }}
+        onExit={() => setShowTeamSelector(false)}
+      />
+    );
+  }
+
+  // Show tool selector if requested
+  if (showToolSelector) {
+    return (
+      <ToolSelector
+        arkApiClient={arkApiClient}
+        onSelect={(tool) => {
+          // Update the target to the selected tool
+          const toolTarget: QueryTarget = {
+            id: `tool/${tool.name}`,
+            name: tool.name,
+            type: 'tool',
+            description: tool.description,
+          };
+          setTarget(toolTarget);
+          setChatConfig((prev) => ({...prev, currentTarget: toolTarget}));
+          setMessages([]);
+          setShowToolSelector(false);
+
+          // Add system message about the selection
+          const systemMessage: Message = {
+            role: 'system',
+            content: `Switched to tool: ${tool.name}`,
+            timestamp: new Date(),
+            command: '/tools',
+          };
+          setMessages([systemMessage]);
+        }}
+        onExit={() => setShowToolSelector(false)}
       />
     );
   }
@@ -642,6 +774,18 @@ const ChatUI: React.FC<ChatUIProps> = ({
                       {
                         command: '/agents',
                         description: 'Select an agent to chat with',
+                      },
+                      {
+                        command: '/models',
+                        description: 'Select a model to chat with',
+                      },
+                      {
+                        command: '/teams',
+                        description: 'Select a team to chat with',
+                      },
+                      {
+                        command: '/tools',
+                        description: 'Select a tool to use',
                       },
                       {
                         command: '/output',

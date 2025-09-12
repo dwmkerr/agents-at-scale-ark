@@ -34,6 +34,15 @@ export interface Tool {
   annotations?: Record<string, string>;
 }
 
+export interface Team {
+  name: string;
+  namespace: string;
+  description?: string;
+  strategy?: string;
+  members_count?: number;
+  status?: string;
+}
+
 export class ArkApiClient {
   private openai: OpenAI;
   private baseUrl: string;
@@ -125,6 +134,23 @@ export class ArkApiClient {
     } catch (error) {
       throw new Error(
         `Failed to get tools: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getTeams(): Promise<Team[]> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/v1/namespaces/${this.namespace}/teams`
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      throw new Error(
+        `Failed to get teams: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

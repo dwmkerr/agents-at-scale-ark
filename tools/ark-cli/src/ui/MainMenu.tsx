@@ -147,7 +147,7 @@ const MainMenu: React.FC = () => {
             }
           });
           child.on('error', reject);
-          
+
           // Forward SIGINT to child and exit
           process.on('SIGINT', () => {
             child.kill('SIGINT');
