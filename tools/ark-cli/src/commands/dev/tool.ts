@@ -13,7 +13,7 @@ interface ToolConfig {
 }
 
 async function initTool() {
-  console.log(chalk.blue('🔧 ARK MCP Tool Initializer\n'));
+  console.log(chalk.blue('ARK MCP Tool Initializer\n'));
 
   // Get current working directory
   const cwd = process.cwd();
@@ -97,8 +97,8 @@ async function initTool() {
 
   try {
     createToolFile(toolConfig);
-    console.log(chalk.green(`\n✅ Tool '${filename}' created successfully!`));
-    console.log(chalk.cyan('\n🎯 Next steps:\n'));
+    console.log(chalk.green(`\nTool '${filename}' created successfully!`));
+    console.log(chalk.cyan('\nNext steps:\n'));
     console.log(`1. Install fastmcp:`);
     console.log(chalk.yellow(`   pip install fastmcp`));
     console.log(`\n2. Test your tool:`);
