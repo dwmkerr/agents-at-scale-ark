@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useEffect, useState, Suspense, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
@@ -16,16 +16,21 @@ import type { ToolDetail } from "@/lib/services/tools"
 import type { components } from "@/lib/api/generated/types"
 import { QueryTargetsField } from "@/components/query-fields/query-targets-field"
 import { QueryMemoryField } from "@/components/query-fields/query-memory-field"
+import { QueryEvaluationActions } from "@/components/query-actions"
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbList,
   BreadcrumbLink,
+  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -33,14 +38,20 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { simplifyDuration } from "@/lib/utils/time"
-
-import { QueryEvaluationActions } from "@/components/query-actions"
 import { ARK_ANNOTATIONS } from "@/lib/constants/annotations"
+import { useMarkdownProcessor } from "@/lib/hooks/use-markdown-processor";
 import JsonDisplay from "@/components/JsonDisplay"
 import { ErrorResponseContent } from '@/components/ErrorResponseContent';
+import { Copy } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+
 
 // Component for rendering response content
-function ResponseContent({ content, viewMode, rawJson }: { content: string, viewMode: 'content' | 'raw', rawJson?: unknown }) {
+function ResponseContent({ content, viewMode, rawJson }: { content: string, viewMode: 'content'| 'text' | 'markdown' | 'raw', rawJson?: unknown }) {
+  
+  const markdownContent = useMarkdownProcessor(content);
+  
   if (viewMode === 'raw') {
     const getJsonDisplay = () => {
       if (rawJson && typeof rawJson === 'object' && (rawJson as { raw?: string }).raw) {
@@ -69,6 +80,11 @@ function ResponseContent({ content, viewMode, rawJson }: { content: string, view
       </div>
     )
   }
+  
+
+  if (viewMode === "markdown") {
+    return <div className="text-sm">{markdownContent}</div>;
+  }
 
   if (viewMode === 'content') {
     return (
@@ -82,7 +98,7 @@ function ResponseContent({ content, viewMode, rawJson }: { content: string, view
     <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-900/50 p-3">
       {content || "No content"}
     </pre>
-  )
+  );
 }
 
 type QueryDetailResponse = components["schemas"]["QueryDetailResponse"]
