@@ -32,17 +32,25 @@ export function createChatCommand(): Command {
 
       // Initialize proxy first with spinner
       const spinner = ora('Setting up ARK API connection').start();
-      
+
       try {
         const proxy = new ArkApiProxy();
         const arkApiClient = await proxy.start();
-        
+
         spinner.stop();
-        
+
         // Pass the initialized client to ChatUI
-        render(<ChatUI initialTargetId={initialTargetId} arkApiClient={arkApiClient} arkApiProxy={proxy} />);
+        render(
+          <ChatUI
+            initialTargetId={initialTargetId}
+            arkApiClient={arkApiClient}
+            arkApiProxy={proxy}
+          />
+        );
       } catch (error) {
-        spinner.fail(error instanceof Error ? error.message : 'ARK API connection failed');
+        spinner.fail(
+          error instanceof Error ? error.message : 'ARK API connection failed'
+        );
         process.exit(1);
       }
     });

@@ -79,7 +79,7 @@ export async function installArk() {
 
   // Get installable services and iterate through them
   const services = getInstallableServices();
-  
+
   for (const service of Object.values(services)) {
     // Ask for confirmation
     const {shouldInstall} = await inquirer.prompt([

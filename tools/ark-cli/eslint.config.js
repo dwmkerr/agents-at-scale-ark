@@ -22,6 +22,7 @@ export default [
         AbortController: 'readonly',
         AbortSignal: 'readonly',
         globalThis: 'readonly',
+        fetch: 'readonly',
       },
     },
     rules: {

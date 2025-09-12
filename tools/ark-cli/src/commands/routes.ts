@@ -123,7 +123,10 @@ async function listRoutes() {
       });
     }
   } catch (error) {
-    output.error('failed to fetch routes:', error instanceof Error ? error.message : 'Unknown error');
+    output.error(
+      'failed to fetch routes:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     process.exit(1);
   }
 }

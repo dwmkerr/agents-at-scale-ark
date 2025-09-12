@@ -7,14 +7,14 @@ import {arkServices} from '../arkServices.js';
 
 export async function openDashboard() {
   const spinner = ora('Connecting to dashboard').start();
-  
+
   try {
     const dashboardService = arkServices['ark-dashboard'];
     const proxy = new ArkServiceProxy(dashboardService, 3274); // DASH on phone keypad
 
     const url = await proxy.start();
     spinner.succeed('Dashboard connected');
-    
+
     console.log(`ARK dashboard running on: ${chalk.green(url)}`);
     console.log(chalk.gray('Press Ctrl+C to stop'));
 
@@ -33,7 +33,9 @@ export async function openDashboard() {
     // Keep process alive
     process.stdin.resume();
   } catch (error) {
-    spinner.fail(error instanceof Error ? error.message : 'Failed to start dashboard');
+    spinner.fail(
+      error instanceof Error ? error.message : 'Failed to start dashboard'
+    );
     process.exit(1);
   }
 }

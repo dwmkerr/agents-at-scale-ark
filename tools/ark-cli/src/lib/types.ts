@@ -15,13 +15,13 @@ export interface KubernetesConfig {
   inCluster: boolean;
 }
 
-export type DeploymentStatus = 
-  | 'available'      // All replicas ready and available
-  | 'progressing'    // Deployment is rolling out
+export type DeploymentStatus =
+  | 'available' // All replicas ready and available
+  | 'progressing' // Deployment is rolling out
   | 'replicafailure' // Failed to create replicas
-  | 'failed'         // Deployment failed
-  | 'not found'      // Deployment doesn't exist
-  | 'unknown';       // Unable to determine status
+  | 'failed' // Deployment failed
+  | 'not found' // Deployment doesn't exist
+  | 'unknown'; // Unable to determine status
 
 export type ServiceStatus = {
   name: string;

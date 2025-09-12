@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
 import {ArkApiClient, QueryTarget} from './arkApiClient.js';
-import {ArkApiProxy} from './arkApiProxy.js';
 import output from './output.js';
 
 // Re-export QueryTarget for compatibility
@@ -32,7 +30,6 @@ export class ChatClient {
     onChunk?: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<string> {
-
     const shouldStream = config.streamingEnabled && !!onChunk;
 
     try {
@@ -45,7 +42,7 @@ export class ChatClient {
       if (shouldStream) {
         let fullResponse = '';
         const stream = this.arkApiClient.createChatCompletionStream(params);
-        
+
         for await (const chunk of stream) {
           if (signal?.aborted) {
             break;
@@ -63,15 +60,16 @@ export class ChatClient {
       } else {
         const response = await this.arkApiClient.createChatCompletion(params);
         const content = response.choices[0]?.message?.content || '';
-        
+
         if (shouldStream && onChunk && content) {
           onChunk(content);
         }
-        
+
         return content;
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       output.error('failed to call openai api:', errorMessage);
       throw error;
     }

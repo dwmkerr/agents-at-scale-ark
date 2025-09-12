@@ -1,4 +1,4 @@
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useInput, useApp} from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
 import chalk from 'chalk';
@@ -9,8 +9,9 @@ import TerminalRenderer from 'marked-terminal';
 import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
+import {AgentSelector} from '../commands/agents/selector.js';
 
-type SlashCommand = '/output' | '/streaming';
+type SlashCommand = '/output' | '/streaming' | '/agents';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -48,7 +49,11 @@ const configureMarkdown = () => {
   });
 };
 
-const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiProxy}) => {
+const ChatUI: React.FC<ChatUIProps> = ({
+  initialTargetId,
+  arkApiClient,
+  arkApiProxy,
+}) => {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
@@ -62,10 +67,13 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
   const [abortController, setAbortController] =
     React.useState<AbortController | null>(null);
   const [showCommands, setShowCommands] = React.useState(false);
-  const [filteredCommands, setFilteredCommands] = React.useState<Array<{command: string; description: string}>>([]);
+  const [filteredCommands, setFilteredCommands] = React.useState<
+    Array<{command: string; description: string}>
+  >([]);
   const [inputKey, setInputKey] = React.useState(0); // Key to force re-mount of TextInput
   const [outputFormat, setOutputFormat] =
     React.useState<OutputFormat>(getOutputFormat());
+  const [showAgentSelector, setShowAgentSelector] = React.useState(false);
 
   // Initialize chat config from environment variable
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
@@ -171,17 +179,22 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
   // Handle keyboard input
   useInput((input, key) => {
     // Tab to autocomplete when there's a single matching command
-    if (key.tab && !key.shift && showCommands && filteredCommands.length === 1) {
+    if (
+      key.tab &&
+      !key.shift &&
+      showCommands &&
+      filteredCommands.length === 1
+    ) {
       // Set the completed command with a space at the end
       const completedCommand = filteredCommands[0].command + ' ';
       setInput(completedCommand);
       // Keep the command hint visible but update to show only the completed command
       setFilteredCommands([filteredCommands[0]]);
       // Force re-mount of TextInput to reset cursor position
-      setInputKey(prev => prev + 1);
+      setInputKey((prev) => prev + 1);
       return;
     }
-    
+
     // Shift+Tab to cycle through targets
     if (key.shift && key.tab && availableTargets.length > 0) {
       // Cycle to next target
@@ -298,6 +311,14 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
         setMessages((prev) => [...prev, systemMessage]);
       }
 
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    if (value.startsWith('/agents')) {
+      setShowAgentSelector(true);
       setInput('');
       setShowCommands(false);
       setFilteredCommands([]);
@@ -449,7 +470,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
     // Render system messages with consistent formatting
     if (isSystem) {
       const isInterruption = msg.content === 'Interrupted by user';
-      
+
       // If it's a slash command response, show with special formatting
       if (msg.command) {
         return (
@@ -463,7 +484,7 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
           </Box>
         );
       }
-      
+
       // For other system messages (interruptions, errors, etc.)
       const color = isInterruption ? 'yellow' : 'gray';
       return (
@@ -560,6 +581,38 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
     );
   }
 
+  // Show agent selector if requested
+  if (showAgentSelector) {
+    return (
+      <AgentSelector
+        arkApiClient={arkApiClient}
+        onSelect={(agent) => {
+          // Update the target to the selected agent
+          const agentTarget: QueryTarget = {
+            id: `agent/${agent.name}`,
+            name: agent.name,
+            type: 'agent',
+            description: agent.description,
+          };
+          setTarget(agentTarget);
+          setChatConfig((prev) => ({...prev, currentTarget: agentTarget}));
+          setMessages([]);
+          setShowAgentSelector(false);
+          
+          // Add system message about the selection
+          const systemMessage: Message = {
+            role: 'system',
+            content: `Switched to agent: ${agent.name}`,
+            timestamp: new Date(),
+            command: '/agents',
+          };
+          setMessages([systemMessage]);
+        }}
+        onExit={() => setShowAgentSelector(false)}
+      />
+    );
+  }
+
   return (
     <Box flexDirection="column" height="100%">
       <Box flexDirection="column" flexGrow={1}>
@@ -581,21 +634,31 @@ const ChatUI: React.FC<ChatUIProps> = ({initialTargetId, arkApiClient, arkApiPro
                   // Show commands menu only when input starts with '/'
                   const shouldShowCommands = value.startsWith('/');
                   setShowCommands(shouldShowCommands);
-                  
+
                   // Update filtered commands
                   if (shouldShowCommands) {
                     const inputLower = value.toLowerCase();
                     const commands = [
-                      {command: '/output', description: `Set output format (${outputFormat}) - use: /output text|markdown`},
-                      {command: '/streaming', description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'}) - use: /streaming on|off`}
+                      {
+                        command: '/agents',
+                        description: 'Select an agent to chat with',
+                      },
+                      {
+                        command: '/output',
+                        description: `Set output format (${outputFormat}) - use: /output text|markdown`,
+                      },
+                      {
+                        command: '/streaming',
+                        description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'}) - use: /streaming on|off`,
+                      },
                     ];
-                    
+
                     // Check if user has typed a complete command (with space or at exact match)
                     const hasSpace = value.includes(' ');
                     const baseCommand = hasSpace ? value.split(' ')[0] : value;
-                    
+
                     // Filter commands - show matching commands or the current command if fully typed
-                    const filtered = commands.filter(cmd => {
+                    const filtered = commands.filter((cmd) => {
                       if (hasSpace) {
                         // If there's a space, only show the exact matching command
                         return cmd.command === baseCommand;

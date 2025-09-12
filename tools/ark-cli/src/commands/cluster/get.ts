@@ -38,7 +38,10 @@ export function createGetCommand(): Command {
           console.log(`ip: ${clusterInfo.ip || 'unknown'}`);
         }
       } catch (error) {
-        output.error('failed to get cluster info:', error instanceof Error ? error.message : 'Unknown error');
+        output.error(
+          'failed to get cluster info:',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
         process.exit(1);
       }
     });

@@ -9,7 +9,8 @@ export class ArkServiceProxy {
 
   constructor(service: ArkService, localPort?: number) {
     this.service = service;
-    this.localPort = localPort || service.k8sPortForwardLocalPort || this.getRandomPort();
+    this.localPort =
+      localPort || service.k8sPortForwardLocalPort || this.getRandomPort();
   }
 
   private getRandomPort(): number {
@@ -18,7 +19,9 @@ export class ArkServiceProxy {
 
   async start(): Promise<string> {
     if (!this.service.k8sServiceName || !this.service.k8sServicePort) {
-      throw new Error(`${this.service.name} service configuration missing k8sServiceName or k8sServicePort`);
+      throw new Error(
+        `${this.service.name} service configuration missing k8sServiceName or k8sServicePort`
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -26,11 +29,12 @@ export class ArkServiceProxy {
         'port-forward',
         `service/${this.service.k8sServiceName}`,
         `${this.localPort}:${this.service.k8sServicePort}`,
-        '--namespace', this.service.namespace
+        '--namespace',
+        this.service.namespace,
       ];
 
       this.kubectlProcess = spawn('kubectl', args, {
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
 
       let setupComplete = false;
@@ -48,7 +52,7 @@ export class ArkServiceProxy {
           setupComplete = true;
           clearTimeout(setupTimeout);
           this.isReady = true;
-          
+
           const localUrl = `http://localhost:${this.localPort}`;
           resolve(localUrl);
         }
@@ -60,8 +64,12 @@ export class ArkServiceProxy {
           setupComplete = true;
           clearTimeout(setupTimeout);
           this.stop();
-          
-          reject(new Error(`${this.service.name} port forward failed: ${errorOutput.trim()}`));
+
+          reject(
+            new Error(
+              `${this.service.name} port forward failed: ${errorOutput.trim()}`
+            )
+          );
         }
       });
 
@@ -69,7 +77,11 @@ export class ArkServiceProxy {
         if (!setupComplete) {
           setupComplete = true;
           clearTimeout(setupTimeout);
-          reject(new Error(`Failed to start ${this.service.name} port forward: ${error.message}`));
+          reject(
+            new Error(
+              `Failed to start ${this.service.name} port forward: ${error.message}`
+            )
+          );
         }
       });
 
@@ -78,7 +90,11 @@ export class ArkServiceProxy {
         if (!setupComplete && code !== 0) {
           setupComplete = true;
           clearTimeout(setupTimeout);
-          reject(new Error(`${this.service.name} port forward exited with code ${code}`));
+          reject(
+            new Error(
+              `${this.service.name} port forward exited with code ${code}`
+            )
+          );
         }
       });
     });

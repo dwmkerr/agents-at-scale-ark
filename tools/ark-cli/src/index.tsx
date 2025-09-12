@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
 
 import output from './lib/output.js';
+import {createAgentsCommand} from './commands/agents/index.js';
 import {createChatCommand} from './commands/chat.js';
 import {createClusterCommand} from './commands/cluster/index.js';
 import {createCompletionCommand} from './commands/completion.js';
@@ -37,6 +38,7 @@ async function main() {
     .description(packageJson.description)
     .version(packageJson.version);
 
+  program.addCommand(createAgentsCommand());
   program.addCommand(createChatCommand());
   program.addCommand(createClusterCommand());
   program.addCommand(createCompletionCommand());

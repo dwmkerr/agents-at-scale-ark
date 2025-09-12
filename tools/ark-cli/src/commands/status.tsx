@@ -11,14 +11,14 @@ export async function checkStatus() {
 
   try {
     const configManager = new ConfigManager();
-    
+
     spinner.text = 'Checking system dependencies';
     const apiBaseUrl = await configManager.getApiBaseUrl();
     const arkClient = new ArkClient(apiBaseUrl);
     const statusChecker = new StatusChecker(arkClient);
 
     spinner.text = 'Testing cluster access';
-    
+
     spinner.text = 'Checking ARK services';
     const statusData = await statusChecker.checkAll();
 

@@ -36,6 +36,60 @@ const LOCALHOST_GATEWAY_PORT = 8080;
 const REGISTRY_BASE = 'oci://ghcr.io/mckinsey/agents-at-scale-ark/charts';
 
 /**
+ * Dependencies that should be installed before ARK services
+ * Note: Dependencies will be installed in the order they are defined here
+ */
+export const arkDependencies: DependencyCollection = {
+  'cert-manager-repo': {
+    name: 'cert-manager-repo',
+    command: 'helm',
+    args: [
+      'repo',
+      'add',
+      'jetstack',
+      'https://charts.jetstack.io',
+      '--force-update',
+    ],
+    description: 'Add Jetstack Helm repository',
+  },
+
+  'helm-repo-update': {
+    name: 'helm-repo-update',
+    command: 'helm',
+    args: ['repo', 'update'],
+    description: 'Update Helm repositories',
+  },
+
+  'cert-manager': {
+    name: 'cert-manager',
+    command: 'helm',
+    args: [
+      'upgrade',
+      '--install',
+      'cert-manager',
+      'jetstack/cert-manager',
+      '--namespace',
+      'cert-manager',
+      '--create-namespace',
+      '--set',
+      'crds.enabled=true',
+    ],
+    description: 'Certificate management for Kubernetes',
+  },
+
+  'gateway-api-crds': {
+    name: 'gateway-api-crds',
+    command: 'kubectl',
+    args: [
+      'apply',
+      '-f',
+      'https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml',
+    ],
+    description: 'Gateway API CRDs',
+  },
+};
+
+/**
  * Core ARK services with their installation and status check configurations
  */
 export const arkServices: ServiceCollection = {
@@ -106,7 +160,6 @@ export const arkServices: ServiceCollection = {
     chartPath: `${REGISTRY_BASE}/localhost-gateway`,
     installArgs: [],
   },
-
 };
 
 /**
@@ -114,13 +167,13 @@ export const arkServices: ServiceCollection = {
  */
 export function getInstallableServices(): ServiceCollection {
   const installable: ServiceCollection = {};
-  
+
   for (const [key, service] of Object.entries(arkServices)) {
     if (service.chartPath) {
       installable[key] = service;
     }
   }
-  
+
   return installable;
 }
 
@@ -129,13 +182,13 @@ export function getInstallableServices(): ServiceCollection {
  */
 export function getStatusCheckableServices(): Record<string, string> {
   const statusServices: Record<string, string> = {};
-  
+
   for (const [key, service] of Object.entries(arkServices)) {
     if (service.gatewayUrl) {
       statusServices[key] = service.gatewayUrl;
     }
   }
-  
+
   return statusServices;
 }
 
@@ -146,57 +199,3 @@ export function getHealthPath(serviceName: string): string {
   const service = arkServices[serviceName];
   return service?.healthPath || '';
 }
-
-/**
- * Dependencies that should be installed before ARK services
- * Note: Dependencies will be installed in the order they are defined here
- */
-export const arkDependencies: DependencyCollection = {
-  'cert-manager-repo': {
-    name: 'cert-manager-repo',
-    command: 'helm',
-    args: [
-      'repo',
-      'add',
-      'jetstack',
-      'https://charts.jetstack.io',
-      '--force-update',
-    ],
-    description: 'Add Jetstack Helm repository',
-  },
-
-  'helm-repo-update': {
-    name: 'helm-repo-update',
-    command: 'helm',
-    args: ['repo', 'update'],
-    description: 'Update Helm repositories',
-  },
-
-  'cert-manager': {
-    name: 'cert-manager',
-    command: 'helm',
-    args: [
-      'upgrade',
-      '--install',
-      'cert-manager',
-      'jetstack/cert-manager',
-      '--namespace',
-      'cert-manager',
-      '--create-namespace',
-      '--set',
-      'crds.enabled=true',
-    ],
-    description: 'Certificate management for Kubernetes',
-  },
-
-  'gateway-api-crds': {
-    name: 'gateway-api-crds',
-    command: 'kubectl',
-    args: [
-      'apply',
-      '-f',
-      'https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml',
-    ],
-    description: 'Gateway API CRDs',
-  },
-};

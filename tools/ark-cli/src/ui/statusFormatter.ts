@@ -5,7 +5,9 @@ export class StatusFormatter {
   /**
    * Print status check results to console
    */
-  public static printStatus(statusData: StatusData & {clusterAccess?: boolean}): void {
+  public static printStatus(
+    statusData: StatusData & {clusterAccess?: boolean}
+  ): void {
     // Print dependencies status first
     console.log(chalk.cyan.bold('\nsystem dependencies:'));
     for (const dep of statusData.dependencies) {
@@ -15,10 +17,16 @@ export class StatusFormatter {
     // Print cluster status
     console.log(chalk.cyan.bold('\ncluster access:'));
     if (statusData.clusterAccess) {
-      console.log(`  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`);
+      console.log(
+        `  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`
+      );
     } else {
-      console.log(`  ${chalk.red('✗ unreachable')} ${chalk.bold('kubernetes cluster')}`);
-      console.log(`    ${chalk.gray('Install minikube: https://minikube.sigs.k8s.io/docs/start')}`);
+      console.log(
+        `  ${chalk.red('✗ unreachable')} ${chalk.bold('kubernetes cluster')}`
+      );
+      console.log(
+        `    ${chalk.gray('Install minikube: https://minikube.sigs.k8s.io/docs/start')}`
+      );
     }
 
     // Only show ARK services if we have cluster access
@@ -29,7 +37,9 @@ export class StatusFormatter {
       }
     } else {
       console.log(chalk.cyan.bold('\nark services:'));
-      console.log(`  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`);
+      console.log(
+        `  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`
+      );
     }
 
     console.log();
@@ -60,7 +70,9 @@ export class StatusFormatter {
       inlineDetails = chalk.gray(` ${service.details}`);
     }
 
-    console.log(`  ${statusColor} ${chalk.bold(service.name)}${versionInfo}${inlineDetails}`);
+    console.log(
+      `  ${statusColor} ${chalk.bold(service.name)}${versionInfo}${inlineDetails}`
+    );
   }
 
   private static printDependency(dep: DependencyStatus): void {

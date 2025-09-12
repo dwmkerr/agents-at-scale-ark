@@ -5,11 +5,9 @@ import {
   ServiceStatus,
   StatusData,
   CommandVersionConfig,
-  DeploymentStatus,
 } from '../lib/types.js';
 import {KubernetesConfigManager} from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
-import axios from 'axios';
 import {ArkClient} from '../lib/arkClient.js';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {arkServices} from '../arkServices.js';
@@ -129,29 +127,31 @@ export class StatusChecker {
       const cmd = `kubectl get deployment ${deploymentName} --namespace ${namespace} -o json`;
       const {stdout} = await execAsync(cmd);
       const deployment = JSON.parse(stdout);
-      
+
       const replicas = deployment.spec?.replicas || 0;
       const readyReplicas = deployment.status?.readyReplicas || 0;
       const availableReplicas = deployment.status?.availableReplicas || 0;
-      
+
       // Check Kubernetes 'Available' condition - only 'available' deployments are healthy
       const availableCondition = deployment.status?.conditions?.find(
         (condition: any) => condition.type === 'Available'
       );
       const isAvailable = availableCondition?.status === 'True';
-      const allReplicasReady = readyReplicas === replicas && availableReplicas === replicas;
-      
+      const allReplicasReady =
+        readyReplicas === replicas && availableReplicas === replicas;
+
       // Only consider healthy if Available=True AND all replicas ready
       const status = isAvailable && allReplicasReady ? 'healthy' : 'warning';
-      
+
       return {
         name: serviceName,
         status,
         details: `${readyReplicas}/${replicas} replicas ready`,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
       if (errorMessage.includes('not found')) {
         return {
           name: serviceName,
@@ -159,7 +159,7 @@ export class StatusChecker {
           details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
         };
       }
-      
+
       return createErrorServiceStatus(
         serviceName,
         '',
@@ -182,7 +182,7 @@ export class StatusChecker {
       const cmd = `helm list --filter ${helmReleaseName} --namespace ${namespace} --output json`;
       const {stdout} = await execAsync(cmd);
       const helmList = JSON.parse(stdout);
-      
+
       if (helmList.length === 0) {
         return {
           name: serviceName,
@@ -190,14 +190,14 @@ export class StatusChecker {
           details: `Helm release '${helmReleaseName}' not found in namespace '${namespace}'`,
         };
       }
-      
+
       const release = helmList[0];
       const status = release.status?.toLowerCase() || 'unknown';
       const revision = release.revision || 'unknown';
       const appVersion = release.app_version || 'unknown';
-      
+
       const isHealthy = status === 'deployed';
-      
+
       return {
         name: serviceName,
         status: isHealthy ? 'healthy' : 'unhealthy',
@@ -206,8 +206,9 @@ export class StatusChecker {
         details: `Status: ${status}`,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
       return createErrorServiceStatus(
         serviceName,
         '',
@@ -217,7 +218,6 @@ export class StatusChecker {
       );
     }
   }
-
 
   /**
    * Return a "not installed" status for a service
@@ -338,17 +338,17 @@ export class StatusChecker {
   public async checkAll(): Promise<StatusData & {clusterAccess: boolean}> {
     // Check dependencies first
     const dependencies = await this.checkDependencies();
-    
+
     // Test cluster access
     const configManager = new (await import('../config.js')).ConfigManager();
     const clusterAccess = await configManager.testClusterAccess();
-    
+
     let services: ServiceStatus[] = [];
-    
+
     // Only check ARK services if we have cluster access
     if (clusterAccess) {
       const serviceChecks: Promise<ServiceStatus>[] = [];
-      
+
       for (const [serviceName, service] of Object.entries(arkServices)) {
         if (service.k8sDeploymentName) {
           serviceChecks.push(
@@ -368,7 +368,7 @@ export class StatusChecker {
           );
         }
       }
-      
+
       services = await Promise.all(serviceChecks);
     }
 
@@ -378,5 +378,4 @@ export class StatusChecker {
       clusterAccess,
     };
   }
-
 }

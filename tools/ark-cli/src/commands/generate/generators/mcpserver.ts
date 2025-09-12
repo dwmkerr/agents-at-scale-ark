@@ -160,8 +160,7 @@ class McpServerGenerator {
         type: 'input',
         name: 'packageName',
         message: 'Package name (if using external package):',
-        when: (answers: any) =>
-          answers.packageSource !== 'local',
+        when: (answers: any) => answers.packageSource !== 'local',
         validate: (input: string, answers: any) => {
           if (answers.packageSource !== 'local' && !input.trim()) {
             return 'Package name is required when using external packages';
@@ -290,16 +289,14 @@ class McpServerGenerator {
 
         tools.push(toolInfo);
 
-        const continueAdding = await inquirer.prompt<{continue: boolean}>(
-          [
-            {
-              type: 'confirm',
-              name: 'continue',
-              message: 'Add another tool?',
-              default: false,
-            },
-          ]
-        );
+        const continueAdding = await inquirer.prompt<{continue: boolean}>([
+          {
+            type: 'confirm',
+            name: 'continue',
+            message: 'Add another tool?',
+            default: false,
+          },
+        ]);
 
         addingTools = continueAdding.continue;
       }
@@ -401,7 +398,11 @@ class McpServerGenerator {
       // Convert config to template variables format
       const templateVars: Record<string, string | number | boolean> = {};
       Object.entries(config).forEach(([key, value]) => {
-        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        if (
+          typeof value === 'string' ||
+          typeof value === 'number' ||
+          typeof value === 'boolean'
+        ) {
           templateVars[key] = value;
         } else {
           templateVars[key] = JSON.stringify(value);
@@ -425,7 +426,10 @@ class McpServerGenerator {
         )
       );
     } catch (error) {
-      console.error(chalk.red('Failed to generate MCP server:'), error instanceof Error ? error.message : 'Unknown error');
+      console.error(
+        chalk.red('Failed to generate MCP server:'),
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       process.exit(1);
     }
   }
