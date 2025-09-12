@@ -168,6 +168,9 @@ dev:
   ark-dashboard:
     imageSelector: ark-dashboard
     devImage: node:24-alpine
+    env:
+      - name: NODE_ENV
+        value: development
     command:
       [
         "sh",
