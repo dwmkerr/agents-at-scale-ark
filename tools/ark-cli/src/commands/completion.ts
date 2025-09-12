@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { Command } from 'commander';
+import {Command} from 'commander';
 
 export function createCompletionCommand(): Command {
   const completion = new Command('completion');
@@ -31,7 +31,7 @@ _ark_completion() {
   
   case \${COMP_CWORD} in
     1)
-      opts="cluster completion check help"
+      opts="agents chat cluster completion config dashboard dev generate install models routes status targets teams tools uninstall help"
       COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
       return 0
       ;;
@@ -51,6 +51,65 @@ _ark_completion() {
           opts="status"
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
           return 0
+          ;;
+        targets)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        agents)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        models)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        teams)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        tools)
+          opts="list ls"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        dev)
+          opts="tool"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        generate)
+          opts="agent marketplace mcp-server project query team"
+          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+          return 0
+          ;;
+        chat)
+          # Dynamically fetch available targets using ark targets list
+          local targets
+          targets=$(ark targets list 2>/dev/null)
+          if [ -z "$targets" ]; then
+            # Fallback to common targets if API is not available
+            targets="agent/sample-agent agent/math agent/weather model/default"
+          fi
+          COMPREPLY=( $(compgen -W "\${targets}" -- \${cur}) )
+          return 0
+          ;;
+      esac
+      ;;
+    3)
+      case \${COMP_WORDS[1]} in
+        dev)
+          case \${prev} in
+            tool)
+              opts="init"
+              COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+              return 0
+              ;;
+          esac
           ;;
       esac
       ;;
@@ -81,9 +140,22 @@ _ark() {
   case $state in
     command)
       _values 'ark commands' \\
+        'agents[List available agents]' \\
+        'chat[Interactive chat with agents and models]' \\
         'cluster[Cluster management commands]' \\
         'completion[Generate shell completion scripts]' \\
-        'check[Check system components]' \\
+        'config[Configuration management]' \\
+        'dashboard[Open ARK dashboard]' \\
+        'dev[Development tools for ARK]' \\
+        'generate[Generate ARK resources]' \\
+        'install[Install ARK services]' \\
+        'models[List available models]' \\
+        'routes[List available routes]' \\
+        'status[Check system status]' \\
+        'targets[List available query targets]' \\
+        'teams[List available teams]' \\
+        'tools[List available tools]' \\
+        'uninstall[Uninstall ARK services]' \\
         'help[Show help information]'
       ;;
     subcommand)
@@ -101,6 +173,53 @@ _ark() {
         check)
           _values 'check commands' \\
             'status[Check system status]'
+          ;;
+        targets)
+          _values 'targets commands' \\
+            'list[List all available targets]' \\
+            'ls[List all available targets]'
+          ;;
+        agents)
+          _values 'agents commands' \\
+            'list[List all available agents]' \\
+            'ls[List all available agents]'
+          ;;
+        models)
+          _values 'models commands' \\
+            'list[List all available models]' \\
+            'ls[List all available models]'
+          ;;
+        teams)
+          _values 'teams commands' \\
+            'list[List all available teams]' \\
+            'ls[List all available teams]'
+          ;;
+        tools)
+          _values 'tools commands' \\
+            'list[List all available tools]' \\
+            'ls[List all available tools]'
+          ;;
+        dev)
+          _values 'dev commands' \\
+            'tool[MCP tool development utilities]'
+          ;;
+        generate)
+          _values 'generate types' \\
+            'agent[Generate a new agent]' \\
+            'marketplace[Generate marketplace content]' \\
+            'mcp-server[Generate MCP server]' \\
+            'project[Generate a new project]' \\
+            'query[Generate a query]' \\
+            'team[Generate a team]'
+          ;;
+        chat)
+          # Get available targets dynamically
+          local -a targets
+          targets=($(ark targets list 2>/dev/null))
+          if [ \${#targets[@]} -eq 0 ]; then
+            targets=('agent/sample-agent' 'agent/math' 'agent/weather' 'model/default')
+          fi
+          _values 'available targets' \${targets[@]}
           ;;
       esac
       ;;

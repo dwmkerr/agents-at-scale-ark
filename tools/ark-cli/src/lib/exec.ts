@@ -1,14 +1,14 @@
 import fs from 'fs';
 
-import { execa } from 'execa';
+import {execa} from 'execa';
 
 export async function executeCommand(
   command: string,
   args: string[] = []
-): Promise<{ stdout: string; stderr: string }> {
+): Promise<{stdout: string; stderr: string}> {
   try {
     const result = await execa(command, args);
-    return { stdout: result.stdout, stderr: result.stderr };
+    return {stdout: result.stdout, stderr: result.stderr};
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(

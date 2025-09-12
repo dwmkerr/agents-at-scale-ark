@@ -256,7 +256,7 @@ export class EnhancedPrompts {
    */
   static showChoiceHelp(
     title: string,
-    choices: Array<{ name: string; description: string }>
+    choices: Array<{name: string; description: string}>
   ): void {
     console.log(chalk.cyan(`\n📋 ${title}:`));
     choices.forEach((choice) => {
@@ -300,7 +300,7 @@ export class OutputFormatter {
    * Format a list of key-value pairs
    */
   static formatKeyValueList(
-    items: Array<{ key: string; value: string; highlight?: boolean }>
+    items: Array<{key: string; value: string; highlight?: boolean}>
   ): void {
     const maxKeyLength = Math.max(...items.map((item) => item.key.length));
 
@@ -335,7 +335,7 @@ export class OutputFormatter {
    */
   static formatCommands(
     title: string,
-    commands: Array<{ command: string; description: string }>
+    commands: Array<{command: string; description: string}>
   ): void {
     console.log(chalk.cyan(`\n${title}:`));
     commands.forEach((cmd) => {

@@ -1,6 +1,6 @@
 import * as k8s from '@kubernetes/client-node';
 
-import { KubernetesConfigManager } from './kubernetes.js';
+import {KubernetesConfigManager} from './kubernetes.js';
 
 export class GatewayManager {
   private kubernetesManager: KubernetesConfigManager;
@@ -56,7 +56,7 @@ export class GatewayManager {
     const isRunning = await this.isPortForwardRunning(port);
 
     if (isRunning) {
-      return { isRunning: true, needsSetup: false };
+      return {isRunning: true, needsSetup: false};
     }
 
     const isDeployed = await this.isGatewayDeployed();

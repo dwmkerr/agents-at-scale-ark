@@ -1,15 +1,16 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import {exec} from 'child_process';
+import {promisify} from 'util';
 import {
   DependencyStatus,
   ServiceStatus,
   StatusData,
   CommandVersionConfig,
 } from '../lib/types.js';
-import { KubernetesConfigManager } from '../lib/kubernetes.js';
+import {KubernetesConfigManager} from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
-import axios from 'axios';
-import { ArkClient } from '../lib/arkClient.js';
+import {ArkClient} from '../lib/arkClient.js';
+import {isCommandAvailable} from '../lib/commandUtils.js';
+import {arkServices} from '../arkServices.js';
 
 const execAsync = promisify(exec);
 
@@ -55,6 +56,22 @@ export const getHelmVersion = (): CommandVersionConfig => ({
   versionExtract: (output: string) => output.trim(),
 });
 
+export const getMinikubeVersion = (): CommandVersionConfig => ({
+  command: 'minikube',
+  versionArgs: 'version --short',
+  versionExtract: (output: string) => output.trim(),
+});
+
+export const getKindVersion = (): CommandVersionConfig => ({
+  command: 'kind',
+  versionArgs: 'version',
+  versionExtract: (output: string) => {
+    // kind version output is like "kind v0.20.0 go1.21.0 linux/amd64"
+    const match = output.match(/kind (v[\d.]+)/);
+    return match ? match[1] : output.trim();
+  },
+});
+
 function createErrorServiceStatus(
   name: string,
   url: string,
@@ -82,22 +99,6 @@ export class StatusChecker {
   }
 
   /**
-   * Check if a command is available in the system
-   */
-  private async isCommandAvailable(command: string): Promise<boolean> {
-    try {
-      const checkCommand =
-        process.platform === 'win32'
-          ? `where ${command}`
-          : `command -v ${command}`;
-      await execAsync(checkCommand);
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  }
-
-  /**
    * Get version of a command
    */
   private async getCommandVersion(
@@ -105,7 +106,7 @@ export class StatusChecker {
   ): Promise<string> {
     try {
       const cmd = `${config.command} ${config.versionArgs}`;
-      const { stdout } = await execAsync(cmd);
+      const {stdout} = await execAsync(cmd);
       return config.versionExtract(stdout);
     } catch (error) {
       throw new Error(
@@ -115,46 +116,107 @@ export class StatusChecker {
   }
 
   /**
-   * Check health of a service by URL
+   * Check deployment status
    */
-  private async checkServiceHealth(
+  private async checkDeploymentStatus(
     serviceName: string,
-    serviceUrl: string,
-    successMessage: string,
-    healthPath: string = ''
+    deploymentName: string,
+    namespace: string
   ): Promise<ServiceStatus> {
-    const fullUrl = `${serviceUrl}${healthPath}`;
-
     try {
-      await axios.get(fullUrl, { timeout: 5000 });
+      const cmd = `kubectl get deployment ${deploymentName} --namespace ${namespace} -o json`;
+      const {stdout} = await execAsync(cmd);
+      const deployment = JSON.parse(stdout);
+
+      const replicas = deployment.spec?.replicas || 0;
+      const readyReplicas = deployment.status?.readyReplicas || 0;
+      const availableReplicas = deployment.status?.availableReplicas || 0;
+
+      // Check Kubernetes 'Available' condition - only 'available' deployments are healthy
+      const availableCondition = deployment.status?.conditions?.find(
+        (condition: any) => condition.type === 'Available'
+      );
+      const isAvailable = availableCondition?.status === 'True';
+      const allReplicasReady =
+        readyReplicas === replicas && availableReplicas === replicas;
+
+      // Only consider healthy if Available=True AND all replicas ready
+      const status = isAvailable && allReplicasReady ? 'healthy' : 'warning';
+
       return {
         name: serviceName,
-        status: 'healthy',
-        url: serviceUrl,
-        details: successMessage,
+        status,
+        details: `${readyReplicas}/${replicas} replicas ready`,
       };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage.includes('not found')) {
+        return {
+          name: serviceName,
+          status: 'not installed',
+          details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
+        };
+      }
+
       return createErrorServiceStatus(
         serviceName,
-        serviceUrl,
+        '',
         error,
         'unhealthy',
-        `${serviceName} is not running or not accessible`
+        `Failed to check deployment: ${errorMessage}`
       );
     }
   }
 
   /**
-   * Check if ark-api is running and healthy
+   * Check helm release status (fallback for services without deployments)
    */
-  private async checkArkApi(customUrl?: string): Promise<ServiceStatus> {
-    const url = customUrl || this.arkClient.getBaseURL();
-    return this.checkServiceHealth(
-      'ark-api',
-      url,
-      'ARK API is running',
-      '/health'
-    );
+  private async checkHelmStatus(
+    serviceName: string,
+    helmReleaseName: string,
+    namespace: string
+  ): Promise<ServiceStatus> {
+    try {
+      const cmd = `helm list --filter ${helmReleaseName} --namespace ${namespace} --output json`;
+      const {stdout} = await execAsync(cmd);
+      const helmList = JSON.parse(stdout);
+
+      if (helmList.length === 0) {
+        return {
+          name: serviceName,
+          status: 'not installed',
+          details: `Helm release '${helmReleaseName}' not found in namespace '${namespace}'`,
+        };
+      }
+
+      const release = helmList[0];
+      const status = release.status?.toLowerCase() || 'unknown';
+      const revision = release.revision || 'unknown';
+      const appVersion = release.app_version || 'unknown';
+
+      const isHealthy = status === 'deployed';
+
+      return {
+        name: serviceName,
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        version: appVersion,
+        revision: revision,
+        details: `Status: ${status}`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      return createErrorServiceStatus(
+        serviceName,
+        '',
+        error,
+        'unhealthy',
+        `Failed to check helm status: ${errorMessage}`
+      );
+    }
   }
 
   /**
@@ -238,17 +300,19 @@ export class StatusChecker {
    */
   private async checkDependencies(): Promise<DependencyStatus[]> {
     const dependencies = [
-      { name: 'node', ...getNodeVersion() },
-      { name: 'npm', ...getNpmVersion() },
-      { name: 'kubectl', ...getKubectlVersion() },
-      { name: 'docker', ...getDockerVersion() },
-      { name: 'helm', ...getHelmVersion() },
+      {name: 'node', ...getNodeVersion()},
+      {name: 'npm', ...getNpmVersion()},
+      {name: 'kubectl', ...getKubectlVersion()},
+      {name: 'docker', ...getDockerVersion()},
+      {name: 'helm', ...getHelmVersion()},
+      {name: 'minikube', ...getMinikubeVersion()},
+      {name: 'kind', ...getKindVersion()},
     ];
 
     const results: DependencyStatus[] = [];
 
     for (const dep of dependencies) {
-      const installed = await this.isCommandAvailable(dep.command);
+      const installed = await isCommandAvailable(dep.command);
       const version = installed
         ? await this.getCommandVersion({
             command: dep.command,
@@ -271,63 +335,57 @@ export class StatusChecker {
   /**
    * Run all checks and return results
    */
-  public async checkAll(
-    serviceUrls: Record<string, string> = {},
-    arkApiUrl?: string
-  ): Promise<StatusData> {
-    // Always check ark-api if provided
-    const serviceChecks: Promise<ServiceStatus>[] = [];
+  public async checkAll(): Promise<
+    StatusData & {clusterAccess: boolean; clusterInfo?: any}
+  > {
+    // Check dependencies first
+    const dependencies = await this.checkDependencies();
 
-    if (arkApiUrl) {
-      serviceChecks.push(this.checkArkApi(arkApiUrl));
+    // Test cluster access
+    const configManager = new (await import('../config.js')).ConfigManager();
+    const clusterAccess = await configManager.testClusterAccess();
+
+    // Get cluster info if accessible
+    let clusterInfo;
+    if (clusterAccess) {
+      const {getClusterInfo} = await import('../lib/cluster.js');
+      clusterInfo = await getClusterInfo();
     }
 
-    // Dynamically check all discovered services
-    for (const [serviceName, serviceUrl] of Object.entries(serviceUrls)) {
-      if (serviceName === 'ark-api' && arkApiUrl) {
-        // Skip if we already added ark-api above
-        continue;
+    let services: ServiceStatus[] = [];
+
+    // Only check ARK services if we have cluster access
+    if (clusterAccess) {
+      const serviceChecks: Promise<ServiceStatus>[] = [];
+
+      for (const [serviceName, service] of Object.entries(arkServices)) {
+        if (service.k8sDeploymentName) {
+          serviceChecks.push(
+            this.checkDeploymentStatus(
+              serviceName,
+              service.k8sDeploymentName,
+              service.namespace
+            )
+          );
+        } else {
+          serviceChecks.push(
+            this.checkHelmStatus(
+              serviceName,
+              service.helmReleaseName,
+              service.namespace
+            )
+          );
+        }
       }
-      serviceChecks.push(
-        this.checkServiceHealth(
-          serviceName,
-          serviceUrl,
-          `${serviceName} is running`,
-          this.getHealthPath(serviceName)
-        )
-      );
+
+      services = await Promise.all(serviceChecks);
     }
-
-    // Always check dependencies
-    const dependenciesCheck = this.checkDependencies();
-
-    const [dependencies, ...serviceStatuses] = await Promise.all([
-      dependenciesCheck,
-      ...serviceChecks,
-    ]);
 
     return {
-      services: serviceStatuses,
+      services,
       dependencies,
+      clusterAccess,
+      clusterInfo,
     };
-  }
-
-  /**
-   * Get appropriate health check path for different service types
-   */
-  private getHealthPath(serviceName: string): string {
-    // Some services might need specific health check paths
-    switch (serviceName) {
-      case 'ark-api':
-        return '/health';
-      case 'ark-api-a2a':
-        return '/health'; // ark-api-a2a has a working /health endpoint
-      case 'ark-dashboard':
-        return ''; // Dashboard typically responds to root
-      case 'langfuse':
-        return ''; // Langfuse responds to root path
-      default:
-        return ''; // Default to root path
-    }
   }
 }

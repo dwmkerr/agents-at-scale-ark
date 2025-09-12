@@ -5,8 +5,8 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { SecurityUtils } from './security.js';
-import { ValidationError } from './errors.js';
+import {SecurityUtils} from './security.js';
+import {ValidationError} from './errors.js';
 
 export interface ArkConfig {
   // Generator defaults
@@ -72,7 +72,7 @@ export class ConfigManager {
 
     // Ensure config directory exists
     if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true, mode: 0o755 });
+      fs.mkdirSync(configDir, {recursive: true, mode: 0o755});
     }
 
     return path.join(configDir, 'config.json');
@@ -88,7 +88,7 @@ export class ConfigManager {
         const userConfig = JSON.parse(configContent);
 
         // Merge with defaults to ensure all properties exist
-        return { ...DEFAULT_CONFIG, ...userConfig };
+        return {...DEFAULT_CONFIG, ...userConfig};
       }
     } catch (error) {
       console.warn(
@@ -98,7 +98,7 @@ export class ConfigManager {
 
     // Return defaults and save them
     this.saveConfig(DEFAULT_CONFIG);
-    return { ...DEFAULT_CONFIG };
+    return {...DEFAULT_CONFIG};
   }
 
   /**
@@ -130,14 +130,14 @@ export class ConfigManager {
    * Get the current configuration
    */
   getConfig(): ArkConfig {
-    return { ...this.config };
+    return {...this.config};
   }
 
   /**
    * Update configuration
    */
   updateConfig(updates: Partial<ArkConfig>): void {
-    this.config = { ...this.config, ...updates };
+    this.config = {...this.config, ...updates};
     this.saveConfig(this.config);
   }
 
@@ -145,7 +145,7 @@ export class ConfigManager {
    * Reset configuration to defaults
    */
   resetConfig(): void {
-    this.config = { ...DEFAULT_CONFIG };
+    this.config = {...DEFAULT_CONFIG};
     this.saveConfig(this.config);
   }
 
@@ -271,7 +271,7 @@ export class ConfigManager {
    */
   getMergedConfig(): ArkConfig {
     const envOverrides = this.getEnvironmentOverrides();
-    return { ...this.config, ...envOverrides };
+    return {...this.config, ...envOverrides};
   }
 
   /**
@@ -290,7 +290,7 @@ export class ConfigManager {
 
       // Validate the imported config
       const tempManager = new ConfigManager();
-      tempManager.config = { ...DEFAULT_CONFIG, ...importedConfig };
+      tempManager.config = {...DEFAULT_CONFIG, ...importedConfig};
       tempManager.validateConfig();
 
       // If validation passes, update our config

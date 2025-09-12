@@ -1,25 +1,62 @@
 import chalk from 'chalk';
-
-import { StatusData, ServiceStatus, DependencyStatus } from '../lib/types.js';
+import {StatusData, ServiceStatus, DependencyStatus} from '../lib/types.js';
 
 export class StatusFormatter {
   /**
    * Print status check results to console
    */
-  public static printStatus(statusData: StatusData): void {
-    console.log(chalk.cyan.bold('\n🔍 ARK System Status Check'));
-    console.log(chalk.gray('Checking ARK services and dependencies...\n'));
-
-    // Print services status
-    console.log(chalk.cyan.bold('📡 ARK Services:'));
-    for (const service of statusData.services) {
-      StatusFormatter.printService(service);
-    }
-
-    // Print dependencies status
-    console.log(chalk.cyan.bold('\n🛠️  System Dependencies:'));
+  public static printStatus(
+    statusData: StatusData & {clusterAccess?: boolean; clusterInfo?: any}
+  ): void {
+    // Print dependencies status first
+    console.log(chalk.cyan.bold('\nsystem dependencies:'));
     for (const dep of statusData.dependencies) {
       StatusFormatter.printDependency(dep);
+    }
+
+    // Print cluster status
+    console.log(chalk.cyan.bold('\ncluster access:'));
+    if (statusData.clusterAccess && statusData.clusterInfo) {
+      const clusterName =
+        statusData.clusterInfo.context || 'kubernetes cluster';
+      const clusterDetails = [];
+      if (
+        statusData.clusterInfo.type &&
+        statusData.clusterInfo.type !== 'unknown'
+      ) {
+        clusterDetails.push(statusData.clusterInfo.type);
+      }
+      if (statusData.clusterInfo.ip) {
+        clusterDetails.push(statusData.clusterInfo.ip);
+      }
+
+      console.log(
+        `  ${chalk.green('✓ accessible')} ${chalk.bold.white(clusterName)}${clusterDetails.length > 0 ? chalk.gray(' ' + clusterDetails.join(', ')) : ''}`
+      );
+    } else if (statusData.clusterAccess) {
+      console.log(
+        `  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`
+      );
+    } else {
+      console.log(
+        `  ${chalk.red('✗ unreachable')} ${chalk.bold('kubernetes cluster')}`
+      );
+      console.log(
+        `    ${chalk.gray('Install minikube: https://minikube.sigs.k8s.io/docs/start')}`
+      );
+    }
+
+    // Only show ARK services if we have cluster access
+    if (statusData.clusterAccess) {
+      console.log(chalk.cyan.bold('\nark services:'));
+      for (const service of statusData.services) {
+        StatusFormatter.printService(service);
+      }
+    } else {
+      console.log(chalk.cyan.bold('\nark services:'));
+      console.log(
+        `  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`
+      );
     }
 
     console.log();
@@ -31,15 +68,28 @@ export class StatusFormatter {
         ? chalk.green('✓ healthy')
         : service.status === 'unhealthy'
           ? chalk.red('✗ unhealthy')
-          : chalk.yellow('? not installed');
+          : service.status === 'warning'
+            ? chalk.yellow('⚠ warning')
+            : chalk.yellow('? not installed');
 
-    console.log(`  • ${chalk.bold(service.name)}: ${statusColor}`);
-    if (service.url) {
-      console.log(`    ${chalk.gray(`URL: ${service.url}`)}`);
+    // Show version and revision in grey after the name for healthy services
+    let versionInfo = '';
+    if (service.status === 'healthy' && (service.version || service.revision)) {
+      const parts = [];
+      if (service.version) parts.push(`v${service.version}`);
+      if (service.revision) parts.push(`revision ${service.revision}`);
+      versionInfo = chalk.gray(` ${parts.join(', ')}`);
     }
+
+    // Show details inline in grey for all statuses
+    let inlineDetails = '';
     if (service.details) {
-      console.log(`    ${chalk.gray(service.details)}`);
+      inlineDetails = chalk.gray(` ${service.details}`);
     }
+
+    console.log(
+      `  ${statusColor} ${chalk.bold(service.name)}${versionInfo}${inlineDetails}`
+    );
   }
 
   private static printDependency(dep: DependencyStatus): void {
@@ -47,11 +97,11 @@ export class StatusFormatter {
       ? chalk.green('✓ installed')
       : chalk.red('✗ missing');
 
-    console.log(`  • ${chalk.bold(dep.name)}: ${statusColor}`);
-    if (dep.version) {
-      console.log(`    ${chalk.gray(`Version: ${dep.version}`)}`);
-    }
-    if (dep.details) {
+    const versionText = dep.version ? chalk.gray(` ${dep.version}`) : '';
+    console.log(`  ${statusColor} ${chalk.bold(dep.name)}${versionText}`);
+
+    if (dep.details && !dep.installed) {
+      // Only show details if there's an issue
       console.log(`    ${chalk.gray(dep.details)}`);
     }
   }

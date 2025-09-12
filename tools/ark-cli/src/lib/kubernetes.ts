@@ -1,10 +1,10 @@
-import { promises as fs } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
+import {promises as fs} from 'fs';
+import {homedir} from 'os';
+import {join} from 'path';
 
 import * as k8s from '@kubernetes/client-node';
 
-import { KubernetesConfig } from './types.js';
+import {KubernetesConfig} from './types.js';
 
 export class KubernetesConfigManager {
   private kc: k8s.KubeConfig;
