@@ -97,7 +97,7 @@ async function initTool() {
 
   try {
     createToolFile(toolConfig);
-    console.log(chalk.green(`\nTool '${filename}' created successfully!`));
+    console.log(chalk.green(`\nTool '${filename}' created successfully`));
     console.log(chalk.cyan('\nNext steps:\n'));
     console.log(`1. Install fastmcp:`);
     console.log(chalk.yellow(`   pip install fastmcp`));
