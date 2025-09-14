@@ -18,6 +18,7 @@ class MCPToolDiscoverer(ast.NodeVisitor):
         self.tools = []
         self.mcp_var_name = None
         self.imports = {}
+        self.current_function = None  # Track if we're inside a function
         
     def visit_ImportFrom(self, node):
         """Track imports to identify FastMCP usage"""
@@ -42,7 +43,12 @@ class MCPToolDiscoverer(ast.NodeVisitor):
         self.generic_visit(node)
         
     def visit_FunctionDef(self, node):
-        """Find functions decorated with @mcp.tool()"""
+        """Find functions decorated with @mcp.tool() - both at module level and nested"""
+        # Save the parent function context
+        parent_function = self.current_function
+        self.current_function = node.name
+        
+        # Check if this function is decorated as a tool
         for decorator in node.decorator_list:
             is_mcp_tool = False
             tool_config = {}
@@ -50,6 +56,7 @@ class MCPToolDiscoverer(ast.NodeVisitor):
             # Check for @mcp.tool() or @mcp.tool
             if isinstance(decorator, ast.Call):
                 if isinstance(decorator.func, ast.Attribute):
+                    # Check for mcp.tool where mcp is a variable
                     if (isinstance(decorator.func.value, ast.Name) and 
                         decorator.func.value.id == self.mcp_var_name and
                         decorator.func.attr == 'tool'):
@@ -59,17 +66,70 @@ class MCPToolDiscoverer(ast.NodeVisitor):
                             if isinstance(keyword.value, ast.Constant):
                                 tool_config[keyword.arg] = keyword.value.value
             elif isinstance(decorator, ast.Attribute):
+                # Check for @mcp.tool without parentheses
                 if (isinstance(decorator.value, ast.Name) and 
                     decorator.value.id == self.mcp_var_name and
                     decorator.attr == 'tool'):
+                    is_mcp_tool = True
+                # Also check for @mcp.tool where mcp is a parameter (e.g., in register_tools(mcp))
+                elif (decorator.value.id if isinstance(decorator.value, ast.Name) else None) == 'mcp' and \
+                     decorator.attr == 'tool':
                     is_mcp_tool = True
                     
             if is_mcp_tool:
                 tool_info = self.extract_function_info(node)
                 tool_info.update(tool_config)
+                if parent_function:
+                    tool_info['registered_in'] = parent_function
                 self.tools.append(tool_info)
                 
+        # Visit nested functions to find tools defined inside this function
         self.generic_visit(node)
+        
+        # Restore parent function context
+        self.current_function = parent_function
+    
+    def visit_AsyncFunctionDef(self, node):
+        """Handle async functions the same way as regular functions"""
+        # Save the parent function context
+        parent_function = self.current_function
+        self.current_function = node.name
+        
+        # Check if this async function is decorated as a tool
+        for decorator in node.decorator_list:
+            is_mcp_tool = False
+            tool_config = {}
+            
+            # Check for @mcp.tool() or @mcp.tool
+            if isinstance(decorator, ast.Call):
+                if isinstance(decorator.func, ast.Attribute):
+                    if (isinstance(decorator.func.value, ast.Name) and 
+                        decorator.func.attr == 'tool'):
+                        # Could be mcp.tool where mcp is the var or a parameter
+                        if decorator.func.value.id == self.mcp_var_name or decorator.func.value.id == 'mcp':
+                            is_mcp_tool = True
+                            for keyword in decorator.keywords:
+                                if isinstance(keyword.value, ast.Constant):
+                                    tool_config[keyword.arg] = keyword.value.value
+            elif isinstance(decorator, ast.Attribute):
+                if decorator.attr == 'tool':
+                    # Could be @mcp.tool where mcp is the var or a parameter
+                    if isinstance(decorator.value, ast.Name):
+                        if decorator.value.id == self.mcp_var_name or decorator.value.id == 'mcp':
+                            is_mcp_tool = True
+                    
+            if is_mcp_tool:
+                tool_info = self.extract_function_info(node)
+                tool_info.update(tool_config)
+                if parent_function:
+                    tool_info['registered_in'] = parent_function
+                self.tools.append(tool_info)
+                
+        # Visit nested functions
+        self.generic_visit(node)
+        
+        # Restore parent function context
+        self.current_function = parent_function
         
     def extract_function_info(self, node):
         """Extract function name, parameters, and docstring"""

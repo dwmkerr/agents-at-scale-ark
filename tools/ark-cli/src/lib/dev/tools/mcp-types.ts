@@ -49,7 +49,8 @@ export function toMCPTool(discoveredTool: any): Tool {
     }
   }
 
-  return {
+  // Build the base Tool object
+  const tool: Tool & {source_file?: string; registered_in?: string} = {
     name: discoveredTool.name,
     title: toTitleCase(discoveredTool.name),
     description,
@@ -59,6 +60,16 @@ export function toMCPTool(discoveredTool: any): Tool {
       required: required.length > 0 ? required : undefined
     }
   };
+
+  // Add metadata if available
+  if (discoveredTool.source_file) {
+    tool.source_file = discoveredTool.source_file;
+  }
+  if (discoveredTool.registered_in) {
+    tool.registered_in = discoveredTool.registered_in;
+  }
+
+  return tool;
 }
 
 /**
