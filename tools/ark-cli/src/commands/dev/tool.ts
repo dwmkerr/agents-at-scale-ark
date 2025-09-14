@@ -3,7 +3,11 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
+import ora from 'ora';
 import output from '../../lib/output.js';
+import {ArkDevToolAnalyzer} from '../../lib/dev/tools/analyzer.js';
+import {DiscoveredTool} from '../../lib/dev/tools/types.js';
+import {toMCPTool} from '../../lib/dev/tools/mcp-types.js';
 
 interface ToolConfig {
   name: string;
@@ -164,6 +168,146 @@ if __name__ == "__main__":
 `;
 }
 
+async function statusTool(toolPath: string, options: {output?: string}) {
+  const absolutePath = path.resolve(toolPath);
+  const analyzer = new ArkDevToolAnalyzer();
+  const isJson = options.output === 'json';
+  
+  // Build up result object as we go
+  const result: any = {
+    path: absolutePath,
+    error: null,
+    platform: null,
+    projectType: null,
+    projectName: null,
+    projectVersion: null,
+    hasFastmcp: false,
+    fastmcpVersion: null,
+    tools: [],
+    toolDiscoveryError: null
+  };
+  
+  if (!isJson) {
+    console.log();
+  }
+  
+  // Single spinner for all analysis (skip for JSON output)
+  const analyzeSpinner = isJson ? null : ora(`analyzing ${absolutePath}`).start();
+  
+  // Small delay to let user see what's happening (skip for JSON)
+  if (!isJson) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  // Collect all information
+  const project = await analyzer.discoverProject(absolutePath);
+  
+  if (!project || !project.exists) {
+    result.error = 'path not found';
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      analyzeSpinner!.fail('path not found');
+    }
+    process.exit(1);
+  }
+  
+  if (!project.is_directory) {
+    result.error = 'path is not a directory';
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      analyzeSpinner!.fail('path is not a directory');
+    }
+    process.exit(1);
+  }
+  
+  if (!project.platform) {
+    result.error = 'platform unknown - no pyproject.toml or requirements.txt found';
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      analyzeSpinner!.fail('platform unknown - no pyproject.toml or requirements.txt found');
+    }
+    process.exit(1);
+  }
+  
+  // Update result with project info
+  result.platform = project.platform;
+  result.projectType = project.project_type;
+  result.projectName = project.project_name;
+  result.projectVersion = project.project_version;
+  result.hasFastmcp = project.has_fastmcp;
+  result.fastmcpVersion = project.fastmcp_version;
+  
+  // Discover tools
+  const rawTools: any[] = [];
+  try {
+    const discovery = await analyzer.discoverTools(absolutePath);
+    if (discovery) {
+      // Extract tools from discovery
+      if ('files' in discovery) {
+        // Directory result
+        for (const file of discovery.files) {
+          if (file.success && file.tools) {
+            rawTools.push(...file.tools);
+          }
+        }
+      } else if ('success' in discovery && discovery.success && discovery.tools) {
+        // Single file result
+        rawTools.push(...discovery.tools);
+      }
+    }
+  } catch (error) {
+    result.toolDiscoveryError = error instanceof Error ? error.message : 'Unknown error';
+  }
+  
+  // Store tools in the appropriate format
+  result.tools = isJson ? rawTools.map(toMCPTool) : rawTools;
+  
+  if (isJson) {
+    // Output raw JSON
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  
+  analyzeSpinner!.succeed('analysis complete');
+  console.log();
+  
+  // Display summary in cleaner format
+  output.section(path.basename(absolutePath));
+  
+  // Platform
+  output.statusCheck('found', 'platform', result.platform);
+  
+  // Project type with name and version in gray
+  let projectDetails = '';
+  if (result.projectName) {
+    projectDetails = result.projectName;
+    if (result.projectVersion) {
+      projectDetails += ` v${result.projectVersion}`;
+    }
+  }
+  output.statusCheck('found', 'project', result.projectType, projectDetails);
+  
+  // Framework with version in gray
+  if (result.hasFastmcp) {
+    const fastmcpDetails = result.fastmcpVersion ? `v${result.fastmcpVersion}` : undefined;
+    output.statusCheck('found', 'framework', 'fastmcp', fastmcpDetails);
+  } else {
+    output.statusCheck('missing', 'framework', 'fastmcp');
+  }
+  
+  // Tools with details
+  output.statusCheck('found', 'tools', result.tools.length.toString());
+  if (result.tools.length > 0) {
+    for (const tool of result.tools) {
+      const description = tool.docstring ? tool.docstring.split('\n')[0] : '';
+      console.log(chalk.gray(`      - ${tool.name}: ${description}`));
+    }
+  }
+}
+
 export function createToolCommand(): Command {
   const toolCommand = new Command('tool');
   toolCommand.description('MCP tool development utilities');
@@ -171,7 +315,15 @@ export function createToolCommand(): Command {
   const initCommand = new Command('init');
   initCommand.description('Initialize a new MCP tool').action(initTool);
 
+  const statusCommand = new Command('status');
+  statusCommand
+    .description('Check the status of an MCP tool project')
+    .argument('<path>', 'Path to the tool directory')
+    .option('-o, --output <format>', 'Output format (json)', 'text')
+    .action(statusTool);
+
   toolCommand.addCommand(initCommand);
+  toolCommand.addCommand(statusCommand);
 
   return toolCommand;
 }

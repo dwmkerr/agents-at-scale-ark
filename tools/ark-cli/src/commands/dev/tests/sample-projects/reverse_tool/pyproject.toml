@@ -1,0 +1,11 @@
+[project]
+name = "dev-tests"
+version = "0.1.0"
+description = "Simple test tools for ARK development"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=0.1.0",
+]
+
+[tool.uv]
+dev-dependencies = []

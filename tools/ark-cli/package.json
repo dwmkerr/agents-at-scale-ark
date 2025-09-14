@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/index.js",
+    "postbuild": "mkdir -p dist/lib/dev/tools && cp src/lib/dev/tools/*.py dist/lib/dev/tools/ 2>/dev/null || true",
     "dev": "tsc --watch",
     "start": "NODE_NO_WARNINGS=1 node dist/index.js",
     "clean": "rm -rf dist",
@@ -40,6 +41,7 @@
   },
   "dependencies": {
     "@kubernetes/client-node": "^1.3.0",
+    "@modelcontextprotocol/sdk": "^1.18.0",
     "@types/react": "^19.1.8",
     "axios": "^1.7.7",
     "chalk": "^4.1.2",
