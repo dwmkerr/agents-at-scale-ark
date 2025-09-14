@@ -164,6 +164,39 @@ export class ArkDevToolAnalyzer {
 
 
   /**
+   * Recursively find all MCP tools in a project
+   * This is a naive implementation that searches all Python files in the project tree
+   */
+  async findProjectTools(projectRoot: string): Promise<any> {
+    try {
+      // Check if Python is available
+      try {
+        execSync('python3 --version', {stdio: 'ignore'});
+      } catch {
+        console.warn('Python 3 not found');
+        return null;
+      }
+
+      // Check if discover_tools.py exists
+      if (!fs.existsSync(this.discoverToolsScript)) {
+        console.warn(`discover_tools.py not found at ${this.discoverToolsScript}`);
+        return null;
+      }
+
+      // Run the discovery script with 'project-tools' command
+      const result = execSync(`python3 "${this.discoverToolsScript}" project-tools "${projectRoot}"`, {
+        encoding: 'utf-8',
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+      });
+
+      return JSON.parse(result);
+    } catch (error) {
+      console.error('Project tools discovery failed:', error);
+      return null;
+    }
+  }
+
+  /**
    * Extract all tools from discovery result
    */
   private extractTools(discovery?: DiscoveryResult) {

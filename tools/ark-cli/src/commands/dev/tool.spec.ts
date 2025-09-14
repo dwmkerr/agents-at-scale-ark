@@ -23,12 +23,14 @@ describe('sample-projects', () => {
       
       // Assert the structure
       expect(result).toHaveProperty('path');
+      expect(result).toHaveProperty('projectRoot');
+      expect(result.projectRoot).toContain('reverse_tool');
       expect(result).toHaveProperty('platform', 'python3');
       expect(result).toHaveProperty('projectType', 'pyproject');
       expect(result).toHaveProperty('projectName', 'dev-tests');
       expect(result).toHaveProperty('projectVersion', '0.1.0');
       expect(result).toHaveProperty('hasFastmcp', true);
-      expect(result).toHaveProperty('fastmcpVersion', '0.1.0');
+      expect(result).toHaveProperty('fastmcpVersion', '0.5.0');
       expect(result).toHaveProperty('tools');
       
       // Assert tools array contains MCP-formatted tool

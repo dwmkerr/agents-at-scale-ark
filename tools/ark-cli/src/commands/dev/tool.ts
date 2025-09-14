@@ -14,6 +14,7 @@ async function statusTool(toolPath: string, options: {output?: string}) {
   // Build up result object as we go
   const result: any = {
     path: absolutePath,
+    projectRoot: null,
     error: null,
     platform: null,
     projectType: null,
@@ -45,7 +46,8 @@ async function statusTool(toolPath: string, options: {output?: string}) {
     if (isJson) {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      analyzeSpinner!.fail('path not found');
+      analyzeSpinner!.stop();
+      output.error(`path not found: ${absolutePath}`);
     }
     process.exit(1);
   }
@@ -55,7 +57,8 @@ async function statusTool(toolPath: string, options: {output?: string}) {
     if (isJson) {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      analyzeSpinner!.fail('path is not a directory');
+      analyzeSpinner!.stop();
+      output.error(`path is not a directory: ${absolutePath}`);
     }
     process.exit(1);
   }
@@ -65,7 +68,8 @@ async function statusTool(toolPath: string, options: {output?: string}) {
     if (isJson) {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      analyzeSpinner!.fail('platform unknown - no pyproject.toml or requirements.txt found');
+      analyzeSpinner!.stop();
+      output.error(`no pyproject.toml or requirements.txt found in: ${absolutePath}`);
     }
     process.exit(1);
   }
@@ -77,24 +81,14 @@ async function statusTool(toolPath: string, options: {output?: string}) {
   result.projectVersion = project.project_version;
   result.hasFastmcp = project.has_fastmcp;
   result.fastmcpVersion = project.fastmcp_version;
+  result.projectRoot = absolutePath; // Store the project root
   
-  // Discover tools
+  // Discover tools recursively in the project
   const rawTools: any[] = [];
   try {
-    const discovery = await analyzer.discoverTools(absolutePath);
-    if (discovery) {
-      // Extract tools from discovery
-      if ('files' in discovery) {
-        // Directory result
-        for (const file of discovery.files) {
-          if (file.success && file.tools) {
-            rawTools.push(...file.tools);
-          }
-        }
-      } else if ('success' in discovery && discovery.success && discovery.tools) {
-        // Single file result
-        rawTools.push(...discovery.tools);
-      }
+    const projectTools = await analyzer.findProjectTools(absolutePath);
+    if (projectTools && projectTools.tools) {
+      rawTools.push(...projectTools.tools);
     }
   } catch (error) {
     result.toolDiscoveryError = error instanceof Error ? error.message : 'Unknown error';

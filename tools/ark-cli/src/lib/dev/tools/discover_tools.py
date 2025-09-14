@@ -233,6 +233,60 @@ def discover_project(dirpath):
     return result
 
 
+def find_project_tools(project_root):
+    """
+    Naive recursive search for MCP tools in a Python project.
+    Searches all Python files in the project tree, excluding common non-source directories.
+    
+    This is intentionally naive - it doesn't try to be smart about which files to search,
+    it just excludes obvious non-source directories and searches everything else.
+    """
+    # Common directories to exclude from search
+    EXCLUDE_DIRS = {
+        'venv', '.venv', 'env', '.env', 'virtualenv',
+        'dist', 'build', '__pycache__', '.eggs', 'egg-info',
+        '.git', '.pytest_cache', '.mypy_cache', '.tox', 'htmlcov',
+        'node_modules', '.coverage', 'site-packages',
+        # Also exclude hidden directories
+    }
+    
+    results = {
+        'project_root': project_root,
+        'files_searched': 0,
+        'files_with_tools': 0,
+        'total_tools': 0,
+        'tools': [],
+        'errors': []
+    }
+    
+    for root, dirs, files in os.walk(project_root):
+        # Modify dirs in-place to skip excluded directories
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith('.')]
+        
+        # Process Python files in this directory
+        for file in files:
+            if file.endswith('.py'):
+                filepath = os.path.join(root, file)
+                results['files_searched'] += 1
+                
+                try:
+                    file_result = discover_tools_in_file(filepath)
+                    if file_result.get('success') and file_result.get('tools'):
+                        results['files_with_tools'] += 1
+                        for tool in file_result['tools']:
+                            # Add source file information to each tool
+                            tool['source_file'] = os.path.relpath(filepath, project_root)
+                            results['tools'].append(tool)
+                            results['total_tools'] += 1
+                except Exception as e:
+                    results['errors'].append({
+                        'file': os.path.relpath(filepath, project_root),
+                        'error': str(e)
+                    })
+    
+    return results
+
+
 def main():
     if len(sys.argv) < 2:
         print(json.dumps({
@@ -259,6 +313,15 @@ def main():
             result = discover_tools_in_directory(path)
         else:
             result = {'error': f'Path not found: {path}'}
+    elif command == 'project-tools':
+        if len(sys.argv) < 3:
+            print(json.dumps({'error': 'Path required for project tools discovery'}))
+            sys.exit(1)
+        path = sys.argv[2]
+        if os.path.isdir(path):
+            result = find_project_tools(path)
+        else:
+            result = {'error': f'Path is not a directory: {path}'}
     else:
         result = {'error': f'Unknown command: {command}'}
         
