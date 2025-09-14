@@ -235,6 +235,13 @@ func (r *QueryReconciler) executeQueryAsync(opCtx context.Context, obj arkv1alph
 		_ = r.updateStatusWithDuration(opCtx, &obj, statusEvaluating, duration)
 		cleanupCache = false
 	} else {
+		// Notify memory service that streaming is complete (if streaming was enabled)
+		if memory != nil {
+			if completionErr := memory.NotifyCompletion(opCtx); completionErr != nil {
+				// Log error but don't fail the query
+				log.V(1).Info("Failed to notify query completion to memory service", "error", completionErr)
+			}
+		}
 		_ = r.updateStatusWithDuration(opCtx, &obj, statusDone, duration)
 	}
 }
@@ -930,6 +937,22 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 		}
 	} else {
 		obj.Status.Evaluations = evaluationResults
+
+		// Get memory interface to notify completion
+		impersonatedClient, err := r.getClientForQuery(obj)
+		if err == nil {
+			sessionId := obj.Spec.SessionId
+			if sessionId == "" {
+				sessionId = string(obj.UID)
+			}
+			memory, err := genai.NewMemoryForQuery(ctx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
+			if err == nil && memory != nil {
+				if completionErr := memory.NotifyCompletion(ctx); completionErr != nil {
+					log.V(1).Info("Failed to notify query completion after evaluation", "error", completionErr)
+				}
+			}
+		}
+
 		if updateErr := r.updateStatus(ctx, &obj, statusDone); updateErr != nil {
 			log.Error(updateErr, "Failed to update status")
 		}

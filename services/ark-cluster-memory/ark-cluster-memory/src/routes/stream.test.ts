@@ -1,17 +1,17 @@
 import request from 'supertest';
 import express from 'express';
-import { MemoryStore } from '../memory-store';
+import { StreamStore } from '../stream-store';
 import { createStreamRouter } from './stream';
 
 describe('Streaming API', () => {
   let app: express.Application;
-  let memory: MemoryStore;
+  let stream: StreamStore;
   
   beforeEach(() => {
-    memory = new MemoryStore();
+    stream = new StreamStore();
     app = express();
     app.use(express.json());
-    app.use('/stream', createStreamRouter(memory));
+    app.use('/stream', createStreamRouter(stream));
   });
 
   // Helper to generate OpenAI chunks

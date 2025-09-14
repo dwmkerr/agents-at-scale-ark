@@ -4,22 +4,36 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/openai/openai-go"
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	DefaultTimeout     = 30 * time.Second
-	ContentTypeJSON    = "application/json"
-	MessagesEndpoint   = "/messages"
-	CompletionEndpoint = "/stream/%s/complete"
-	MaxRetries         = 3
-	RetryDelay         = 100 * time.Millisecond
-	UserAgent          = "ark-memory-client/1.0"
+	DefaultTimeoutSeconds = 30 // Default timeout in seconds
+	ContentTypeJSON       = "application/json"
+	MessagesEndpoint      = "/messages"
+	CompletionEndpoint    = "/stream/%s/complete"
+	MaxRetries            = 3
+	RetryDelay            = 100 * time.Millisecond
+	UserAgent             = "ark-memory-client/1.0"
 )
+
+// getMemoryTimeout reads ARK_MEMORY_HTTP_TIMEOUT env var or returns default
+func getMemoryTimeout() time.Duration {
+	if timeoutStr := os.Getenv("ARK_MEMORY_HTTP_TIMEOUT"); timeoutStr != "" {
+		if timeoutSec, err := strconv.Atoi(timeoutStr); err == nil && timeoutSec > 0 {
+			logf.Log.V(1).Info("Using custom memory HTTP timeout", "seconds", timeoutSec)
+			return time.Duration(timeoutSec) * time.Second
+		}
+	}
+	return DefaultTimeoutSeconds * time.Second
+}
 
 type MemoryInterface interface {
 	AddMessages(ctx context.Context, queryID string, messages []Message) error
@@ -60,7 +74,7 @@ type MessagesResponse struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Timeout:    DefaultTimeout,
+		Timeout:    getMemoryTimeout(),
 		MaxRetries: MaxRetries,
 		RetryDelay: RetryDelay,
 	}

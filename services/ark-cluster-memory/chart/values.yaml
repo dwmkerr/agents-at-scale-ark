@@ -56,7 +56,9 @@ persistence:
   # Path where memory data will be stored
   mountPath: /data
   # Filename for the memory data
-  fileName: memory.json
+  memoryFileName: memory.json
+  # Filename for the stream data
+  streamFileName: stream.json
   # Use existing PVC instead of creating a new one
   existingClaim: ""
 

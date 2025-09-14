@@ -197,6 +197,9 @@ The following items are in testing:
 - [ ] test: full review of log and event output
 - [ ] test: chainsaw tests for all targets without streaming, all targets with wait for stream, resume stream and read completed stream
 - [ ] feat: demo videos
+- [ ] feat: stream memory out with `?watch=true?from_beginning=true&wait-for-query=30`
+- [ ] feat: parallelism
+- [ ] feat: docs / ascii
 
   ---
 
@@ -247,6 +250,15 @@ Client reconnection:
 - connect to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream` with 1s timeout
 - reconnect to `http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/default/queries/{query_name}/stream?from-beginning=true` 
 - the streaming endpoint should replay all stored chunks and continue streaming new ones
+
+Note that these tests should also pass using the ark-api service which also has a memory endpoint.
+```
+GET http://ark-api.127.0.0.1.nip.io:8080/v1/namespaces/{namespace}/queries/{query_name}/stream
+````
+
+Agent Integration Test
+
+Run the previous scenarios with the `github-agent` and ask to list repos for `dwmkerr` - we should get the expected results, and with streaming we should still get tool calls and we should have tools calls in the stream. if we don't get tool calls while streaming it means that the tool call accumation is not working or not passing to the LLM.
 
 Troubleshooting:
 

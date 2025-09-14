@@ -6,7 +6,6 @@ import (
 	"github.com/openai/openai-go"
 	"k8s.io/apimachinery/pkg/runtime"
 	"mckinsey.com/ark/internal/telemetry"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ChatCompletionProvider interface {
@@ -58,14 +57,6 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 			// Forward all chunks as-is to preserve tool calls, finish_reason, and other OpenAI fields
 			return memory.StreamChunk(ctx, chunk)
 		}, tools...)
-
-		// Notify completion after streaming finishes (only for streaming)
-		if err == nil {
-			if completionErr := memory.NotifyCompletion(ctx); completionErr != nil {
-				// Log error but don't fail the request
-				logf.FromContext(ctx).V(1).Info("Failed to notify streaming completion", "error", completionErr)
-			}
-		}
 	} else {
 		response, err = m.Provider.ChatCompletion(ctx, messages, n, tools...)
 	}

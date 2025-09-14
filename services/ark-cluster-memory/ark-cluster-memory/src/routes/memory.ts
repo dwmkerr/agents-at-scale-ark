@@ -4,7 +4,42 @@ import { MemoryStore } from '../memory-store.js';
 export function createMemoryRouter(memory: MemoryStore): Router {
   const router = Router();
 
-  // Store messages - POST /messages
+  /**
+   * @swagger
+   * /messages:
+   *   post:
+   *     summary: Store messages in memory
+   *     description: Stores chat messages for a specific session and query
+   *     tags:
+   *       - Memory
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - session_id
+   *               - query_id
+   *               - messages
+   *             properties:
+   *               session_id:
+   *                 type: string
+   *                 description: Session identifier
+   *               query_id:
+   *                 type: string
+   *                 description: Query identifier
+   *               messages:
+   *                 type: array
+   *                 description: Array of OpenAI-format messages
+   *                 items:
+   *                   type: object
+   *     responses:
+   *       200:
+   *         description: Messages stored successfully
+   *       400:
+   *         description: Invalid request parameters
+   */
   router.post('/messages', (req, res) => {
     try {
       const { session_id, query_id, messages } = req.body;
@@ -36,47 +71,65 @@ export function createMemoryRouter(memory: MemoryStore): Router {
     }
   });
 
-  // Retrieve messages - GET /messages?session_id={id}&query_id={id}
+  /**
+   * @swagger
+   * /messages:
+   *   get:
+   *     summary: Get memory statistics
+   *     description: Returns statistics about all stored messages and sessions
+   *     tags:
+   *       - Memory
+   *     responses:
+   *       200:
+   *         description: Memory statistics retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 total_sessions:
+   *                   type: integer
+   *                   description: Total number of sessions
+   *                 total_messages:
+   *                   type: integer
+   *                   description: Total number of messages across all sessions
+   *                 sessions:
+   *                   type: object
+   *                   description: Per-session statistics
+   */
   router.get('/messages', (req, res) => {
     try {
-      const session_id = req.query.session_id as string;
-      const query_id = req.query.query_id as string;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const sessions = memory.getAllSessions();
+      const allMessages = memory.getAllMessages();
       
-      if (session_id) {
-        // Get messages for specific session (optionally filtered by query_id)
-        const messages = memory.getMessages(session_id);
+      // Get per-session statistics
+      const sessionStats: any = {};
+      for (const sessionId of sessions) {
+        const messages = memory.getMessages(sessionId);
+        const queries = new Set<string>();
         
-        // Filter by query_id if provided (not implemented in memory store yet)
-        // For now, return all messages for the session
+        // Extract unique query IDs from messages
+        for (const msg of allMessages) {
+          if (msg.session_id === sessionId && msg.query_id) {
+            queries.add(msg.query_id);
+          }
+        }
         
-        const response = {
-          messages: messages.map(msg => ({
-            timestamp: new Date().toISOString(),
-            session_id,
-            query_id: query_id || '',
-            message: msg
-          }))
+        sessionStats[sessionId] = {
+          message_count: messages.length,
+          query_count: queries.size
         };
-        res.json(response);
-      } else {
-        // Get all messages across all sessions (matching postgres-memory behavior)
-        const allMessages = memory.getAllMessages();
-        const paginatedMessages = allMessages.slice(offset, offset + limit);
-        
-        const response = {
-          messages: paginatedMessages,
-          total: allMessages.length,
-          limit,
-          offset
-        };
-        res.json(response);
       }
+      
+      res.json({
+        total_sessions: sessions.length,
+        total_messages: allMessages.length,
+        sessions: sessionStats
+      });
     } catch (error) {
-      console.error('Failed to get messages:', error);
+      console.error('Failed to get memory statistics:', error);
       const err = error as Error;
-      res.status(400).json({ error: err.message });
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -90,6 +143,41 @@ export function createMemoryRouter(memory: MemoryStore): Router {
       console.error('Failed to get sessions:', error);
       const err = error as Error;
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  /**
+   * @swagger
+   * /messages:
+   *   delete:
+   *     summary: Purge all memory data
+   *     description: Clears all stored messages and saves empty state to disk
+   *     tags:
+   *       - Memory
+   *     responses:
+   *       200:
+   *         description: Memory purged successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: success
+   *                 message:
+   *                   type: string
+   *                   example: Memory purged
+   *       500:
+   *         description: Failed to purge memory
+   */
+  router.delete('/messages', (req, res) => {
+    try {
+      memory.purge();
+      res.json({ status: 'success', message: 'Memory purged' });
+    } catch (error) {
+      console.error('Memory purge failed:', error);
+      res.status(500).json({ error: 'Failed to purge memory' });
     }
   });
 

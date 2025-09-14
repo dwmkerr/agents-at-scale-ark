@@ -38,7 +38,9 @@ spec:
               value: {{ .Values.memory.maxMessageSize | quote }}
             {{- if .Values.persistence.enabled }}
             - name: MEMORY_FILE_PATH
-              value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.fileName }}"
+              value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.memoryFileName }}"
+            - name: STREAM_FILE_PATH
+              value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.streamFileName }}"
             {{- end }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:

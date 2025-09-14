@@ -10,8 +10,6 @@ export class MemoryStore {
   private readonly maxMessageSize: number;
   private readonly memoryFilePath?: string;
   public eventEmitter: EventEmitter = new EventEmitter();
-  
-  private streamChunks: Map<string, any[]> = new Map();
 
   constructor(maxMessageSize = 10 * 1024 * 1024) {
     this.maxMessageSize = maxMessageSize;
@@ -183,6 +181,12 @@ export class MemoryStore {
     return true;
   }
 
+  purge(): void {
+    this.messages = [];
+    this.saveToFile();
+    console.log('[MEMORY PURGE] Cleared all messages');
+  }
+
   private loadFromFile(): void {
     if (!this.memoryFilePath) {
       console.log('[MEMORY LOAD] File persistence disabled - memory will not be saved');
@@ -246,7 +250,7 @@ export class MemoryStore {
     };
   }
 
-  subscribeToChunks(sessionID: string, callback: (chunk: Message) => void): () => void {
+  subscribeToMessages(sessionID: string, callback: (chunk: Message) => void): () => void {
     this.eventEmitter.on(`chunk:${sessionID}`, callback);
     return () => {
       this.eventEmitter.off(`chunk:${sessionID}`, callback);
@@ -278,22 +282,4 @@ export class MemoryStore {
     this.eventEmitter.emit(`session:${sessionID}:created`);
   }
 
-  addStreamChunk(queryID: string, chunk: any): void {
-    if (!this.streamChunks.has(queryID)) {
-      this.streamChunks.set(queryID, []);
-    }
-    this.streamChunks.get(queryID)!.push(chunk);
-  }
-
-  getStreamChunks(queryID: string): any[] {
-    return this.streamChunks.get(queryID) || [];
-  }
-
-  completeQueryStream(queryID: string): void {
-    console.log(`Query stream ${queryID} marked as complete`);
-    
-    // Emit a special completion event to signal the entire query is done
-    // This is separate from finish_reason chunks which may occur multiple times (e.g., teams)
-    this.eventEmitter.emit(`complete:${queryID}`);
-  }
 }

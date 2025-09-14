@@ -59,15 +59,17 @@ func unmarshalMessageRobust(rawJSON json.RawMessage) (openai.ChatCompletionMessa
 	}
 }
 
-type HTTPMemory struct {
-	client     client.Client
-	httpClient *http.Client
-	baseURL    string
-	sessionId  string
-	queryName  string
-	name       string
-	namespace  string
-	recorder   EventEmitter
+// HTTPMemoryAndStreaming handles both memory operations and streaming for ARK queries
+type HTTPMemoryAndStreaming struct {
+	client           client.Client
+	memoryHttpClient *http.Client // For memory operations (with timeout)
+	streamHttpClient *http.Client // For streaming operations (no timeout)
+	baseURL          string
+	sessionId        string
+	queryName        string
+	name             string
+	namespace        string
+	recorder         EventEmitter
 
 	// Persistent streaming connection
 	streamWriter io.WriteCloser
@@ -94,25 +96,31 @@ func NewHTTPMemory(ctx context.Context, k8sClient client.Client, memoryName, nam
 		sessionId = string(memory.UID)
 	}
 
-	httpClient := common.NewHTTPClientWithLogging(ctx)
+	// Create memory HTTP client with timeout for regular operations
+	memoryHttpClient := common.NewHTTPClientWithLogging(ctx)
 	if config.Timeout > 0 {
-		httpClient.Timeout = config.Timeout
+		memoryHttpClient.Timeout = config.Timeout
 	}
 
-	return &HTTPMemory{
-		client:     k8sClient,
-		httpClient: httpClient,
-		baseURL:    strings.TrimSuffix(*memory.Status.LastResolvedAddress, "/"),
-		sessionId:  sessionId,
-		queryName:  config.QueryName,
-		name:       memoryName,
-		namespace:  namespace,
-		recorder:   recorder,
+	// Create streaming HTTP client without timeout for long-lived connections
+	streamHttpClient := common.NewHTTPClientWithLogging(ctx)
+	// No timeout for streaming connections - they need to stay open indefinitely
+
+	return &HTTPMemoryAndStreaming{
+		client:           k8sClient,
+		memoryHttpClient: memoryHttpClient,
+		streamHttpClient: streamHttpClient,
+		baseURL:          strings.TrimSuffix(*memory.Status.LastResolvedAddress, "/"),
+		sessionId:        sessionId,
+		queryName:        config.QueryName,
+		name:             memoryName,
+		namespace:        namespace,
+		recorder:         recorder,
 	}, nil
 }
 
 // resolveAndUpdateAddress dynamically resolves the memory address and updates the status if it changed
-func (m *HTTPMemory) resolveAndUpdateAddress(ctx context.Context) error {
+func (m *HTTPMemoryAndStreaming) resolveAndUpdateAddress(ctx context.Context) error {
 	memory, err := getMemoryResource(ctx, m.client, m.name, m.namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get memory resource: %w", err)
@@ -146,7 +154,7 @@ func (m *HTTPMemory) resolveAndUpdateAddress(ctx context.Context) error {
 	return nil
 }
 
-func (m *HTTPMemory) AddMessages(ctx context.Context, queryID string, messages []Message) error {
+func (m *HTTPMemoryAndStreaming) AddMessages(ctx context.Context, queryID string, messages []Message) error {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -189,7 +197,7 @@ func (m *HTTPMemory) AddMessages(ctx context.Context, queryID string, messages [
 	req.Header.Set("Content-Type", ContentTypeJSON)
 	req.Header.Set("User-Agent", UserAgent)
 
-	resp, err := m.httpClient.Do(req)
+	resp, err := m.memoryHttpClient.Do(req)
 	if err != nil {
 		tracker.Fail(fmt.Errorf("HTTP request failed: %w", err))
 		return fmt.Errorf("HTTP request failed: %w", err)
@@ -206,7 +214,7 @@ func (m *HTTPMemory) AddMessages(ctx context.Context, queryID string, messages [
 	return nil
 }
 
-func (m *HTTPMemory) GetMessages(ctx context.Context) ([]Message, error) {
+func (m *HTTPMemoryAndStreaming) GetMessages(ctx context.Context) ([]Message, error) {
 	// Resolve address dynamically
 	if err := m.resolveAndUpdateAddress(ctx); err != nil {
 		return nil, err
@@ -227,7 +235,7 @@ func (m *HTTPMemory) GetMessages(ctx context.Context) ([]Message, error) {
 	req.Header.Set("Accept", ContentTypeJSON)
 	req.Header.Set("User-Agent", UserAgent)
 
-	resp, err := m.httpClient.Do(req)
+	resp, err := m.memoryHttpClient.Do(req)
 	if err != nil {
 		tracker.Fail(fmt.Errorf("HTTP request failed: %w", err))
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
@@ -263,7 +271,7 @@ func (m *HTTPMemory) GetMessages(ctx context.Context) ([]Message, error) {
 	return messages, nil
 }
 
-func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
+func (m *HTTPMemoryAndStreaming) NotifyCompletion(ctx context.Context) error {
 	// Check if streaming is enabled via annotation
 	streamingEnabled, err := m.isStreamingEnabled(ctx)
 	if err != nil {
@@ -299,7 +307,7 @@ func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
 	req.Header.Set("Content-Type", ContentTypeJSON)
 	req.Header.Set("User-Agent", UserAgent)
 
-	resp, err := m.httpClient.Do(req)
+	resp, err := m.memoryHttpClient.Do(req)
 	if err != nil {
 		tracker.Fail(fmt.Errorf("HTTP request failed: %w", err))
 		return fmt.Errorf("HTTP request failed: %w", err)
@@ -322,7 +330,7 @@ func (m *HTTPMemory) NotifyCompletion(ctx context.Context) error {
 	return nil
 }
 
-func (m *HTTPMemory) isStreamingEnabled(ctx context.Context) (bool, error) {
+func (m *HTTPMemoryAndStreaming) isStreamingEnabled(ctx context.Context) (bool, error) {
 	var memory arkv1alpha1.Memory
 	key := client.ObjectKey{Name: m.name, Namespace: m.namespace}
 
@@ -339,7 +347,7 @@ func (m *HTTPMemory) isStreamingEnabled(ctx context.Context) (bool, error) {
 	return enabled == "true", nil
 }
 
-func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk interface{}) error {
+func (m *HTTPMemoryAndStreaming) StreamChunk(ctx context.Context, chunk interface{}) error {
 	m.streamMutex.Lock()
 	defer m.streamMutex.Unlock()
 
@@ -367,7 +375,7 @@ func (m *HTTPMemory) StreamChunk(ctx context.Context, chunk interface{}) error {
 }
 
 // establishStreamConnection creates a persistent streaming connection to memory service
-func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
+func (m *HTTPMemoryAndStreaming) establishStreamConnection(ctx context.Context) error {
 	if err := m.resolveAndUpdateAddress(ctx); err != nil {
 		return err
 	}
@@ -376,7 +384,12 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 	pr, pw := io.Pipe()
 
 	requestURL := fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.queryName))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, pr)
+	// Use context.Background() instead of the query context for the streaming HTTP request.
+	// This allows the HTTP POST to complete gracefully when NotifyCompletion is called.
+	// The streaming lifecycle is managed by closing the pipe writer in NotifyCompletion,
+	// which causes the HTTP request to finish sending all data and complete normally.
+	// Using the query context would cause "context canceled" errors when the query completes.
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, requestURL, pr)
 	if err != nil {
 		return fmt.Errorf("failed to create stream request: %w", err)
 	}
@@ -392,13 +405,8 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 				logf.FromContext(ctx).V(1).Info("Error closing pipe reader", "error", closeErr)
 			}
 		}()
-		// Create a separate HTTP client without timeout for streaming
-		// Streaming connections are long-lived and will be closed explicitly
-		streamClient := &http.Client{
-			Transport: m.httpClient.Transport,
-			// No timeout for streaming connections
-		}
-		resp, err := streamClient.Do(req)
+		// Use the streaming HTTP client (no timeout) for long-lived connections
+		resp, err := m.streamHttpClient.Do(req)
 		if err != nil {
 			logf.FromContext(ctx).Error(err, "Failed to establish stream connection")
 			return
@@ -425,11 +433,11 @@ func (m *HTTPMemory) establishStreamConnection(ctx context.Context) error {
 
 // closeStreamConnection cleanly closes the streaming connection
 // GetStreamingURL returns the streaming endpoint URL for this query
-func (m *HTTPMemory) GetStreamingURL() string {
+func (m *HTTPMemoryAndStreaming) GetStreamingURL() string {
 	return fmt.Sprintf("%s/stream/%s", m.baseURL, url.QueryEscape(m.queryName))
 }
 
-func (m *HTTPMemory) closeStreamConnection(ctx context.Context) {
+func (m *HTTPMemoryAndStreaming) closeStreamConnection(ctx context.Context) {
 	m.streamMutex.Lock()
 	defer m.streamMutex.Unlock()
 
@@ -442,7 +450,7 @@ func (m *HTTPMemory) closeStreamConnection(ctx context.Context) {
 	}
 }
 
-func (m *HTTPMemory) Close() error {
+func (m *HTTPMemoryAndStreaming) Close() error {
 	m.streamMutex.Lock()
 	defer m.streamMutex.Unlock()
 
@@ -452,8 +460,12 @@ func (m *HTTPMemory) Close() error {
 		m.streamWriter = nil
 	}
 
-	if m.httpClient != nil {
-		m.httpClient.CloseIdleConnections()
+	// Close both HTTP clients
+	if m.memoryHttpClient != nil {
+		m.memoryHttpClient.CloseIdleConnections()
+	}
+	if m.streamHttpClient != nil {
+		m.streamHttpClient.CloseIdleConnections()
 	}
 	return nil
 }

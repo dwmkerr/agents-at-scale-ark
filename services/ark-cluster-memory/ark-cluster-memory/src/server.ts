@@ -1,11 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import { MemoryStore } from './memory-store.js';
+import { StreamStore } from './stream-store.js';
 import { createMemoryRouter } from './routes/memory.js';
 import { createStreamRouter } from './routes/stream.js';
+import { setupSwagger } from './swagger.js';
 
 const app = express();
 const memory = new MemoryStore();
+const stream = new StreamStore();
 
 // Middleware
 app.use(cors());
@@ -17,9 +20,33 @@ app.use((req, res, next) => {
   next();
 });
 
+// Setup Swagger/OpenAPI documentation
+setupSwagger(app);
 
-
-// Health check
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns the health status of the service
+ *     tags:
+ *       - System
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               example: OK
+ *       503:
+ *         description: Service is unavailable
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               example: Service Unavailable
+ */
 app.get('/health', (req, res) => {
   try {
     const isHealthy = memory.isHealthy();
@@ -34,9 +61,10 @@ app.get('/health', (req, res) => {
   }
 });
 
+
 // Mount route modules
 app.use('/', createMemoryRouter(memory));
-app.use('/stream', createStreamRouter(memory));
+app.use('/stream', createStreamRouter(stream));
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -50,11 +78,15 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, () => {
-  console.log(`ARK Cluster Memory service running on port ${PORT}`);
+const PORT = process.env.PORT || '8080';
+const HOST = process.env.HOST || '0.0.0.0';
+const server = app.listen(parseInt(PORT), HOST, () => {
+  console.log(`ARK Cluster Memory service running on http://${HOST}:${PORT}`);
   if (process.env.MEMORY_FILE_PATH) {
     console.log(`Memory persistence enabled at: ${process.env.MEMORY_FILE_PATH}`);
+  }
+  if (process.env.STREAM_FILE_PATH) {
+    console.log(`Stream persistence enabled at: ${process.env.STREAM_FILE_PATH}`);
   }
 });
 
@@ -69,8 +101,9 @@ const gracefulShutdown = () => {
     clearInterval(saveInterval);
   }
   
-  // Save memory before exit
+  // Save memory and streams before exit
   memory.saveMemory();
+  stream.saveStreams();
   
   server.close(() => {
     console.log('Process terminated');
