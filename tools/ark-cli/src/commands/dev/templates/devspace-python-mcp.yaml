@@ -1,0 +1,62 @@
+# DevSpace configuration for Python MCP tool development
+version: v2beta1
+
+# Deployment pipelines
+pipelines:
+  # 'devspace deploy' - Build and deploy production images
+  deploy: |-
+    build_images --all
+    create_deployments --all
+
+  # 'devspace dev' - Deploy production, override with dev images, file sync  
+  dev: |-
+    create_deployments --all
+    start_dev --all
+
+# Image build configuration  
+images:
+  mcp-tool:
+    image: mcp-tool
+    dockerfile: ./Dockerfile
+    context: ./
+
+# Kubernetes deployments
+deployments:
+  mcp-tool:
+    namespace: default
+    helm:
+      chart:
+        path: ./chart
+      values:
+        app:
+          image:
+            repository: ${runtime.images.mcp-tool.image}
+            tag: ${runtime.images.mcp-tool.tag}
+
+# Development configuration - active during 'devspace dev'
+dev:
+  mcp-tool:
+    imageSelector: mcp-tool
+    devImage: python:3.12-slim
+    command: ["sh", "-c", "cd /app && python -m mcp_tool"]
+    namespace: default
+    # Stream logs instead of terminal
+    logs:
+      lastLines: 50
+    # File synchronization for hot reload
+    sync:
+      - path: ./:/app
+        startContainer: true
+        excludePaths:
+          - .git/
+          - .devspace/
+          - .venv/
+          - venv/
+          - __pycache__/
+          - "*.pyc"
+          - Dockerfile
+          - devspace.yaml
+          - chart/
+    # Enable SSH for IDE integration
+    ssh:
+      enabled: true
