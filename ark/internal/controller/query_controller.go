@@ -631,8 +631,10 @@ func (r *QueryReconciler) executeTeam(ctx context.Context, query arkv1alpha1.Que
 
 	userMessage := genai.NewUserMessage(resolvedInput)
 
-	// Teams don't support streaming yet, pass nil and false
-	responseMessages, err := team.Execute(ctx, userMessage, messages, nil, false)
+	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
+	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
+
+	responseMessages, err := team.Execute(ctx, userMessage, messages, memory, streamingEnabled)
 	if err != nil {
 		return nil, err
 	}
