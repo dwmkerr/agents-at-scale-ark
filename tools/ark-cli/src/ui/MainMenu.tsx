@@ -97,6 +97,12 @@ const MainMenu: React.FC = () => {
       setSelectedIndex((prev) => (prev < choices.length - 1 ? prev + 1 : 0));
     } else if (key.return) {
       handleSelect(choices[selectedIndex]);
+    } else {
+      // Handle number keys for quick selection
+      const num = parseInt(input, 10);
+      if (!isNaN(num) && num >= 1 && num <= choices.length) {
+        handleSelect(choices[num - 1]);
+      }
     }
   });
 
