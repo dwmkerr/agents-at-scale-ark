@@ -179,6 +179,11 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     const templateFiles = fs.readdirSync(templateDir)
       .filter(f => f.includes('.template'));
 
+    if (options.dryRun && templateFiles.length === 0) {
+      console.log(chalk.yellow('No template files found in: ' + templateDir));
+      return false;
+    }
+
     let generatedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
@@ -224,38 +229,75 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
         const tempValuesFile = path.join(absolutePath, '.ark-template-values.yaml');
         fs.writeFileSync(tempValuesFile, yaml.stringify(values));
 
-        // Read template and render it using helm
+        // Read template
         const templatePath = path.join(templateDir, templateFile);
-
-        // Create a minimal Chart.yaml for helm
-        const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
-        const tempTemplatesDir = path.join(tempChartDir, 'templates');
-        fs.mkdirSync(tempChartDir, { recursive: true });
-        fs.mkdirSync(tempTemplatesDir, { recursive: true });
-
-        // Write minimal Chart.yaml
-        fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
-
-        // Copy template to templates dir with appropriate extension for helm
-        const helmTemplateName = targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')
-          ? 'file.yaml'
-          : 'file.txt';
-        fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
-
-        // Run helm template
-        const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${helmTemplateName}`;
-
         let content: string;
-        try {
-          content = execSync(helmCommand, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-          // Remove the YAML document separator and any helm metadata
-          content = content.replace(/^---\n/, '');
-          content = content.replace(/^# Source:.*\n/gm, '');
-        } catch (helmError) {
-          throw new Error(`Failed to template ${targetFile}: ${helmError}`);
-        } finally {
-          // Clean up temp helm chart
-          fs.rmSync(tempChartDir, { recursive: true, force: true });
+
+        // Only use helm for YAML files
+        if (targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')) {
+          // Create a minimal Chart.yaml for helm
+          const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
+          const tempTemplatesDir = path.join(tempChartDir, 'templates');
+          fs.mkdirSync(tempChartDir, { recursive: true });
+          fs.mkdirSync(tempTemplatesDir, { recursive: true });
+
+          // Write minimal Chart.yaml
+          fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
+
+          // Copy template to templates dir
+          fs.copyFileSync(templatePath, path.join(tempTemplatesDir, 'file.yaml'));
+
+          // Run helm template
+          const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/file.yaml`;
+
+          try {
+            content = execSync(helmCommand, { encoding: 'utf-8', stdio: 'pipe' });
+            // Remove the YAML document separator and any helm metadata
+            content = content.replace(/^---\n/, '');
+            content = content.replace(/^# Source:.*\n/gm, '');
+          } catch (helmError: any) {
+            // Include stderr in the error message for debugging
+            const errorMsg = helmError.stderr || helmError.message || 'Unknown error';
+            if (options.dryRun) {
+              console.log(chalk.yellow(`Debug: Helm command: ${helmCommand}`));
+              console.log(chalk.yellow(`Debug: Values file content:`));
+              console.log(yaml.stringify(values));
+            }
+            throw new Error(`Failed to template ${targetFile}: ${errorMsg}`);
+          } finally {
+            // Clean up temp helm chart
+            fs.rmSync(tempChartDir, { recursive: true, force: true });
+          }
+        } else {
+          // For non-YAML files, use simple template replacement
+          content = fs.readFileSync(templatePath, 'utf-8');
+
+          // Replace template variables with values
+          const replaceValue = (str: string, path: string): string => {
+            const keys = path.split('.');
+            let value: any = values;
+            for (const key of keys) {
+              value = value[key];
+              if (value === undefined) return `{{ .${path} }}`; // Keep original if not found
+            }
+            return String(value);
+          };
+
+          // Find all template variables and replace them
+          content = content.replace(/\{\{\s*\.([\w\.]+)\s*\}\}/g, (match, path) => {
+            return replaceValue(match, path);
+          });
+
+          // Handle conditionals for non-YAML files
+          if (values.project.type === 'pyproject') {
+            // Keep if block, remove else block
+            content = content.replace(/\{\{\s*if\s+eq\s+\.project\.type\s+"pyproject"\s*-?\}\}([\s\S]*?)\{\{-?\s*else\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '$1');
+          } else {
+            // Keep else block, remove if block
+            content = content.replace(/\{\{\s*if\s+eq\s+\.project\.type\s+"pyproject"\s*-?\}\}[\s\S]*?\{\{-?\s*else\s*-?\}\}([\s\S]*?)\{\{-?\s*end\s*\}\}/g, '$1');
+          }
+          // Remove any remaining template syntax
+          content = content.replace(/\{\{-?\s*end\s*\}\}/g, '');
         }
 
         // In dry-run mode, print to stdout; otherwise write the file
@@ -278,7 +320,11 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
         generatedCount++;
 
       } catch (err) {
-        errors.push(`${targetFile}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        const errorMsg = `${targetFile}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        errors.push(errorMsg);
+        if (options.dryRun) {
+          console.log(chalk.red(`Error processing ${targetFile}: ${err instanceof Error ? err.message : 'Unknown error'}`));
+        }
       }
     }
 
