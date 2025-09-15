@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
 	arkv1prealpha1 "mckinsey.com/ark/api/v1prealpha1"
@@ -230,13 +231,33 @@ func (a *Agent) executeLocally(ctx context.Context, userInput Message, history [
 		agentMessages = append(agentMessages, assistantMessage)
 		newMessages = append(newMessages, assistantMessage)
 
+		// Debug logging for streaming tool calls
+		logger := logf.FromContext(ctx)
+		logger.Info("Agent response after streaming",
+			"agent", a.FullName(),
+			"streamingEnabled", streamingEnabled,
+			"hasToolCalls", len(choice.Message.ToolCalls) > 0,
+			"toolCallCount", len(choice.Message.ToolCalls),
+			"finishReason", choice.FinishReason)
+
+		if len(choice.Message.ToolCalls) > 0 {
+			logger.Info("Tool calls detected",
+				"agent", a.FullName(),
+				"firstToolName", choice.Message.ToolCalls[0].Function.Name,
+				"firstToolID", choice.Message.ToolCalls[0].ID)
+		}
+
 		if len(choice.Message.ToolCalls) == 0 {
+			logger.Info("No tool calls, returning", "agent", a.FullName())
 			return newMessages, nil
 		}
 
+		logger.Info("Executing tool calls", "agent", a.FullName(), "count", len(choice.Message.ToolCalls))
 		if err := a.executeToolCalls(ctx, choice.Message.ToolCalls, &agentMessages, &newMessages); err != nil {
+			logger.Error(err, "Tool execution failed", "agent", a.FullName())
 			return newMessages, err
 		}
+		logger.Info("Tool calls executed, continuing loop", "agent", a.FullName())
 	}
 }
 
