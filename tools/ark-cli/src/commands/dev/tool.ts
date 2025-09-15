@@ -219,6 +219,8 @@ async function initTool(toolPath: string) {
     arkConfig.project.type = 'none';
   } else {
     console.log(chalk.green(`✓ Detected platform: ${chalk.white(project.platform)}`));
+    console.log(chalk.gray(`  Found from: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`));
+
     const { confirmPlatform } = await inquirer.prompt([
       {
         type: 'confirm',
@@ -238,33 +240,54 @@ async function initTool(toolPath: string) {
 
     // Step 3: Project metadata
     if (project.project_name) {
-      console.log(chalk.green(`✓ Project name: ${chalk.white(project.project_name)}`));
-      console.log(chalk.green(`✓ Project version: ${chalk.white(project.project_version || 'unknown')}`));
+      console.log();
+      console.log(chalk.green(`✓ Found project name: ${chalk.white(project.project_name)}`));
+      console.log(chalk.gray(`  From: pyproject.toml [project] section`));
 
-      const { confirmMetadata } = await inquirer.prompt([
+      const { confirmName } = await inquirer.prompt([
         {
           type: 'confirm',
-          name: 'confirmMetadata',
-          message: `Save project metadata (${project.project_name} v${project.project_version})?`,
+          name: 'confirmName',
+          message: `Save project name as "${project.project_name}"?`,
           default: true
         }
       ]);
 
-      if (confirmMetadata) {
+      if (confirmName) {
         arkConfig.project.name = project.project_name;
-        arkConfig.project.version = project.project_version;
+      }
+
+      if (project.project_version) {
+        console.log();
+        console.log(chalk.green(`✓ Found project version: ${chalk.white(project.project_version)}`));
+        console.log(chalk.gray(`  From: pyproject.toml [project] section`));
+
+        const { confirmVersion } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'confirmVersion',
+            message: `Save project version as "${project.project_version}"?`,
+            default: true
+          }
+        ]);
+
+        if (confirmVersion) {
+          arkConfig.project.version = project.project_version;
+        }
       }
     }
 
     // Step 4: Check for FastMCP
     console.log();
     if (project.has_fastmcp) {
-      console.log(chalk.green(`✓ FastMCP detected: ${chalk.white(`v${project.fastmcp_version || 'unknown'}`)}`));
+      console.log(chalk.green(`✓ Found FastMCP framework: ${chalk.white(`v${project.fastmcp_version || 'unknown'}`)}`));
+      console.log(chalk.gray(`  From: ${project.project_type === 'pyproject' ? 'pyproject.toml dependencies' : 'requirements.txt'}`));
+
       const { confirmFramework } = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'confirmFramework',
-          message: `Confirm framework is FastMCP v${project.fastmcp_version}?`,
+          message: `Save framework as FastMCP v${project.fastmcp_version}?`,
           default: true
         }
       ]);
@@ -275,6 +298,8 @@ async function initTool(toolPath: string) {
       }
     } else {
       console.log(chalk.yellow('⚠ FastMCP not found in dependencies'));
+      console.log(chalk.gray(`  Checked: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`));
+
       const { recordMissing } = await inquirer.prompt([
         {
           type: 'confirm',
@@ -297,11 +322,15 @@ async function initTool(toolPath: string) {
 
   if (projectTools && projectTools.tools && projectTools.tools.length > 0) {
     discoverSpinner.succeed(`Found ${projectTools.tools.length} MCP tool(s)`);
+    console.log(chalk.gray(`  Searched: ${projectTools.files_searched} Python files`));
 
-    // List discovered tools
+    // List discovered tools with their source files
     for (const tool of projectTools.tools) {
       const description = tool.docstring ? tool.docstring.split('\n')[0] : '';
       console.log(chalk.gray(`  - ${tool.name}: ${description}`));
+      if (tool.source_file) {
+        console.log(chalk.gray(`    From: ${tool.source_file}`));
+      }
     }
 
     const { saveTools } = await inquirer.prompt([
@@ -321,6 +350,9 @@ async function initTool(toolPath: string) {
     }
   } else {
     discoverSpinner.warn('No MCP tools found');
+    if (projectTools) {
+      console.log(chalk.gray(`  Searched: ${projectTools.files_searched || 0} Python files`));
+    }
     arkConfig.tool.discovered = [];
   }
 
