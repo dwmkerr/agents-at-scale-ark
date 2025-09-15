@@ -1,4 +1,4 @@
-# Values for templating project files
+# Values for templating project files (used with project-template/*.template files)
 project:
   name: my-mcp-tool
   description: "A Python MCP tool for ARK"
