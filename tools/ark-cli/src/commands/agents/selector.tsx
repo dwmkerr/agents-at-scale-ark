@@ -40,6 +40,12 @@ export function AgentSelector({
       setSelectedIndex((prev) => (prev === agents.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
       onSelect(agents[selectedIndex]);
+    } else {
+      // Handle number keys for quick selection
+      const num = parseInt(input, 10);
+      if (!isNaN(num) && num >= 1 && num <= agents.length) {
+        onSelect(agents[num - 1]);
+      }
     }
   });
 
@@ -104,7 +110,7 @@ export function AgentSelector({
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>Enter to confirm · Esc to exit</Text>
+        <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>
       </Box>
     </Box>
   );

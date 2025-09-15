@@ -235,19 +235,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
       return;
     }
 
-    // Handle number keys for command selection
-    if (showCommands && filteredCommands.length > 0) {
-      const num = parseInt(inputChar, 10);
-      if (!isNaN(num) && num >= 1 && num <= filteredCommands.length) {
-        // Select the command by number (1-indexed)
-        const selectedCommand = filteredCommands[num - 1];
-        setInput(selectedCommand.command + ' ');
-        setShowCommands(false);
-        setFilteredCommands([]);
-        setInputKey((prev) => prev + 1); // Force re-mount to update cursor
-        return;
-      }
-    }
 
     // Handle arrow keys for message history navigation
     if (!showCommands && messageHistory.length > 0) {
@@ -986,7 +973,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
           <Box marginLeft={1} marginTop={1} flexDirection="column">
             {filteredCommands.map((cmd, index) => (
               <Box key={index}>
-                <Text color="yellow">{index + 1}. </Text>
                 <Text color="cyan">{cmd.command}</Text>
                 <Text color="gray"> {cmd.description}</Text>
               </Box>

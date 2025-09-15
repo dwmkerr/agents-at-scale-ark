@@ -40,6 +40,12 @@ export function ToolSelector({
       setSelectedIndex((prev) => (prev === tools.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
       onSelect(tools[selectedIndex]);
+    } else {
+      // Handle number keys for quick selection
+      const num = parseInt(input, 10);
+      if (!isNaN(num) && num >= 1 && num <= tools.length) {
+        onSelect(tools[num - 1]);
+      }
     }
   });
 
@@ -104,7 +110,7 @@ export function ToolSelector({
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>Enter to confirm · Esc to exit</Text>
+        <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>
       </Box>
     </Box>
   );

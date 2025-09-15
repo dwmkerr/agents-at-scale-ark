@@ -40,6 +40,12 @@ export function TeamSelector({
       setSelectedIndex((prev) => (prev === teams.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
       onSelect(teams[selectedIndex]);
+    } else {
+      // Handle number keys for quick selection
+      const num = parseInt(input, 10);
+      if (!isNaN(num) && num >= 1 && num <= teams.length) {
+        onSelect(teams[num - 1]);
+      }
     }
   });
 
@@ -107,7 +113,7 @@ export function TeamSelector({
         )}
 
       <Box marginTop={1}>
-        <Text dimColor>Enter to confirm · Esc to exit</Text>
+        <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>
       </Box>
     </Box>
   );

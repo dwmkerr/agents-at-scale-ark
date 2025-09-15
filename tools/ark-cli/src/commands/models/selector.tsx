@@ -40,6 +40,12 @@ export function ModelSelector({
       setSelectedIndex((prev) => (prev === models.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
       onSelect(models[selectedIndex]);
+    } else {
+      // Handle number keys for quick selection
+      const num = parseInt(input, 10);
+      if (!isNaN(num) && num >= 1 && num <= models.length) {
+        onSelect(models[num - 1]);
+      }
     }
   });
 
@@ -105,7 +111,7 @@ export function ModelSelector({
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>Enter to confirm · Esc to exit</Text>
+        <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>
       </Box>
     </Box>
   );
