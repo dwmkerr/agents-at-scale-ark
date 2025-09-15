@@ -42,16 +42,7 @@ dev:
       lastLines: 50
     sync:
       - path: ./:/app
+        uploadExcludeFile: .dockerignore
         startContainer: true
-        excludePaths:
-          - .git/
-          - .devspace/
-          - .venv/
-          - venv/
-          - __pycache__/
-          - "*.pyc"
-          - Dockerfile
-          - devspace.yaml
-          - chart/
     ssh:
       enabled: true
