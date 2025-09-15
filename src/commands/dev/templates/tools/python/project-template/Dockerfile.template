@@ -1,5 +1,5 @@
-# Python MCP Tool Dockerfile
-FROM python:3.12-slim
+# {{ .project.description }}
+FROM python:{{ .python.version }}-slim
 
 WORKDIR /app
 
@@ -17,4 +17,4 @@ RUN uv sync --frozen
 COPY src/ ./src/
 
 # Run the MCP server
-CMD ["uv", "run", "python", "-m", "mcp_tool"]
+CMD ["uv", "run", "python", "-m", "{{ .python.module_name }}"]

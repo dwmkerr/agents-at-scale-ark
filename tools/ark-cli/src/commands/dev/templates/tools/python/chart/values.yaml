@@ -1,14 +1,14 @@
 app:
-  name: mcp-tool
+  name: python-mcp-tool
   image:
-    repository: mcp-tool
+    repository: python-mcp-tool
     tag: latest
     pullPolicy: IfNotPresent
-  
+
   service:
     type: ClusterIP
     port: 8080
-  
+
   resources:
     limits:
       memory: "256Mi"

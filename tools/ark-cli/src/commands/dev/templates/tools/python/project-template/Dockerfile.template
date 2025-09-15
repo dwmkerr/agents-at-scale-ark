@@ -1,0 +1,20 @@
+# {{ .project.description }}
+FROM python:{{ .python.version }}-slim
+
+WORKDIR /app
+
+# Install uv for fast Python package management
+RUN pip install uv
+
+# Copy project files
+COPY pyproject.toml ./
+COPY uv.lock* ./
+
+# Install dependencies
+RUN uv sync --frozen
+
+# Copy source code
+COPY src/ ./src/
+
+# Run the MCP server
+CMD ["uv", "run", "python", "-m", "{{ .python.module_name }}"]
