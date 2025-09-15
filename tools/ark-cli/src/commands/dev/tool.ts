@@ -198,77 +198,64 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
       }
 
       try {
-        // Prepare values for templating
+        // Prepare consistent values structure for all templates
+        const projectName = arkConfig.project?.name || path.basename(absolutePath);
         const values = {
-          name: arkConfig.project?.name || path.basename(absolutePath),
-          type: arkConfig.project?.type || 'pyproject',
-          platform: arkConfig.project?.platform || 'python3',
-          version: arkConfig.project?.version || '0.1.0',
-          framework: arkConfig.project?.framework || 'fastmcp'
+          project: {
+            name: projectName,
+            type: arkConfig.project?.type || 'pyproject',
+            platform: arkConfig.project?.platform || 'python3',
+            version: arkConfig.project?.version || '0.1.0',
+            framework: arkConfig.project?.framework || 'fastmcp'
+          },
+          python: {
+            version: '3.11',  // Default Python version
+            module_name: projectName.replace(/-/g, '_')  // Convert kebab-case to snake_case
+          },
+          devspace: {
+            namespace: 'default',
+            image: {
+              repository: projectName  // Default repository name
+            }
+          }
         };
 
         // Create temp values file for helm
         const tempValuesFile = path.join(absolutePath, '.ark-template-values.yaml');
         fs.writeFileSync(tempValuesFile, yaml.stringify(values));
 
-        // Read template and render it
+        // Read template and render it using helm
         const templatePath = path.join(templateDir, templateFile);
-        let content = fs.readFileSync(templatePath, 'utf-8');
 
-        // For YAML files (like devspace.yaml), use helm
-        if (targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')) {
-          // Create a minimal Chart.yaml for helm
-          const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
-          const tempTemplatesDir = path.join(tempChartDir, 'templates');
-          fs.mkdirSync(tempChartDir, { recursive: true });
-          fs.mkdirSync(tempTemplatesDir, { recursive: true });
+        // Create a minimal Chart.yaml for helm
+        const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
+        const tempTemplatesDir = path.join(tempChartDir, 'templates');
+        fs.mkdirSync(tempChartDir, { recursive: true });
+        fs.mkdirSync(tempTemplatesDir, { recursive: true });
 
-          // Write minimal Chart.yaml
-          fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
+        // Write minimal Chart.yaml
+        fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
 
-          // Copy template to templates dir
-          const helmTemplateName = 'file.yaml';
-          fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
+        // Copy template to templates dir with appropriate extension for helm
+        const helmTemplateName = targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')
+          ? 'file.yaml'
+          : 'file.txt';
+        fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
 
-          // Run helm template
-          const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${helmTemplateName}`;
+        // Run helm template
+        const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${helmTemplateName}`;
 
-          try {
-            content = execSync(helmCommand, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-            // Remove the YAML document separator and any helm metadata
-            content = content.replace(/^---\n/, '');
-            content = content.replace(/^# Source:.*\n/gm, '');
-          } catch (helmError) {
-            // Fall back to simple templating if helm fails
-            if (options.interactive) {
-              console.log(chalk.yellow(`  Helm failed for ${targetFile}, using simple templating`));
-            }
-          } finally {
-            // Clean up temp helm chart
-            fs.rmSync(tempChartDir, { recursive: true, force: true });
-          }
-        }
-
-        // For non-YAML files or if helm failed, use simple templating
-        if (!targetFile.endsWith('.yaml') && !targetFile.endsWith('.yml') || content === fs.readFileSync(templatePath, 'utf-8')) {
-          // Simple template replacement
-          content = content.replace(/\{\{\s*\.name\s*\}\}/g, values.name);
-          content = content.replace(/\{\{\s*\.type\s*\}\}/g, values.type);
-          content = content.replace(/\{\{\s*\.platform\s*\}\}/g, values.platform);
-          content = content.replace(/\{\{\s*\.version\s*\}\}/g, values.version);
-          content = content.replace(/\{\{\s*\.framework\s*\}\}/g, values.framework);
-
-          // Handle conditional blocks for pyproject vs requirements
-          if (values.type === 'pyproject') {
-            // Keep if block, remove else block
-            content = content.replace(/\{\{\s*if\s+eq\s+\.type\s+"pyproject"\s*-?\}\}([\s\S]*?)\{\{-?\s*else\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '$1');
-          } else {
-            // Keep else block, remove if block
-            content = content.replace(/\{\{\s*if\s+eq\s+\.type\s+"pyproject"\s*-?\}\}[\s\S]*?\{\{-?\s*else\s*-?\}\}([\s\S]*?)\{\{-?\s*end\s*\}\}/g, '$1');
-          }
-
-          // Remove any standalone if blocks that don't match
-          content = content.replace(/\{\{\s*if\s+.*?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '');
+        let content: string;
+        try {
+          content = execSync(helmCommand, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+          // Remove the YAML document separator and any helm metadata
+          content = content.replace(/^---\n/, '');
+          content = content.replace(/^# Source:.*\n/gm, '');
+        } catch (helmError) {
+          throw new Error(`Failed to template ${targetFile}: ${helmError}`);
+        } finally {
+          // Clean up temp helm chart
+          fs.rmSync(tempChartDir, { recursive: true, force: true });
         }
 
         // In dry-run mode, print to stdout; otherwise write the file
