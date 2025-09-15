@@ -22,6 +22,9 @@ type Team struct {
 	Recorder    EventEmitter
 	Client      client.Client
 	Namespace   string
+	// Temporary storage for streaming context during execution
+	eventStream      MemoryInterface
+	streamingEnabled bool
 }
 
 // FullName returns the namespace/name format for the team
@@ -33,6 +36,10 @@ func (t *Team) Execute(ctx context.Context, userInput Message, history []Message
 	if len(t.Members) == 0 {
 		return nil, fmt.Errorf("team %s has no members configured", t.FullName())
 	}
+
+	// Store streaming parameters for member execution
+	t.eventStream = eventStream
+	t.streamingEnabled = streamingEnabled
 
 	teamTracker := NewOperationTracker(t.Recorder, ctx, "TeamExecution", t.FullName(), map[string]string{
 		"strategy":    t.Strategy,
@@ -215,8 +222,8 @@ func (t *Team) executeMemberAndAccumulate(ctx context.Context, member TeamMember
 		"strategy":   t.Strategy,
 	})
 
-	// Teams pass nil for eventStream and false for streamingEnabled as streaming is not yet supported for teams
-	memberNewMessages, err := member.Execute(ctx, userInput, *messages, nil, false)
+	// Pass through streaming parameters to enable team member streaming
+	memberNewMessages, err := member.Execute(ctx, userInput, *messages, t.eventStream, t.streamingEnabled)
 	if err != nil {
 		if IsTerminateTeam(err) {
 			memberTracker.CompleteWithTermination(err.Error())

@@ -144,10 +144,10 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 
 	// Add accumulated tool calls to the response in index order
 	logf.Log.Info("Stream completed", "chunkCount", chunkCount, "toolCallsMapSize", len(toolCallsMap))
-	logf.Log.Info("Checking accumulated tool calls", "mapSize", len(toolCallsMap), 
-		"hasResponse", fullResponse != nil, 
+	logf.Log.Info("Checking accumulated tool calls", "mapSize", len(toolCallsMap),
+		"hasResponse", fullResponse != nil,
 		"hasChoices", fullResponse != nil && len(fullResponse.Choices) > 0)
-	
+
 	if len(toolCallsMap) > 0 && fullResponse != nil && len(fullResponse.Choices) > 0 {
 		logf.Log.Info("Accumulated tool calls from streaming", "count", len(toolCallsMap))
 
@@ -169,7 +169,7 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 		}
 		fullResponse.Choices[0].Message.ToolCalls = toolCalls
 		logf.Log.Info("Set tool calls on response", "count", len(toolCalls))
-		
+
 		// CRITICAL: Send final accumulated message with tool calls to memory
 		// This ensures the complete assistant message with tool calls is available
 		// for agents to process after streaming completes
@@ -187,7 +187,7 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 					},
 				},
 			}
-			
+
 			// Send complete accumulated message as final update
 			// This is a special chunk that contains the full message with tool calls
 			// It's marked with a special field so memory can handle it appropriately

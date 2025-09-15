@@ -200,6 +200,8 @@ The following items are in testing:
 - [ ] feat: stream memory out with `?watch=true?from_beginning=true&wait-for-query=30`
 - [ ] feat: parallelism
 - [ ] feat: docs / ascii
+- [ ] feat: openai endpoint docs
+- feat: non streaming tool calls
 
   ---
 
@@ -289,5 +291,11 @@ ark/internal/genai/model_generic.go - Where chunks are forwarded from the LLM
 ark/internal/genai/provider_openai.go - OpenAI provider with tool call accumulation
 ark/internal/genai/provider_azure.go - Azure provider with tool call accumulation
 ark/internal/genai/provider_bedrock.go - Bedrock provider (streaming not yet implemented)
+ark/internal/genai/team.go - Team orchestration and agent coordination
+ark/internal/genai/team_sequential.go - Sequential team strategy implementation
+ark/internal/genai/team_roundrobin.go - Round-robin team strategy implementation
+ark/internal/genai/team_graph.go - Graph-based team strategy implementation
+ark/internal/genai/team_selector.go - Selector-based team strategy implementation
+ark/internal/genai/agent.go - Agent execution that calls models with streaming
 ```
 
