@@ -145,7 +145,7 @@ async function statusTool(toolPath: string, options: {output?: string}) {
   }
 }
 
-async function generateProjectFiles(toolPath: string, options: {interactive?: boolean} = {interactive: true}) {
+async function generateProjectFiles(toolPath: string, options: {interactive?: boolean, dryRun?: boolean} = {interactive: true, dryRun: false}) {
   const absolutePath = path.resolve(toolPath);
   const arkConfigPath = path.join(absolutePath, '.ark.yaml');
 
@@ -158,7 +158,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
   // Load .ark.yaml
   const arkConfig = yaml.parse(fs.readFileSync(arkConfigPath, 'utf-8'));
 
-  const generateSpinner = ora('Generating project files...').start();
+  const generateSpinner = options.dryRun ? null : ora('Generating project files...').start();
 
   try {
     // Find template directory - templates are in the source tree
@@ -168,7 +168,9 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     const templateDir = path.join(arkCliDir, 'samples', 'templates', 'python-mcp-tool');
 
     if (!fs.existsSync(templateDir)) {
-      generateSpinner.fail('Template directory not found');
+      if (generateSpinner) {
+        generateSpinner.fail('Template directory not found');
+      }
       console.log(chalk.yellow('Could not find templates at: ' + templateDir));
       return false;
     }
@@ -186,8 +188,8 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
       const targetFile = templateFile.replace('.template', '');
       const targetPath = path.join(absolutePath, targetFile);
 
-      // Check if file already exists
-      if (fs.existsSync(targetPath)) {
+      // Check if file already exists (skip this check in dry-run mode)
+      if (!options.dryRun && fs.existsSync(targetPath)) {
         if (options.interactive) {
           console.log(chalk.yellow(`  Skipping ${targetFile} (already exists)`));
         }
@@ -269,17 +271,23 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
           content = content.replace(/\{\{\s*if\s+.*?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '');
         }
 
-        // Write the rendered file
-        fs.writeFileSync(targetPath, content);
+        // In dry-run mode, print to stdout; otherwise write the file
+        if (options.dryRun) {
+          console.log(chalk.cyan(`\n=== ${targetFile} ===`));
+          console.log(content);
+          console.log(chalk.cyan(`=== END ${targetFile} ===\n`));
+        } else {
+          fs.writeFileSync(targetPath, content);
+          if (options.interactive) {
+            console.log(chalk.green(`  ✓ Generated ${targetFile}`));
+          }
+        }
 
         // Clean up temp values file
         if (fs.existsSync(tempValuesFile)) {
           fs.unlinkSync(tempValuesFile);
         }
 
-        if (options.interactive) {
-          console.log(chalk.green(`  ✓ Generated ${targetFile}`));
-        }
         generatedCount++;
 
       } catch (err) {
@@ -287,12 +295,14 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
       }
     }
 
-    if (generatedCount > 0) {
-      generateSpinner.succeed(`Generated ${generatedCount} file(s)`);
-    } else if (skippedCount > 0) {
-      generateSpinner.warn(`No new files generated (${skippedCount} already exist)`);
-    } else {
-      generateSpinner.warn('No files to generate');
+    if (!options.dryRun) {
+      if (generatedCount > 0) {
+        generateSpinner!.succeed(`Generated ${generatedCount} file(s)`);
+      } else if (skippedCount > 0) {
+        generateSpinner!.warn(`No new files generated (${skippedCount} already exist)`);
+      } else {
+        generateSpinner!.warn('No files to generate');
+      }
     }
 
     if (errors.length > 0 && options.interactive) {
@@ -303,7 +313,9 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     return generatedCount > 0;
 
   } catch (error) {
-    generateSpinner.fail('Failed to generate project files');
+    if (!options.dryRun && generateSpinner) {
+      generateSpinner.fail('Failed to generate project files');
+    }
     if (options.interactive) {
       console.log(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
     }
@@ -311,16 +323,23 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
   }
 }
 
-async function generateTool(toolPath: string) {
+async function generateTool(toolPath: string, options: {dryRun?: boolean} = {}) {
   const absolutePath = path.resolve(toolPath);
 
-  console.log();
-  console.log(chalk.blue('ARK Tool Project File Generation'));
-  console.log();
+  if (options.dryRun) {
+    console.log();
+    console.log(chalk.blue('ARK Tool Project File Generation (DRY RUN)'));
+    console.log(chalk.gray('Showing generated files without creating them'));
+    console.log();
+  } else {
+    console.log();
+    console.log(chalk.blue('ARK Tool Project File Generation'));
+    console.log();
+  }
 
-  const success = await generateProjectFiles(absolutePath);
+  const success = await generateProjectFiles(absolutePath, {interactive: !options.dryRun, dryRun: options.dryRun});
 
-  if (success) {
+  if (success && !options.dryRun) {
     console.log();
     console.log('Next steps:');
     console.log('  • Review generated files and customize as needed');
@@ -538,7 +557,7 @@ async function initTool(toolPath: string) {
 
     if (generateFiles) {
       console.log();
-      await generateProjectFiles(absolutePath);
+      await generateProjectFiles(absolutePath, {interactive: true, dryRun: false});
     }
 
     console.log();
@@ -576,6 +595,7 @@ export function createToolCommand(): Command {
   generateCommand
     .description('Generate project files (Dockerfile, .dockerignore, etc.) from templates')
     .argument('<path>', 'Path to the tool directory')
+    .option('--dry-run', 'Show generated template files without creating them')
     .action(generateTool);
 
   toolCommand.addCommand(statusCommand);
