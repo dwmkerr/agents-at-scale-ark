@@ -494,6 +494,17 @@ func (r *QueryReconciler) executeTarget(ctx context.Context, query arkv1alpha1.Q
 	)
 	defer span.End()
 
+	// Add query and session context for streaming metadata
+	queryID := string(query.UID)
+	sessionID := "" // Could be extracted from annotations or labels if available
+	ctx = genai.WithQueryContext(ctx, queryID, sessionID, query.Name)
+	
+	// Add execution metadata for streaming
+	targetString := fmt.Sprintf("%s/%s", target.Type, target.Name)
+	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
+		"target": targetString,
+	})
+
 	timeout := 5 * time.Minute
 	if query.Spec.Timeout != nil {
 		timeout = query.Spec.Timeout.Duration
@@ -553,6 +564,11 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 
 	log := logf.FromContext(ctx)
 	log.Info("executing agent", "agent", agentCRD.Name)
+	
+	// Add agent to execution metadata
+	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
+		"agent": agentName,
+	})
 
 	// Regular agent execution
 	agent, err := genai.MakeAgent(ctx, impersonatedClient, &agentCRD, tokenCollector)
