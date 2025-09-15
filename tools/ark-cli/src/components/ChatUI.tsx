@@ -216,24 +216,8 @@ const ChatUI: React.FC<ChatUIProps> = ({
       return;
     }
 
-    // Handle Ctrl+W to delete previous word
-    if (key.ctrl && inputChar === 'w') {
-      if (input.length > 0) {
-        // Find the last word boundary
-        const trimmed = input.trimEnd();
-        const lastSpaceIndex = trimmed.lastIndexOf(' ');
-
-        if (lastSpaceIndex === -1) {
-          // Only one word, clear everything
-          setInput('');
-        } else {
-          // Remove the last word
-          setInput(trimmed.substring(0, lastSpaceIndex + 1));
-        }
-        setInputKey((prev) => prev + 1); // Force re-mount to update cursor
-      }
-      return;
-    }
+    // Note: Ctrl+W for word deletion doesn't work reliably due to terminal/readline
+    // intercepting it before it reaches the app. Most terminals handle this at a lower level.
 
 
     // Handle arrow keys for message history navigation
