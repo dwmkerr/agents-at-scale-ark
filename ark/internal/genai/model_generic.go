@@ -27,6 +27,12 @@ type Model struct {
 	SchemaName   string
 }
 
+// ChunkWithMetadata wraps an OpenAI chunk with ARK metadata
+type ChunkWithMetadata struct {
+	*openai.ChatCompletionChunk
+	Ark map[string]interface{} `json:"ark,omitempty"`
+}
+
 func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory MemoryInterface, streamingEnabled bool, n int64, tools ...[]openai.ChatCompletionToolParam) (*openai.ChatCompletion, error) {
 	if m.Provider == nil {
 		return nil, nil
@@ -56,8 +62,9 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 	if streamingEnabled && memory != nil {
 		logf.Log.Info("Using streaming mode for chat completion")
 		response, err = m.Provider.ChatCompletionStream(ctx, messages, n, func(chunk *openai.ChatCompletionChunk) error {
-			// Forward all chunks as-is to preserve tool calls, finish_reason, and other OpenAI fields
-			return memory.StreamChunk(ctx, chunk)
+			// Wrap chunk with ARK metadata
+			chunkWithMeta := m.wrapChunkWithMetadata(ctx, chunk)
+			return memory.StreamChunk(ctx, chunkWithMeta)
 		}, tools...)
 		if response != nil && len(response.Choices) > 0 {
 			logf.Log.Info("Streaming response received",
@@ -80,4 +87,38 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 	telemetry.RecordSuccess(span)
 
 	return response, nil
+}
+
+// wrapChunkWithMetadata adds ARK metadata to a streaming chunk
+func (m *Model) wrapChunkWithMetadata(ctx context.Context, chunk *openai.ChatCompletionChunk) interface{} {
+	// Get execution metadata from context
+	metadata := GetExecutionMetadata(ctx)
+	
+	// Add query and session IDs
+	if queryID := getQueryID(ctx); queryID != "" {
+		metadata["query"] = queryID
+	}
+	if sessionID := getSessionID(ctx); sessionID != "" {
+		metadata["session"] = sessionID
+	}
+	
+	// Add model name if not already in metadata
+	if _, exists := metadata["model"]; !exists {
+		metadata["model"] = m.Model
+	}
+	
+	// If no metadata, return chunk as-is for backward compatibility
+	if len(metadata) == 0 {
+		return chunk
+	}
+	
+	// Create an anonymous struct that embeds the chunk and adds ark field
+	// This creates a JSON structure with all chunk fields plus an "ark" field
+	return struct {
+		*openai.ChatCompletionChunk
+		Ark map[string]interface{} `json:"ark,omitempty"`
+	}{
+		ChatCompletionChunk: chunk,
+		Ark:                 metadata,
+	}
 }
