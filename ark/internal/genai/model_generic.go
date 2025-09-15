@@ -5,6 +5,7 @@ import (
 
 	"github.com/openai/openai-go"
 	"k8s.io/apimachinery/pkg/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"mckinsey.com/ark/internal/telemetry"
 )
 
@@ -53,10 +54,17 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 
 	// Use streaming if enabled and memory interface is provided
 	if streamingEnabled && memory != nil {
+		logf.Log.Info("Using streaming mode for chat completion")
 		response, err = m.Provider.ChatCompletionStream(ctx, messages, n, func(chunk *openai.ChatCompletionChunk) error {
 			// Forward all chunks as-is to preserve tool calls, finish_reason, and other OpenAI fields
 			return memory.StreamChunk(ctx, chunk)
 		}, tools...)
+		if response != nil && len(response.Choices) > 0 {
+			logf.Log.Info("Streaming response received", 
+				"hasToolCalls", len(response.Choices[0].Message.ToolCalls) > 0,
+				"toolCallCount", len(response.Choices[0].Message.ToolCalls),
+				"finishReason", response.Choices[0].FinishReason)
+		}
 	} else {
 		response, err = m.Provider.ChatCompletion(ctx, messages, n, tools...)
 	}

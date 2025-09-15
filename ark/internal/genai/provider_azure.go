@@ -62,40 +62,54 @@ func (ap *AzureProvider) ChatCompletionStream(ctx context.Context, messages []Me
 	defer func() { _ = stream.Close() }()
 
 	var fullResponse *openai.ChatCompletion
+	toolCallsMap := make(map[int64]*openai.ChatCompletionMessageToolCall)
+
 	for stream.Next() {
 		chunk := stream.Current()
 		if err := streamFunc(&chunk); err != nil {
 			return nil, err
 		}
 
-		if fullResponse == nil {
-			fullResponse = &openai.ChatCompletion{
-				ID:      chunk.ID,
-				Object:  "chat.completion",
-				Created: chunk.Created,
-				Model:   chunk.Model,
-				Choices: []openai.ChatCompletionChoice{},
+		// Use the same accumulation logic as OpenAIProvider
+		accumulateStreamChunk(&chunk, &fullResponse, toolCallsMap)
+	}
+
+	// Add accumulated tool calls to the response in index order
+	if len(toolCallsMap) > 0 && fullResponse != nil && len(fullResponse.Choices) > 0 {
+		// Find max index to iterate in order
+		maxIndex := int64(-1)
+		for idx := range toolCallsMap {
+			if idx > maxIndex {
+				maxIndex = idx
 			}
 		}
 
-		if len(chunk.Choices) > 0 && len(fullResponse.Choices) == 0 {
-			fullResponse.Choices = append(fullResponse.Choices, openai.ChatCompletionChoice{
-				Index:   chunk.Choices[0].Index,
-				Message: openai.ChatCompletionMessage{},
-			})
+		// Build tool calls array in index order
+		toolCalls := make([]openai.ChatCompletionMessageToolCall, 0, len(toolCallsMap))
+		for i := int64(0); i <= maxIndex; i++ {
+			if toolCall, exists := toolCallsMap[i]; exists {
+				toolCalls = append(toolCalls, *toolCall)
+			}
 		}
-
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			fullResponse.Choices[0].Message.Content += chunk.Choices[0].Delta.Content
-		}
-
-		if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != "" {
-			fullResponse.Choices[0].FinishReason = chunk.Choices[0].FinishReason
-		}
+		fullResponse.Choices[0].Message.ToolCalls = toolCalls
 	}
 
 	if err := stream.Err(); err != nil {
 		return nil, err
+	}
+
+	// Ensure we have a valid response
+	if fullResponse == nil {
+		return nil, fmt.Errorf("streaming completed but no response was accumulated")
+	}
+
+	// Initialize usage if not present (streaming responses may not include usage)
+	if fullResponse.Usage.TotalTokens == 0 {
+		fullResponse.Usage = openai.CompletionUsage{
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TotalTokens:      0,
+		}
 	}
 
 	return fullResponse, nil

@@ -106,6 +106,7 @@ func accumulateStreamChunk(chunk *openai.ChatCompletionChunk, fullResponse **ope
 }
 
 func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []Message, n int64, streamFunc func(*openai.ChatCompletionChunk) error, tools ...[]openai.ChatCompletionToolParam) (*openai.ChatCompletion, error) {
+	logf.Log.Info("OpenAIProvider.ChatCompletionStream called", "messageCount", len(messages), "toolCount", len(tools))
 	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, len(messages))
 	for i, msg := range messages {
 		openaiMessages[i] = openai.ChatCompletionMessageParamUnion(msg)
@@ -142,14 +143,13 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 	}
 
 	// Add accumulated tool calls to the response in index order
-	logger := logf.FromContext(ctx)
-	logger.Info("Stream completed", "chunkCount", chunkCount, "toolCallsMapSize", len(toolCallsMap))
-	logger.Info("Checking accumulated tool calls", "mapSize", len(toolCallsMap), 
+	logf.Log.Info("Stream completed", "chunkCount", chunkCount, "toolCallsMapSize", len(toolCallsMap))
+	logf.Log.Info("Checking accumulated tool calls", "mapSize", len(toolCallsMap), 
 		"hasResponse", fullResponse != nil, 
 		"hasChoices", fullResponse != nil && len(fullResponse.Choices) > 0)
 	
 	if len(toolCallsMap) > 0 && fullResponse != nil && len(fullResponse.Choices) > 0 {
-		logger.Info("Accumulated tool calls from streaming", "count", len(toolCallsMap))
+		logf.Log.Info("Accumulated tool calls from streaming", "count", len(toolCallsMap))
 
 		// Find max index to iterate in order
 		maxIndex := int64(-1)
@@ -164,11 +164,11 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 		for i := int64(0); i <= maxIndex; i++ {
 			if toolCall, exists := toolCallsMap[i]; exists {
 				toolCalls = append(toolCalls, *toolCall)
-				logger.Info("Adding tool call", "index", i, "id", toolCall.ID, "name", toolCall.Function.Name)
+				logf.Log.Info("Adding tool call", "index", i, "id", toolCall.ID, "name", toolCall.Function.Name)
 			}
 		}
 		fullResponse.Choices[0].Message.ToolCalls = toolCalls
-		logger.Info("Set tool calls on response", "count", len(toolCalls))
+		logf.Log.Info("Set tool calls on response", "count", len(toolCalls))
 		
 		// CRITICAL: Send final accumulated message with tool calls to memory
 		// This ensures the complete assistant message with tool calls is available
@@ -191,13 +191,13 @@ func (op *OpenAIProvider) ChatCompletionStream(ctx context.Context, messages []M
 			// Send complete accumulated message as final update
 			// This is a special chunk that contains the full message with tool calls
 			// It's marked with a special field so memory can handle it appropriately
-			logger.Info("Sending final accumulated message with tool calls", "toolCount", len(toolCalls))
+			logf.Log.Info("Sending final accumulated message with tool calls", "toolCount", len(toolCalls))
 			if err := streamFunc(finalChunk); err != nil {
-				logger.Error(err, "Failed to send final accumulated message")
+				logf.Log.Error(err, "Failed to send final accumulated message")
 			}
 		}
 	} else {
-		logger.Info("No tool calls to add", "mapSize", len(toolCallsMap))
+		logf.Log.Info("No tool calls to add", "mapSize", len(toolCallsMap))
 	}
 
 	if err := stream.Err(); err != nil {

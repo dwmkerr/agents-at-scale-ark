@@ -86,7 +86,7 @@ When streaming is enabled:
 
 All OpenAI-compatible chunks are passed through as-is, including text content, tool calls, and finish reasons. When queries involve teams or multiple agents, intermediate `finish_reason` chunks are forwarded but do not close the stream - only the explicit completion signal from the Query Controller ends the stream with `data: [DONE]`.
 
-If a query target does not support streaming (as is currently the case for some models), then as-per the OpenAI specification the streaming APIs will return the entire response in a single chunk at the end of query execution. OpenAI and Azure OpenAI models currently support stream, Amazon Bedrock models do not yet have streaming implemented. Streaming for agents and teams is not yet supported.
+If a query target does not support streaming (as is currently the case for some models), then as-per the OpenAI specification the streaming APIs will return the entire response in a single chunk at the end of query execution. 
 
 ### Tool/Function Calling in Streams
 
@@ -260,6 +260,13 @@ Agent Integration Test
 
 Run the previous scenarios with the `github-agent` and ask to list repos for `dwmkerr` - we should get the expected results, and with streaming we should still get tool calls and we should have tools calls in the stream. if we don't get tool calls while streaming it means that the tool call accumation is not working or not passing to the LLM.
 
+**Important**: Test script must verify the model type being used and test accordingly:
+- **OpenAI models**: Should stream tool calls properly with accumulation
+- **Azure OpenAI models**: Should stream tool calls properly with accumulation  
+- **Bedrock models**: Should skip streaming tests (not yet implemented)
+
+The test script should check the default model configuration (`kubectl get model default -o json`) to determine which provider is being used and adjust expectations accordingly.
+
 Troubleshooting:
 
 To hit the event stream service directly:
@@ -277,7 +284,10 @@ kubectl get query {query_name}
 Key files to troubleshoot:
 
 ```
-ark/internal/genai/memory_http.go  - This is the main file with streaming implementation
-ark/internal/genai/model_generic.go - This is where chunks are forwarded from the LLM
+ark/internal/genai/memory_http_streaming.go  - Main file with streaming implementation
+ark/internal/genai/model_generic.go - Where chunks are forwarded from the LLM
+ark/internal/genai/provider_openai.go - OpenAI provider with tool call accumulation
+ark/internal/genai/provider_azure.go - Azure provider with tool call accumulation
+ark/internal/genai/provider_bedrock.go - Bedrock provider (streaming not yet implemented)
 ```
 
