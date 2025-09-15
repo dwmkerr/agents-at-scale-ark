@@ -2,6 +2,7 @@ import {Command} from 'commander';
 import {ArkApiProxy} from '../../lib/arkApiProxy.js';
 import {ArkApiClient} from '../../lib/arkApiClient.js';
 import output from '../../lib/output.js';
+import {createModel} from './create.js';
 
 async function listModels(
   arkApiClient: ArkApiClient,
@@ -76,6 +77,17 @@ export function createModelsCommand(): Command {
     });
 
   modelsCommand.addCommand(listCommand);
+
+  // Add create command
+  const createCommand = new Command('create');
+  createCommand
+    .description('Create a new model')
+    .argument('[name]', 'Model name (optional)')
+    .action(async (name) => {
+      await createModel(name);
+    });
+
+  modelsCommand.addCommand(createCommand);
 
   return modelsCommand;
 }
