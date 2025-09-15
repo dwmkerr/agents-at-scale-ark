@@ -89,6 +89,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [showTeamSelector, setShowTeamSelector] = React.useState(false);
   const [showToolSelector, setShowToolSelector] = React.useState(false);
 
+  // Message history navigation
+  const [messageHistory, setMessageHistory] = React.useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = React.useState(-1);
+
   // Initialize chat config from environment variable
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
     streamingEnabled: process.env.ARK_ENABLE_STREAMING === '1',
@@ -197,9 +201,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
   }, [initialTargetId]);
 
   // Handle keyboard input
-  useInput((input, key) => {
+  useInput((inputChar, key) => {
     // Handle Ctrl+C to exit cleanly
-    if (input === '\x03' || (key.ctrl && input === 'c')) {
+    if (inputChar === '\x03' || (key.ctrl && inputChar === 'c')) {
       // Clean up resources
       if (arkApiProxy) {
         arkApiProxy.stop();
@@ -210,6 +214,74 @@ const ChatUI: React.FC<ChatUIProps> = ({
       // Exit the app properly
       exit();
       return;
+    }
+
+    // Handle Ctrl+W to delete previous word
+    if (key.ctrl && inputChar === 'w') {
+      if (input.length > 0) {
+        // Find the last word boundary
+        const trimmed = input.trimEnd();
+        const lastSpaceIndex = trimmed.lastIndexOf(' ');
+
+        if (lastSpaceIndex === -1) {
+          // Only one word, clear everything
+          setInput('');
+        } else {
+          // Remove the last word
+          setInput(trimmed.substring(0, lastSpaceIndex + 1));
+        }
+        setInputKey((prev) => prev + 1); // Force re-mount to update cursor
+      }
+      return;
+    }
+
+    // Handle number keys for command selection
+    if (showCommands && filteredCommands.length > 0) {
+      const num = parseInt(inputChar, 10);
+      if (!isNaN(num) && num >= 1 && num <= filteredCommands.length) {
+        // Select the command by number (1-indexed)
+        const selectedCommand = filteredCommands[num - 1];
+        setInput(selectedCommand.command + ' ');
+        setShowCommands(false);
+        setFilteredCommands([]);
+        setInputKey((prev) => prev + 1); // Force re-mount to update cursor
+        return;
+      }
+    }
+
+    // Handle arrow keys for message history navigation
+    if (!showCommands && messageHistory.length > 0) {
+      if (key.upArrow && input === '') {
+        // Go back in history
+        const newIndex = historyIndex === -1
+          ? messageHistory.length - 1
+          : Math.max(0, historyIndex - 1);
+
+        if (newIndex >= 0 && newIndex < messageHistory.length) {
+          setHistoryIndex(newIndex);
+          setInput(messageHistory[newIndex]);
+          setInputKey((prev) => prev + 1); // Force re-mount to update cursor
+        }
+        return;
+      }
+
+      if (key.downArrow && input === '') {
+        // Go forward in history
+        if (historyIndex >= 0) {
+          const newIndex = Math.min(messageHistory.length - 1, historyIndex + 1);
+
+          if (newIndex === messageHistory.length - 1) {
+            // At the end of history, clear input
+            setHistoryIndex(-1);
+            setInput('');
+          } else {
+            setHistoryIndex(newIndex);
+            setInput(messageHistory[newIndex]);
+          }
+          setInputKey((prev) => prev + 1); // Force re-mount to update cursor
+        }
+        return;
+      }
     }
 
     // Tab to autocomplete when there's a single matching command
@@ -404,6 +476,11 @@ const ChatUI: React.FC<ChatUIProps> = ({
     };
 
     setMessages((prev) => [...prev, userMessage]);
+
+    // Add to message history
+    setMessageHistory((prev) => [...prev, value]);
+    setHistoryIndex(-1); // Reset history navigation
+
     setInput('');
     setIsTyping(true);
     setError(null);
@@ -909,6 +986,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
           <Box marginLeft={1} marginTop={1} flexDirection="column">
             {filteredCommands.map((cmd, index) => (
               <Box key={index}>
+                <Text color="yellow">{index + 1}. </Text>
                 <Text color="cyan">{cmd.command}</Text>
                 <Text color="gray"> {cmd.description}</Text>
               </Box>
