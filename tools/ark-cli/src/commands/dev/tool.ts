@@ -190,6 +190,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
 
     for (const templateFile of templateFiles) {
       // Extract target filename (remove .template suffix)
+      // Note: targetFile keeps the original name including leading dots (e.g., .dockerignore)
       const targetFile = templateFile.replace('.template', '');
       const targetPath = path.join(absolutePath, targetFile);
 
@@ -231,73 +232,70 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
 
         // Read template
         const templatePath = path.join(templateDir, templateFile);
-        let content: string;
 
-        // Only use helm for YAML files
-        if (targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')) {
-          // Create a minimal Chart.yaml for helm
-          const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
-          const tempTemplatesDir = path.join(tempChartDir, 'templates');
-          fs.mkdirSync(tempChartDir, { recursive: true });
-          fs.mkdirSync(tempTemplatesDir, { recursive: true });
+        // Create a minimal chart structure for helm to process this single file
+        const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
+        const tempTemplatesDir = path.join(tempChartDir, 'templates');
+        fs.mkdirSync(tempChartDir, { recursive: true });
+        fs.mkdirSync(tempTemplatesDir, { recursive: true });
 
-          // Write minimal Chart.yaml
-          fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
+        // Write minimal Chart.yaml
+        fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
 
-          // Copy template to templates dir
-          fs.copyFileSync(templatePath, path.join(tempTemplatesDir, 'file.yaml'));
+        // Copy template to templates dir
+        // For non-YAML files, wrap them in a YAML structure for helm to process
+        const originalTemplateName = path.basename(templatePath).replace('.template', '');
+        const isYamlFile = targetFile.endsWith('.yaml') || targetFile.endsWith('.yml');
 
-          // Run helm template
-          const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/file.yaml`;
+        // For dotfiles, replace the leading dot with 'dot' for helm processing
+        // (helm has issues with files starting with dots)
+        const helmTemplateName = originalTemplateName.startsWith('.')
+          ? 'dot' + originalTemplateName.substring(1)
+          : originalTemplateName;
 
-          try {
-            content = execSync(helmCommand, { encoding: 'utf-8', stdio: 'pipe' });
-            // Remove the YAML document separator and any helm metadata
-            content = content.replace(/^---\n/, '');
-            content = content.replace(/^# Source:.*\n/gm, '');
-          } catch (helmError: any) {
-            // Include stderr in the error message for debugging
-            const errorMsg = helmError.stderr || helmError.message || 'Unknown error';
-            if (options.dryRun) {
-              console.log(chalk.yellow(`Debug: Helm command: ${helmCommand}`));
-              console.log(chalk.yellow(`Debug: Values file content:`));
-              console.log(yaml.stringify(values));
-            }
-            throw new Error(`Failed to template ${targetFile}: ${errorMsg}`);
-          } finally {
-            // Clean up temp helm chart
-            fs.rmSync(tempChartDir, { recursive: true, force: true });
-          }
+        if (isYamlFile) {
+          // Copy YAML files directly
+          fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
         } else {
-          // For non-YAML files, use simple template replacement
-          content = fs.readFileSync(templatePath, 'utf-8');
+          // Wrap non-YAML content in a YAML structure for helm
+          const originalContent = fs.readFileSync(templatePath, 'utf-8');
+          const wrappedContent = `# Wrapped for helm processing\ncontent: |\n${originalContent.split('\n').map(line => '  ' + line).join('\n')}`;
+          fs.writeFileSync(path.join(tempTemplatesDir, helmTemplateName + '.yaml'), wrappedContent);
+        }
 
-          // Replace template variables with values
-          const replaceValue = (str: string, path: string): string => {
-            const keys = path.split('.');
-            let value: any = values;
-            for (const key of keys) {
-              value = value[key];
-              if (value === undefined) return `{{ .${path} }}`; // Keep original if not found
-            }
-            return String(value);
-          };
+        // Run helm template to process the file
+        const actualHelmFile = isYamlFile ? helmTemplateName : helmTemplateName + '.yaml';
+        const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${actualHelmFile}`;
 
-          // Find all template variables and replace them
-          content = content.replace(/\{\{\s*\.([\w\.]+)\s*\}\}/g, (match, path) => {
-            return replaceValue(match, path);
-          });
+        let content: string;
+        try {
+          content = execSync(helmCommand, { encoding: 'utf-8' });
+          // Remove the YAML document separator that helm adds
+          content = content.replace(/^---\n/, '');
+          // Remove helm's source comment
+          content = content.replace(/^# Source:.*\n/gm, '');
 
-          // Handle conditionals for non-YAML files
-          if (values.project.type === 'pyproject') {
-            // Keep if block, remove else block
-            content = content.replace(/\{\{\s*if\s+eq\s+\.project\.type\s+"pyproject"\s*-?\}\}([\s\S]*?)\{\{-?\s*else\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '$1');
-          } else {
-            // Keep else block, remove if block
-            content = content.replace(/\{\{\s*if\s+eq\s+\.project\.type\s+"pyproject"\s*-?\}\}[\s\S]*?\{\{-?\s*else\s*-?\}\}([\s\S]*?)\{\{-?\s*end\s*\}\}/g, '$1');
+          // For non-YAML files, extract the content from the wrapped YAML
+          if (!isYamlFile) {
+            // Parse the YAML to extract the content field
+            const yamlContent = yaml.parse(content);
+            content = yamlContent.content || '';
           }
-          // Remove any remaining template syntax
-          content = content.replace(/\{\{-?\s*end\s*\}\}/g, '');
+        } catch (helmError: any) {
+          const errorMsg = helmError.stderr || helmError.message || 'Unknown error';
+          // Debug: Check if values file exists and is readable
+          if (options.dryRun) {
+            console.log(chalk.yellow(`Debug: Helm command failed: ${helmCommand}`));
+            console.log(chalk.yellow(`Debug: Values file exists: ${fs.existsSync(tempValuesFile)}`));
+            if (fs.existsSync(tempValuesFile)) {
+              console.log(chalk.yellow(`Debug: Values content:`));
+              console.log(fs.readFileSync(tempValuesFile, 'utf-8'));
+            }
+          }
+          throw new Error(`Failed to template ${targetFile}: ${errorMsg}`);
+        } finally {
+          // Clean up temp chart
+          fs.rmSync(tempChartDir, { recursive: true, force: true });
         }
 
         // In dry-run mode, print to stdout; otherwise write the file

@@ -1,4 +1,4 @@
-# DevSpace configuration for {{ .project.name }}
+# DevSpace configuration for {{ .Values.project.name }}
 version: v2beta1
 
 # Deployment pipelines
@@ -13,31 +13,31 @@ pipelines:
 
 # Image build configuration
 images:
-  {{ .project.name }}:
-    image: {{ .devspace.image.repository }}
+  {{ .Values.project.name }}:
+    image: {{ .Values.devspace.image.repository }}
     dockerfile: ./Dockerfile
     context: ./
 
 # Kubernetes deployments
 deployments:
-  {{ .project.name }}:
-    namespace: {{ .devspace.namespace }}
+  {{ .Values.project.name }}:
+    namespace: {{ .Values.devspace.namespace }}
     helm:
       chart:
         path: ./chart
       values:
         app:
           image:
-            repository: ${runtime.images.{{ .project.name }}.image}
-            tag: ${runtime.images.{{ .project.name }}.tag}
+            repository: ${runtime.images.{{ .Values.project.name }}.image}
+            tag: ${runtime.images.{{ .Values.project.name }}.tag}
 
 # Development configuration
 dev:
-  {{ .project.name }}:
-    imageSelector: {{ .project.name }}
-    devImage: python:{{ .python.version }}-slim
-    command: ["sh", "-c", "cd /app && python -m {{ .python.module_name }}"]
-    namespace: {{ .devspace.namespace }}
+  {{ .Values.project.name }}:
+    imageSelector: {{ .Values.project.name }}
+    devImage: python:{{ .Values.python.version }}-slim
+    command: ["sh", "-c", "cd /app && python -m {{ .Values.python.module_name }}"]
+    namespace: {{ .Values.devspace.namespace }}
     logs:
       lastLines: 50
     sync:

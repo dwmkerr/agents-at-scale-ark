@@ -1,8 +1,8 @@
-FROM python:{{ .python.version }}-slim
+FROM python:{{ .Values.python.version }}-slim
 
 WORKDIR /app
 
-{{ if eq .project.type "pyproject" -}}
+{{ if eq .Values.project.type "pyproject" -}}
 # Install uv for fast Python package management
 RUN pip install uv
 
@@ -17,7 +17,7 @@ RUN uv sync --frozen
 COPY . .
 
 # Run the MCP server
-CMD ["uv", "run", "python", "-m", "{{ .python.module_name }}"]
+CMD ["uv", "run", "python", "-m", "{{ .Values.python.module_name }}"]
 {{- else -}}
 # Copy requirements
 COPY requirements.txt ./
@@ -29,5 +29,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run the MCP server
-CMD ["python", "-m", "{{ .python.module_name }}"]
+CMD ["python", "-m", "{{ .Values.python.module_name }}"]
 {{- end }}
