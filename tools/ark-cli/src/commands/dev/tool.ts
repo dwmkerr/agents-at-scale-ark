@@ -145,7 +145,7 @@ async function statusTool(toolPath: string, options: {output?: string}) {
   }
 }
 
-async function generateProjectFiles(toolPath: string, options: {interactive?: boolean, dryRun?: boolean} = {interactive: true, dryRun: false}) {
+async function generateProjectFiles(toolPath: string, options: {interactive?: boolean, dryRun?: boolean, overwrite?: boolean} = {interactive: true, dryRun: false, overwrite: false}) {
   const absolutePath = path.resolve(toolPath);
   const arkConfigPath = path.join(absolutePath, '.ark.yaml');
 
@@ -195,8 +195,8 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
       const targetFile = templateFile.replace('.template', '');
       const targetPath = path.join(absolutePath, targetFile);
 
-      // Check if file already exists (skip this check in dry-run mode)
-      if (!options.dryRun && fs.existsSync(targetPath)) {
+      // Check if file already exists (skip this check in dry-run mode or overwrite mode)
+      if (!options.dryRun && !options.overwrite && fs.existsSync(targetPath)) {
         if (options.interactive) {
           console.log(chalk.yellow(`  Skipping ${targetFile} (already exists)`));
         }
@@ -361,7 +361,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
   }
 }
 
-async function generateTool(toolPath: string, options: {dryRun?: boolean} = {}) {
+async function generateTool(toolPath: string, options: {dryRun?: boolean, overwrite?: boolean} = {}) {
   const absolutePath = path.resolve(toolPath);
 
   if (options.dryRun) {
@@ -372,10 +372,13 @@ async function generateTool(toolPath: string, options: {dryRun?: boolean} = {}) 
   } else {
     console.log();
     console.log(chalk.blue('ARK Tool Project File Generation'));
+    if (options.overwrite) {
+      console.log(chalk.yellow('Overwrite mode: existing files will be replaced'));
+    }
     console.log();
   }
 
-  const success = await generateProjectFiles(absolutePath, {interactive: !options.dryRun, dryRun: options.dryRun});
+  const success = await generateProjectFiles(absolutePath, {interactive: !options.dryRun, dryRun: options.dryRun, overwrite: options.overwrite});
 
   if (success && !options.dryRun) {
     console.log();
@@ -595,7 +598,7 @@ async function initTool(toolPath: string) {
 
     if (generateFiles) {
       console.log();
-      await generateProjectFiles(absolutePath, {interactive: true, dryRun: false});
+      await generateProjectFiles(absolutePath, {interactive: true, dryRun: false, overwrite: false});
     }
 
     console.log();
@@ -634,6 +637,7 @@ export function createToolCommand(): Command {
     .description('Generate project files (Dockerfile, .dockerignore, etc.) from templates')
     .argument('<path>', 'Path to the tool directory')
     .option('--dry-run', 'Show generated template files without creating them')
+    .option('--overwrite', 'Overwrite existing files')
     .action(generateTool);
 
   toolCommand.addCommand(statusCommand);
