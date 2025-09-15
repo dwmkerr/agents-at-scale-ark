@@ -107,8 +107,9 @@ export class ChatClient {
         const message = response.choices[0]?.message;
         const content = message?.content || '';
 
+
         // Handle tool calls in non-streaming mode
-        if (message?.tool_calls && onChunk) {
+        if (message?.tool_calls && message.tool_calls.length > 0) {
           const toolCalls: ToolCall[] = message.tool_calls.map((tc: any) => ({
             id: tc.id,
             type: tc.type || 'function',
@@ -117,10 +118,14 @@ export class ChatClient {
               arguments: tc.function?.arguments || ''
             }
           }));
-          onChunk('', toolCalls);
+
+          // Send tool calls first
+          if (onChunk) {
+            onChunk('', toolCalls);
+          }
         }
 
-        // Send content if present
+        // Send content after tool calls
         if (content && onChunk) {
           onChunk(content);
         }
