@@ -187,6 +187,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     let generatedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
+    const generatedFiles: string[] = [];
 
     for (const templateFile of templateFiles) {
       // Extract target filename (remove .template suffix)
@@ -305,9 +306,9 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
           console.log(chalk.cyan(`=== END ${targetFile} ===\n`));
         } else {
           fs.writeFileSync(targetPath, content);
-          if (options.interactive) {
-            console.log(chalk.green(`  ✓ Generated ${targetFile}`));
-          }
+          generatedFiles.push(targetFile);
+          // Don't log individual files while spinner is active
+          // We'll show them after stopping the spinner
         }
 
         // Clean up temp values file
@@ -329,6 +330,12 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     if (!options.dryRun) {
       if (generatedCount > 0) {
         generateSpinner!.succeed(`Generated ${generatedCount} file(s)`);
+        // Show the generated files after stopping the spinner
+        if (options.interactive && generatedFiles.length > 0) {
+          generatedFiles.forEach(file => {
+            console.log(chalk.green(`  ✓ Generated ${file}`));
+          });
+        }
       } else if (skippedCount > 0) {
         generateSpinner!.warn(`No new files generated (${skippedCount} already exist)`);
       } else {

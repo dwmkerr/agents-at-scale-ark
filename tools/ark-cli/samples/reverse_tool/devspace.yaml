@@ -1,0 +1,48 @@
+# DevSpace configuration for dev-tests
+version: v2beta1
+
+# Deployment pipelines
+pipelines:
+  deploy: |-
+    build_images --all
+    create_deployments --all
+
+  dev: |-
+    create_deployments --all
+    start_dev --all
+
+# Image build configuration
+images:
+  dev-tests:
+    image: dev-tests
+    dockerfile: ./Dockerfile
+    context: ./
+
+# Kubernetes deployments
+deployments:
+  dev-tests:
+    namespace: default
+    helm:
+      chart:
+        path: ./chart
+      values:
+        app:
+          image:
+            repository: ${runtime.images.dev-tests.image}
+            tag: ${runtime.images.dev-tests.tag}
+
+# Development configuration
+dev:
+  dev-tests:
+    imageSelector: dev-tests
+    devImage: python:3.11-slim
+    command: ["sh", "-c", "cd /app && python -m dev_tests"]
+    namespace: default
+    logs:
+      lastLines: 50
+    sync:
+      - path: ./:/app
+        uploadExcludeFile: .dockerignore
+        startContainer: true
+    ssh:
+      enabled: true
