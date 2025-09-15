@@ -1,10 +1,12 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import path from 'path';
+import {fileURLToPath} from 'url';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import yaml from 'yaml';
+import {execSync} from 'child_process';
 import output from '../../lib/output.js';
 import {ArkDevToolAnalyzer} from '../../lib/dev/tools/analyzer.js';
 import {toMCPTool} from '../../lib/dev/tools/mcp-types.js';
@@ -143,6 +145,189 @@ async function statusTool(toolPath: string, options: {output?: string}) {
   }
 }
 
+async function generateProjectFiles(toolPath: string, options: {interactive?: boolean} = {interactive: true}) {
+  const absolutePath = path.resolve(toolPath);
+  const arkConfigPath = path.join(absolutePath, '.ark.yaml');
+
+  // Check if .ark.yaml exists
+  if (!fs.existsSync(arkConfigPath)) {
+    output.error('.ark.yaml not found. Run "ark dev tool init" first.');
+    process.exit(1);
+  }
+
+  // Load .ark.yaml
+  const arkConfig = yaml.parse(fs.readFileSync(arkConfigPath, 'utf-8'));
+
+  const generateSpinner = ora('Generating project files...').start();
+
+  try {
+    // Find template directory - templates are in the source tree
+    const currentFile = fileURLToPath(import.meta.url);
+    const distDir = path.dirname(path.dirname(path.dirname(currentFile))); // Goes to dist/
+    const arkCliDir = path.dirname(distDir); // Goes to ark-cli/
+    const templateDir = path.join(arkCliDir, 'samples', 'templates', 'python-mcp-tool');
+
+    if (!fs.existsSync(templateDir)) {
+      generateSpinner.fail('Template directory not found');
+      console.log(chalk.yellow('Could not find templates at: ' + templateDir));
+      return false;
+    }
+
+    // Find all .template files
+    const templateFiles = fs.readdirSync(templateDir)
+      .filter(f => f.includes('.template'));
+
+    let generatedCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const templateFile of templateFiles) {
+      // Extract target filename (remove .template suffix)
+      const targetFile = templateFile.replace('.template', '');
+      const targetPath = path.join(absolutePath, targetFile);
+
+      // Check if file already exists
+      if (fs.existsSync(targetPath)) {
+        if (options.interactive) {
+          console.log(chalk.yellow(`  Skipping ${targetFile} (already exists)`));
+        }
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        // Prepare values for templating
+        const values = {
+          name: arkConfig.project?.name || path.basename(absolutePath),
+          type: arkConfig.project?.type || 'pyproject',
+          platform: arkConfig.project?.platform || 'python3',
+          version: arkConfig.project?.version || '0.1.0',
+          framework: arkConfig.project?.framework || 'fastmcp'
+        };
+
+        // Create temp values file for helm
+        const tempValuesFile = path.join(absolutePath, '.ark-template-values.yaml');
+        fs.writeFileSync(tempValuesFile, yaml.stringify(values));
+
+        // Read template and render it
+        const templatePath = path.join(templateDir, templateFile);
+        let content = fs.readFileSync(templatePath, 'utf-8');
+
+        // For YAML files (like devspace.yaml), use helm
+        if (targetFile.endsWith('.yaml') || targetFile.endsWith('.yml')) {
+          // Create a minimal Chart.yaml for helm
+          const tempChartDir = path.join(absolutePath, '.ark-helm-temp');
+          const tempTemplatesDir = path.join(tempChartDir, 'templates');
+          fs.mkdirSync(tempChartDir, { recursive: true });
+          fs.mkdirSync(tempTemplatesDir, { recursive: true });
+
+          // Write minimal Chart.yaml
+          fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
+
+          // Copy template to templates dir
+          const helmTemplateName = 'file.yaml';
+          fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
+
+          // Run helm template
+          const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${helmTemplateName}`;
+
+          try {
+            content = execSync(helmCommand, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+            // Remove the YAML document separator and any helm metadata
+            content = content.replace(/^---\n/, '');
+            content = content.replace(/^# Source:.*\n/gm, '');
+          } catch (helmError) {
+            // Fall back to simple templating if helm fails
+            if (options.interactive) {
+              console.log(chalk.yellow(`  Helm failed for ${targetFile}, using simple templating`));
+            }
+          } finally {
+            // Clean up temp helm chart
+            fs.rmSync(tempChartDir, { recursive: true, force: true });
+          }
+        }
+
+        // For non-YAML files or if helm failed, use simple templating
+        if (!targetFile.endsWith('.yaml') && !targetFile.endsWith('.yml') || content === fs.readFileSync(templatePath, 'utf-8')) {
+          // Simple template replacement
+          content = content.replace(/\{\{\s*\.name\s*\}\}/g, values.name);
+          content = content.replace(/\{\{\s*\.type\s*\}\}/g, values.type);
+          content = content.replace(/\{\{\s*\.platform\s*\}\}/g, values.platform);
+          content = content.replace(/\{\{\s*\.version\s*\}\}/g, values.version);
+          content = content.replace(/\{\{\s*\.framework\s*\}\}/g, values.framework);
+
+          // Handle conditional blocks for pyproject vs requirements
+          if (values.type === 'pyproject') {
+            // Keep if block, remove else block
+            content = content.replace(/\{\{\s*if\s+eq\s+\.type\s+"pyproject"\s*-?\}\}([\s\S]*?)\{\{-?\s*else\s*-?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '$1');
+          } else {
+            // Keep else block, remove if block
+            content = content.replace(/\{\{\s*if\s+eq\s+\.type\s+"pyproject"\s*-?\}\}[\s\S]*?\{\{-?\s*else\s*-?\}\}([\s\S]*?)\{\{-?\s*end\s*\}\}/g, '$1');
+          }
+
+          // Remove any standalone if blocks that don't match
+          content = content.replace(/\{\{\s*if\s+.*?\}\}[\s\S]*?\{\{-?\s*end\s*\}\}/g, '');
+        }
+
+        // Write the rendered file
+        fs.writeFileSync(targetPath, content);
+
+        // Clean up temp values file
+        if (fs.existsSync(tempValuesFile)) {
+          fs.unlinkSync(tempValuesFile);
+        }
+
+        if (options.interactive) {
+          console.log(chalk.green(`  ✓ Generated ${targetFile}`));
+        }
+        generatedCount++;
+
+      } catch (err) {
+        errors.push(`${targetFile}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    }
+
+    if (generatedCount > 0) {
+      generateSpinner.succeed(`Generated ${generatedCount} file(s)`);
+    } else if (skippedCount > 0) {
+      generateSpinner.warn(`No new files generated (${skippedCount} already exist)`);
+    } else {
+      generateSpinner.warn('No files to generate');
+    }
+
+    if (errors.length > 0 && options.interactive) {
+      console.log(chalk.red('Errors:'));
+      errors.forEach(e => console.log(chalk.red(`  - ${e}`)));
+    }
+
+    return generatedCount > 0;
+
+  } catch (error) {
+    generateSpinner.fail('Failed to generate project files');
+    if (options.interactive) {
+      console.log(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    }
+    return false;
+  }
+}
+
+async function generateTool(toolPath: string) {
+  const absolutePath = path.resolve(toolPath);
+
+  console.log();
+  console.log(chalk.blue('ARK Tool Project File Generation'));
+  console.log();
+
+  const success = await generateProjectFiles(absolutePath);
+
+  if (success) {
+    console.log();
+    console.log('Next steps:');
+    console.log('  • Review generated files and customize as needed');
+    console.log('  • Build Docker image: ' + chalk.cyan('docker build -t my-tool .'));
+  }
+}
+
 async function initTool(toolPath: string) {
   const absolutePath = path.resolve(toolPath);
   const analyzer = new ArkDevToolAnalyzer();
@@ -173,8 +358,7 @@ async function initTool(toolPath: string) {
   // Initialize configuration object
   const arkConfig: any = {
     version: '1.0',
-    project: {},
-    tool: {}
+    project: {}
   };
 
   // Step 1: Check if path exists and is a directory
@@ -293,8 +477,8 @@ async function initTool(toolPath: string) {
       ]);
 
       if (confirmFramework) {
-        arkConfig.tool.framework = 'fastmcp';
-        arkConfig.tool.frameworkVersion = project.fastmcp_version;
+        arkConfig.project.framework = 'fastmcp';
+        arkConfig.project.frameworkVersion = project.fastmcp_version;
       }
     } else {
       console.log(chalk.yellow('⚠ FastMCP not found in dependencies'));
@@ -310,71 +494,12 @@ async function initTool(toolPath: string) {
       ]);
 
       if (recordMissing) {
-        arkConfig.tool.framework = 'none';
+        arkConfig.project.framework = 'none';
       }
     }
   }
 
-  // Step 5: Discover tools
-  console.log();
-  const discoverSpinner = ora('Discovering MCP tools...').start();
-  const projectTools = await analyzer.findProjectTools(absolutePath);
-
-  if (projectTools && projectTools.tools && projectTools.tools.length > 0) {
-    discoverSpinner.succeed(`Found ${projectTools.tools.length} MCP tool(s)`);
-    console.log(chalk.gray(`  Searched: ${projectTools.files_searched} Python files`));
-
-    // List discovered tools with their source files
-    for (const tool of projectTools.tools) {
-      const description = tool.docstring ? tool.docstring.split('\n')[0] : '';
-      console.log(chalk.gray(`  - ${tool.name}: ${description}`));
-      if (tool.source_file) {
-        console.log(chalk.gray(`    From: ${tool.source_file}`));
-      }
-    }
-
-    const { saveTools } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'saveTools',
-        message: `Save discovered tools (${projectTools.tools.length} found)?`,
-        default: true
-      }
-    ]);
-
-    if (saveTools) {
-      arkConfig.tool.discovered = projectTools.tools.map((t: any) => ({
-        name: t.name,
-        source: t.source_file
-      }));
-    }
-  } else {
-    discoverSpinner.warn('No MCP tools found');
-    if (projectTools) {
-      console.log(chalk.gray(`  Searched: ${projectTools.files_searched || 0} Python files`));
-    }
-    arkConfig.tool.discovered = [];
-  }
-
-  // Step 6: Additional configuration
-  console.log();
-  const { includeDevspace } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'includeDevspace',
-      message: 'Include DevSpace configuration for Kubernetes development?',
-      default: true
-    }
-  ]);
-
-  if (includeDevspace) {
-    arkConfig.devspace = {
-      enabled: true,
-      namespace: 'default'
-    };
-  }
-
-  // Step 7: Write .ark.yaml
+  // Step 5: Write .ark.yaml
   console.log();
   const writeSpinner = ora('Writing .ark.yaml configuration...').start();
 
@@ -392,21 +517,36 @@ async function initTool(toolPath: string) {
       console.log(`Name:      ${arkConfig.project.name}`);
       console.log(`Version:   ${arkConfig.project.version || 'unknown'}`);
     }
-    if (arkConfig.tool.framework) {
-      console.log(`Framework: ${arkConfig.tool.framework}`);
-    }
-    console.log(`Tools:     ${arkConfig.tool.discovered.length} discovered`);
-    if (arkConfig.devspace?.enabled) {
-      console.log(`DevSpace:  enabled`);
+    if (arkConfig.project.framework) {
+      console.log(`Framework: ${arkConfig.project.framework}`);
     }
     console.log(chalk.gray('─'.repeat(40)));
 
     console.log();
     console.log(chalk.green('✓ Initialization complete!'));
+
+    // Step 6: Ask about generating project files
+    console.log();
+    const { generateFiles } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'generateFiles',
+        message: 'Generate project files (Dockerfile, .dockerignore, etc.)?',
+        default: true
+      }
+    ]);
+
+    if (generateFiles) {
+      console.log();
+      await generateProjectFiles(absolutePath);
+    }
+
     console.log();
     console.log('Next steps:');
-    console.log('  • Run ' + chalk.cyan('ark dev tool status .') + ' to check project status');
     console.log('  • Edit ' + chalk.cyan('.ark.yaml') + ' to update configuration');
+    if (generateFiles) {
+      console.log('  • Review generated files and customize as needed');
+    }
 
   } catch (error) {
     writeSpinner.fail('Failed to write .ark.yaml');
@@ -432,8 +572,15 @@ export function createToolCommand(): Command {
     .argument('<path>', 'Path to the tool directory')
     .action(initTool);
 
+  const generateCommand = new Command('generate');
+  generateCommand
+    .description('Generate project files (Dockerfile, .dockerignore, etc.) from templates')
+    .argument('<path>', 'Path to the tool directory')
+    .action(generateTool);
+
   toolCommand.addCommand(statusCommand);
   toolCommand.addCommand(initCommand);
+  toolCommand.addCommand(generateCommand);
 
   return toolCommand;
 }

@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 describe('sample-projects', () => {
   describe('reverse-tool', () => {
     it('should output correct MCP tool format in JSON', () => {
-      const projectPath = path.join(__dirname, 'tests/sample-projects/reverse_tool');
+      const projectPath = path.join(__dirname, '../../../samples/reverse_tool');
       const cliPath = path.join(__dirname, '../../../dist/index.js');
       
       // Run the command and capture output

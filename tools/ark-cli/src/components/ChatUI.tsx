@@ -6,7 +6,7 @@ import * as React from 'react';
 import {marked} from 'marked';
 // @ts-ignore - no types available
 import TerminalRenderer from 'marked-terminal';
-import {ChatClient, QueryTarget, ChatConfig} from '../lib/chatClient.js';
+import {ChatClient, QueryTarget, ChatConfig, ToolCall} from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
 import {AgentSelector} from '../commands/agents/selector.js';
@@ -29,6 +29,7 @@ interface Message {
   targetName?: string; // Store the target name with the message
   cancelled?: boolean; // Track if message was cancelled
   command?: SlashCommand; // The slash command that generated this system message
+  toolCalls?: ToolCall[]; // Tool calls for this message
 }
 
 interface ChatUIProps {
@@ -442,7 +443,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
         target.id,
         apiMessages,
         chatConfig,
-        (chunk: string) => {
+        (chunk: string, toolCalls?: ToolCall[]) => {
           // Update the assistant's message progressively as chunks arrive
           setMessages((prev) => {
             const newMessages = [...prev];
@@ -453,7 +454,14 @@ const ChatUI: React.FC<ChatUIProps> = ({
               lastMessage.role === 'assistant' &&
               !lastMessage.cancelled
             ) {
-              lastMessage.content = (lastMessage.content || '') + chunk;
+              // Update content if there's text
+              if (chunk) {
+                lastMessage.content = (lastMessage.content || '') + chunk;
+              }
+              // Update tool calls if provided
+              if (toolCalls) {
+                lastMessage.toolCalls = toolCalls;
+              }
             }
             return newMessages;
           });
@@ -465,15 +473,20 @@ const ChatUI: React.FC<ChatUIProps> = ({
       setMessages((prev) => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
-        // Only update if not cancelled and we have a full response
+        // Only update if not cancelled
         if (
           lastMessage &&
           lastMessage.role === 'assistant' &&
           !lastMessage.cancelled
         ) {
           // If content is empty (no streaming occurred), set the full response
-          if (!lastMessage.content) {
-            lastMessage.content = fullResponse || 'No response received';
+          // This handles the case where streaming is disabled but we still got a response
+          if (!lastMessage.content && fullResponse) {
+            lastMessage.content = fullResponse;
+          }
+          // If no content at all, show a default message
+          if (!lastMessage.content && !lastMessage.toolCalls) {
+            lastMessage.content = 'No response received';
           }
         }
         return newMessages;
@@ -596,7 +609,39 @@ const ChatUI: React.FC<ChatUIProps> = ({
           )}
         </Box>
 
-        {/* Message content */}
+        {/* Tool calls - show before content */}
+        {msg.toolCalls && msg.toolCalls.length > 0 && (
+          <Box marginLeft={2} flexDirection="column">
+            <Text color="magenta" bold>
+              Tool Calls:
+            </Text>
+            {msg.toolCalls.map((toolCall, toolIndex) => (
+              <Box key={toolIndex} marginLeft={2} flexDirection="column">
+                <Text color="magenta">
+                  • {toolCall.function.name}
+                </Text>
+                {toolCall.function.arguments && (
+                  <Box marginLeft={2}>
+                    <Text color="gray" dimColor>
+                      {(() => {
+                        try {
+                          // Try to parse and pretty-print JSON arguments
+                          const args = JSON.parse(toolCall.function.arguments);
+                          return JSON.stringify(args, null, 2);
+                        } catch {
+                          // If not valid JSON yet (still streaming), show raw
+                          return toolCall.function.arguments;
+                        }
+                      })()}
+                    </Text>
+                  </Box>
+                )}
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {/* Message content - show after tool calls */}
         {msg.content && (
           <Box marginLeft={2}>
             {outputFormat === 'markdown' && isAssistant ? (
