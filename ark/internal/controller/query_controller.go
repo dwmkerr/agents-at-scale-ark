@@ -980,7 +980,10 @@ func (r *QueryReconciler) executeModelWithStreaming(ctx context.Context, model *
 	}
 
 	choice := completion.Choices[0]
-	assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
+
+	// Create the assistant message with the full response (preserves tool calls if present)
+	// This matches the non-streaming path but uses the full message instead of just content
+	assistantMessage := genai.Message(choice.Message.ToParam())
 	responseMessages := []genai.Message{assistantMessage}
 
 	return responseMessages, nil
