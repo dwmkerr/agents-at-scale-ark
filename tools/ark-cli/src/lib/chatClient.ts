@@ -18,6 +18,14 @@ export interface ToolCall {
   };
 }
 
+export interface ArkMetadata {
+  agent?: string;
+  team?: string;
+  model?: string;
+  query?: string;
+  target?: string;
+}
+
 export class ChatClient {
   private arkApiClient: ArkApiClient;
 
@@ -36,7 +44,7 @@ export class ChatClient {
     targetId: string,
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
     config: ChatConfig,
-    onChunk?: (chunk: string, toolCalls?: ToolCall[]) => void,
+    onChunk?: (chunk: string, toolCalls?: ToolCall[], arkMetadata?: ArkMetadata) => void,
     signal?: AbortSignal
   ): Promise<string> {
     const shouldStream = config.streamingEnabled && !!onChunk;
@@ -60,13 +68,15 @@ export class ChatClient {
           }
 
           const delta = chunk.choices[0]?.delta;
+          // Extract ARK metadata if present
+          const arkMetadata = (chunk as any).ark as ArkMetadata | undefined;
 
           // Handle regular content
           const content = delta?.content || '';
           if (content) {
             fullResponse += content;
             if (onChunk) {
-              onChunk(content);
+              onChunk(content, undefined, arkMetadata);
             }
           }
 
@@ -96,7 +106,7 @@ export class ChatClient {
               // Send the current state of all tool calls
               if (onChunk) {
                 const toolCallsArray = Array.from(toolCallsById.values());
-                onChunk('', toolCallsArray);
+                onChunk('', toolCallsArray, arkMetadata);
               }
             }
           }
