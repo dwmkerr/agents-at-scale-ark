@@ -45,3 +45,9 @@ const (
 	TriggeredFrom        = ARKPrefix + "triggered-from"
 	LocalhostGatewayPort = ARKPrefix + "localhost-gateway-port"
 )
+
+// Streaming annotations
+const (
+	StreamingEnabled = ARKPrefix + "streaming-enabled"
+	StreamingURL     = ARKPrefix + "streaming-url"
+)

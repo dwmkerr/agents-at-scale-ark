@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/openai/openai-go"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func applyPropertiesToParams(properties map[string]string, params *openai.ChatCompletionNewParams) {
@@ -71,49 +70,4 @@ func getIntProperty(properties map[string]string, key string, defaultValue int) 
 		}
 	}
 	return defaultValue
-}
-
-// buildResponseFormat creates a ResponseFormat from schema parameters
-func buildResponseFormat(outputSchema *runtime.RawExtension, schemaName string) *openai.ChatCompletionNewParamsResponseFormatUnion {
-	if outputSchema == nil {
-		return nil
-	}
-
-	var schemaMap map[string]any
-	if err := json.Unmarshal(outputSchema.Raw, &schemaMap); err != nil {
-		return nil
-	}
-
-	return &openai.ChatCompletionNewParamsResponseFormatUnion{
-		OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
-			JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
-				Name:   schemaName,
-				Schema: schemaMap,
-			},
-		},
-	}
-}
-
-// buildChatCompletionParams creates standard ChatCompletionNewParams from messages, tools, and properties
-func buildChatCompletionParams(model string, messages []Message, tools []openai.ChatCompletionToolParam, properties map[string]string, outputSchema *runtime.RawExtension, schemaName string) openai.ChatCompletionNewParams {
-	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, len(messages))
-	for i, msg := range messages {
-		openaiMessages[i] = openai.ChatCompletionMessageParamUnion(msg)
-	}
-
-	params := openai.ChatCompletionNewParams{
-		Model:    model,
-		Messages: openaiMessages,
-	}
-
-	if len(tools) > 0 {
-		params.Tools = tools
-	}
-	applyPropertiesToParams(properties, &params)
-
-	if responseFormat := buildResponseFormat(outputSchema, schemaName); responseFormat != nil {
-		params.ResponseFormat = *responseFormat
-	}
-
-	return params
 }
