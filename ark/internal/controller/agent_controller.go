@@ -179,6 +179,9 @@ func (r *AgentReconciler) checkA2AServerDependency(ctx context.Context, agent *a
 				r.Recorder.Event(agent, corev1.EventTypeWarning, "A2AServerNotReady", fmt.Sprintf("A2AServer '%s' is not ready", ownerRef.Name))
 				return arkv1alpha1.AgentPhasePending, nil
 			}
+
+			// A2AServer is ready - emit event for successful dependency
+			r.Recorder.Event(agent, corev1.EventTypeNormal, "A2AServerReady", fmt.Sprintf("A2AServer '%s' is ready", ownerRef.Name))
 		}
 	}
 
