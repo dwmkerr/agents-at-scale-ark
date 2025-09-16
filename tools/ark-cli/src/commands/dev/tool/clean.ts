@@ -32,16 +32,28 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
   }
 
   // Collect all template-based files (not directories)
-  const filesToClean: string[] = [];
+  const allTemplateFiles: string[] = [];
   const dirsToCheck: Set<string> = new Set();
-  collectTemplateFiles(templateDir, absolutePath, filesToClean, dirsToCheck);
+  collectTemplateFiles(templateDir, absolutePath, allTemplateFiles, dirsToCheck);
+
+  // Filter to only existing files
+  const filesToClean = allTemplateFiles.filter(file => {
+    const fullPath = path.join(absolutePath, file);
+    return fs.existsSync(fullPath);
+  });
 
   if (filesToClean.length === 0) {
     console.log(chalk.green('No template-generated files found to clean.'));
     return;
   }
 
-  console.log(chalk.yellow(`Found ${filesToClean.length} template-generated file(s) to potentially remove:\n`));
+  console.log(chalk.yellow(`Found ${filesToClean.length} template-generated file(s) to potentially remove:`));
+
+  // Display the list of files
+  filesToClean.forEach(file => {
+    console.log(chalk.gray(`  - ${file}`));
+  });
+  console.log();
 
   let removedCount = 0;
   let skippedCount = 0;
@@ -49,11 +61,6 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
   // First, delete individual files
   for (const file of filesToClean) {
     const fullPath = path.join(absolutePath, file);
-
-    // Check if file exists
-    if (!fs.existsSync(fullPath)) {
-      continue;
-    }
 
     // Ask for confirmation unless --yes flag is set
     let shouldDelete = options.yes;

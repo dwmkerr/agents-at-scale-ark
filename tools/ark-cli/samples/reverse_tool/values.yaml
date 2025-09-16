@@ -30,7 +30,7 @@ app:
 
 # MCP configuration for deployment
 mcp:
-  transport: sse
+  transport: http
   port: 8080
   healthCheck: true
 
@@ -38,5 +38,5 @@ mcp:
 mcpServer:
   enabled: true
   timeout: "60s"
-  transport: sse
+  transport: http
   description: "reverse-tool MCP tool"

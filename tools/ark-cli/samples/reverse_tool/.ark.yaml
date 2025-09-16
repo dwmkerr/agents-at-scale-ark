@@ -8,5 +8,5 @@ project:
   framework: fastmcp
   frameworkVersion: 0.5.0
 mcp:
-  transport: sse
+  transport: http
   port: 8080
