@@ -1,6 +1,6 @@
 {
   "name": "@dwmkerr/ark",
-  "version": "0.1.33-rc3",
+  "version": "0.1.33-rc4",
   "description": "ARK CLI - Interactive terminal interface for ARK agents",
   "main": "dist/index.js",
   "type": "module",
