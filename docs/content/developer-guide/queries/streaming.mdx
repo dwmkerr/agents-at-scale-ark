@@ -49,6 +49,8 @@ Standard OpenAI streaming response chunks are sent for each query target type. A
 
 Streaming responses follow the OpenAI specification exactly; the additional `ark` field will not interfere with regular clients as the OpenAI spec allows for additional fields to be included in the response (which standard clients will ingore).
 
+If an LLM does not support streaming, the complete response from the model will be sent at the end of the query as a single chunk, as per the OpenAI specification. Streamign is currently supported in Ark for `openai` and `azure` models and is not yet supported for `bedrock` models.
+
 ### Model Query Streaming
 
 Direct model queries stream the LLM response, exactly as per the OpenAI Completions API specification:
@@ -355,8 +357,6 @@ ark/internal/genai/agent.go - Agent execution that calls models with streaming
 
 The following items are in testing:
 
-- [ ] feat: send full response as a single chunk when downstream streaming not enabled
-- [ ] feat/docs: spec for metadata in stream chunks and target metadata in stream responses as well as query id and session id
 - [ ] feat: ensure initial connect timeout vs absolute timeout is properly configured
 - [ ] feat: review of a2a basic content (messages, not tasks)
 - [ ] feat: ensure tool calls are shown in cli / dashboard / query page
@@ -366,7 +366,6 @@ The following items are in testing:
 - [ ] feat: watch for query resource
 - [ ] feat: 'watch' for memory
 - [ ] feat: memory sequence
-- [ ] feat: bedrock and check other model types
 - [ ] bug: if an incoming stream connection ends without DONE we need to have it as an aborted stream
 - [ ] feat: cancellation on stream terminate CR openai stream spec
 - [ ] refactor: streaming endpoint in query status CRD rather than annotation
