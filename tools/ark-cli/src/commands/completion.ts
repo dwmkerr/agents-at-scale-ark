@@ -63,7 +63,7 @@ _ark_completion() {
           return 0
           ;;
         models)
-          opts="list ls"
+          opts="list ls create"
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
           return 0
           ;;
@@ -105,11 +105,27 @@ _ark_completion() {
         dev)
           case \${prev} in
             tool)
-              opts="init"
+              opts="status init generate"
               COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
               return 0
               ;;
           esac
+          ;;
+      esac
+      ;;
+    4)
+      # Handle path completion for dev tool commands
+      case \${COMP_WORDS[1]} in
+        dev)
+          if [[ \${COMP_WORDS[2]} == "tool" ]]; then
+            case \${COMP_WORDS[3]} in
+              status|init|generate)
+                # Complete with directories
+                COMPREPLY=( $(compgen -d -- \${cur}) )
+                return 0
+                ;;
+            esac
+          fi
           ;;
       esac
       ;;
@@ -187,7 +203,8 @@ _ark() {
         models)
           _values 'models commands' \\
             'list[List all available models]' \\
-            'ls[List all available models]'
+            'ls[List all available models]' \\
+            'create[Create a new model]'
           ;;
         teams)
           _values 'teams commands' \\
@@ -220,6 +237,26 @@ _ark() {
             targets=('agent/sample-agent' 'agent/math' 'agent/weather' 'model/default')
           fi
           _values 'available targets' \${targets[@]}
+          ;;
+      esac
+      ;;
+    args)
+      case \$words[2] in
+        dev)
+          if [[ \$words[3] == "tool" ]]; then
+            case \$words[4] in
+              status|init|generate)
+                # Complete with directories
+                _files -/
+                ;;
+              *)
+                _values 'tool commands' \\
+                  'status[Check the status of an MCP tool project]' \\
+                  'init[Initialize an MCP tool project]' \\
+                  'generate[Generate project files from templates]'
+                ;;
+            esac
+          fi
           ;;
       esac
       ;;

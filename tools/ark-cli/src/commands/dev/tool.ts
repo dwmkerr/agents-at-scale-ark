@@ -165,7 +165,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     const currentFile = fileURLToPath(import.meta.url);
     const distDir = path.dirname(path.dirname(path.dirname(currentFile))); // Goes to dist/
     const arkCliDir = path.dirname(distDir); // Goes to ark-cli/
-    const templateDir = path.join(arkCliDir, 'samples', 'templates', 'python-mcp-tool');
+    const templateDir = path.join(arkCliDir, 'templates', 'python-mcp-tool');
 
     if (!fs.existsSync(templateDir)) {
       if (generateSpinner) {
@@ -175,9 +175,9 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
       return false;
     }
 
-    // Find all .template files
+    // Find all template files (starting with 'template.')
     const templateFiles = fs.readdirSync(templateDir)
-      .filter(f => f.includes('.template'));
+      .filter(f => f.startsWith('template.'));
 
     if (options.dryRun && templateFiles.length === 0) {
       console.log(chalk.yellow('No template files found in: ' + templateDir));
@@ -190,9 +190,9 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
     const generatedFiles: string[] = [];
 
     for (const templateFile of templateFiles) {
-      // Extract target filename (remove .template suffix)
+      // Extract target filename (remove 'template.' prefix)
       // Note: targetFile keeps the original name including leading dots (e.g., .dockerignore)
-      const targetFile = templateFile.replace('.template', '');
+      const targetFile = templateFile.replace('template.', '');
       const targetPath = path.join(absolutePath, targetFile);
 
       // Check if file already exists (skip this check in dry-run mode or overwrite mode)
@@ -245,7 +245,7 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
 
         // Copy template to templates dir
         // For non-YAML files, wrap them in a YAML structure for helm to process
-        const originalTemplateName = path.basename(templatePath).replace('.template', '');
+        const originalTemplateName = targetFile; // This is already the target filename
         const isYamlFile = targetFile.endsWith('.yaml') || targetFile.endsWith('.yml');
 
         // For dotfiles, replace the leading dot with 'dot' for helm processing
@@ -364,38 +364,20 @@ async function generateProjectFiles(toolPath: string, options: {interactive?: bo
 async function generateTool(toolPath: string, options: {dryRun?: boolean, overwrite?: boolean} = {}) {
   const absolutePath = path.resolve(toolPath);
 
-  if (options.dryRun) {
-    console.log();
-    console.log(chalk.blue('ARK Tool Project File Generation (DRY RUN)'));
-    console.log(chalk.gray('Showing generated files without creating them'));
-    console.log();
-  } else {
-    console.log();
-    console.log(chalk.blue('ARK Tool Project File Generation'));
+  if (!options.dryRun) {
     if (options.overwrite) {
       console.log(chalk.yellow('Overwrite mode: existing files will be replaced'));
     }
-    console.log();
   }
 
   const success = await generateProjectFiles(absolutePath, {interactive: !options.dryRun, dryRun: options.dryRun, overwrite: options.overwrite});
 
-  if (success && !options.dryRun) {
-    console.log();
-    console.log('Next steps:');
-    console.log('  • Review generated files and customize as needed');
-    console.log('  • Build Docker image: ' + chalk.cyan('docker build -t my-tool .'));
-  }
+  // Next steps message removed - files are ready to use
 }
 
 async function initTool(toolPath: string) {
   const absolutePath = path.resolve(toolPath);
   const analyzer = new ArkDevToolAnalyzer();
-
-  console.log();
-  console.log(chalk.blue('ARK Tool Initialization'));
-  console.log(chalk.gray('Analyzing project and creating .ark.yaml configuration'));
-  console.log();
 
   // Check if .ark.yaml already exists
   const arkConfigPath = path.join(absolutePath, '.ark.yaml');
@@ -602,11 +584,7 @@ async function initTool(toolPath: string) {
     }
 
     console.log();
-    console.log('Next steps:');
     console.log('  • Edit ' + chalk.cyan('.ark.yaml') + ' to update configuration');
-    if (generateFiles) {
-      console.log('  • Review generated files and customize as needed');
-    }
 
   } catch (error) {
     writeSpinner.fail('Failed to write .ark.yaml');

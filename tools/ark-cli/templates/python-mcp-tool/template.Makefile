@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
 # Configuration
-RELEASE_NAME := dev-tests
-IMAGE_NAME := dev-tests
+RELEASE_NAME := {{ .Values.project.name }}
+IMAGE_NAME := {{ .Values.devspace.image.repository }}
 CHART_PATH := ./chart
 NAMESPACE ?= default
 
