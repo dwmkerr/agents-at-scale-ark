@@ -280,7 +280,9 @@ func (a *AgentToolExecutor) Execute(ctx context.Context, call ToolCall, recorder
 	history := []Message{} // Provide history if applicable
 
 	// Call the agent's Execute function
-	responseMessages, err := agent.Execute(ctx, userInput, history)
+	// Pass nil for memory (agents-as-tools don't use memory) and false for streaming
+	// TODO: Consider passing through streaming context if parent agent is streaming
+	responseMessages, err := agent.Execute(ctx, userInput, history, nil, false)
 	if err != nil {
 		log.Info("agent execution error", "agent", a.AgentName, "error", err)
 		return ToolResult{
