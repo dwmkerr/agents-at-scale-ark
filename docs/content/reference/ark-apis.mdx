@@ -52,41 +52,6 @@ Standard REST APIs for managing ARK resources, for example:
 
 Standard Kubernetes REST patterns are followed, such as `POST` to create, `DELETE` to delete.
 
-## SSE Streaming for Ark Resources
-
-  Idiomatic ARK Watch Endpoints:
-  GET /api/v1/namespaces/{namespace}/queries?watch=true          # Watch all queries
-  GET /api/v1/namespaces/{namespace}/queries/{name}?watch=true   # Watch specific query
-
-  NOT like this:
-  GET /api/v1/namespaces/{namespace}/queries/{name}/watch  # Non-standard
-
-  Implementation Pattern
-
-  API Layer:
-  @router.get("/namespaces/{namespace}/queries/{query_name}")
-  async def get_query(namespace: str, query_name: str, watch: bool = False):
-      if watch:
-          return StreamingResponse(watch_query_changes(...))
-      else:
-          # Normal GET response
-          return query_detail_response
-
-  ARK SDK:
-  Most K8s clients support watch like:
-  # Check if ark-sdk has this pattern
-  async for event in ark_client.queries.a_watch(namespace, query_name):
-      yield f"data: {json.dumps(event)}\n\n"
-
-  Content-Type Considerations
-
-  K8s uses: application/json with newline-delimited objects
-  But for browsers: text/event-stream (Server-Sent Events) is more standard
-
-  Hybrid approach:
-  - Accept text/event-stream for browsers
-  - Accept application/json for kubectl-style clients
-
 ## OpenAI-Compatible APIs
 
 Use familiar OpenAI SDK patterns to interact with ARK:
