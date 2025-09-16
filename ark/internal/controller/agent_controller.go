@@ -298,22 +298,6 @@ func (r *AgentReconciler) agentDependsOnModel(agent *arkv1alpha1.Agent, modelNam
 		return true
 	}
 	return false
-||||||| dbe5a81f
-func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&arkv1alpha1.Agent{}).Named("agent").Complete(r)
-=======
-	// Check A2AServer dependency (if agent is owned by an A2AServer)
-	if phase, err := r.checkA2AServerDependency(ctx, agent); err != nil || phase != arkv1alpha1.AgentPhaseReady {
-		return phase, err
-	}
-
-	// Check model dependency
-	if phase, err := r.checkModelDependency(ctx, agent); err != nil || phase != arkv1alpha1.AgentPhaseReady {
-		return phase, err
-	}
-
-	// Check tool dependencies
-	return r.checkToolDependencies(ctx, agent)
 }
 
 // checkModelDependency validates model dependency
