@@ -3,7 +3,10 @@ project:
   path: /Users/Dave_Kerr/repos/github/dwmkerr/agents-at-scale-ark/tools/ark-cli/samples/reverse_tool
   platform: python3
   type: pyproject
-  name: dev-tests
+  name: reverse-tool
   version: 0.1.0
   framework: fastmcp
   frameworkVersion: 0.5.0
+mcp:
+  transport: sse
+  port: 8080

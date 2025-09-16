@@ -28,7 +28,7 @@ deployments:
       values:
         app:
           image:
-            repository: ${runtime.images.{{ .Values.project.name }}.image}
+            repository: {{ .Values.project.name }}
             tag: ${runtime.images.{{ .Values.project.name }}.tag}
 
 # Development configuration
@@ -36,7 +36,7 @@ dev:
   {{ .Values.project.name }}:
     imageSelector: {{ .Values.project.name }}
     devImage: python:{{ .Values.python.version }}-slim
-    command: ["sh", "-c", "cd /app && python -m {{ .Values.python.module_name }}"]
+    command: ["sh", "-c", "pip install uv && cd /app && uv sync && uv run python -m {{ .Values.python.module_name }}"]
     namespace: {{ .Values.devspace.namespace }}
     logs:
       lastLines: 50

@@ -1,4 +1,4 @@
-# DevSpace configuration for dev-tests
+# DevSpace configuration for reverse-tool
 version: v2beta1
 
 # Deployment pipelines
@@ -13,14 +13,14 @@ pipelines:
 
 # Image build configuration
 images:
-  dev-tests:
-    image: dev-tests
+  reverse-tool:
+    image: reverse-tool
     dockerfile: ./Dockerfile
     context: ./
 
 # Kubernetes deployments
 deployments:
-  dev-tests:
+  reverse-tool:
     namespace: default
     helm:
       chart:
@@ -28,15 +28,15 @@ deployments:
       values:
         app:
           image:
-            repository: ${runtime.images.dev-tests.image}
-            tag: ${runtime.images.dev-tests.tag}
+            repository: reverse-tool
+            tag: ${runtime.images.reverse-tool.tag}
 
 # Development configuration
 dev:
-  dev-tests:
-    imageSelector: dev-tests
+  reverse-tool:
+    imageSelector: reverse-tool
     devImage: python:3.11-slim
-    command: ["sh", "-c", "cd /app && python -m dev_tests"]
+    command: ["sh", "-c", "pip install uv && cd /app && uv sync && uv run python -m reverse_tool"]
     namespace: default
     logs:
       lastLines: 50

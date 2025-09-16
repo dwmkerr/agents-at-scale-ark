@@ -22,5 +22,8 @@ def reverse_message(message: str) -> str:
     return message[::-1]
 
 if __name__ == "__main__":
-    # Run the MCP server
-    mcp.run()
+    # Run the MCP server with SSE transport for Kubernetes
+    import os
+    port = int(os.environ.get("PORT", "8080"))
+    # SSE transport serves at /sse endpoint by default
+    mcp.run(transport="sse", host="0.0.0.0", port=port)

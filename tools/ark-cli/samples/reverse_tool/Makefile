@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
 # Configuration
-RELEASE_NAME := dev-tests
-IMAGE_NAME := dev-tests
+RELEASE_NAME := reverse-tool
+IMAGE_NAME := reverse-tool
 CHART_PATH := ./chart
 NAMESPACE ?= default
 

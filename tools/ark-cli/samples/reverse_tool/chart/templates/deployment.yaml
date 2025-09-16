@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.app.name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.app.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.app.name }}
+        app.kubernetes.io/name: {{ .Values.app.name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Values.app.name }}
+        image: {{ .Values.app.image.repository }}:{{ .Values.app.image.tag | default "latest" }}
+        imagePullPolicy: {{ .Values.app.image.pullPolicy | default "IfNotPresent" }}
+        ports:
+        - containerPort: {{ .Values.mcp.port }}
+          name: http
+        env:
+        - name: PORT
+          value: "{{ .Values.mcp.port }}"
+        {{- if .Values.app.env }}
+        {{- range $key, $value := .Values.app.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.app.resources | nindent 10 }}
+        {{- if .Values.mcp.healthCheck }}
+        {{- if eq .Values.mcp.transport "sse" }}
+        # SSE transport doesn't have health endpoints, use TCP check
+        startupProbe:
+          tcpSocket:
+            port: {{ .Values.mcp.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.mcp.port }}
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /sse
+            port: {{ .Values.mcp.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 10
+        {{- else }}
+        # HTTP transport has health endpoints
+        startupProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.mcp.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.mcp.port }}
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: {{ .Values.mcp.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 10
+        {{- end }}
+        {{- end }}

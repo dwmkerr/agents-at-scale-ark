@@ -16,4 +16,4 @@ RUN uv sync --frozen
 COPY . .
 
 # Run the MCP server
-CMD ["uv", "run", "python", "-m", "dev_tests"]
+CMD ["uv", "run", "python", "-m", "reverse_tool"]

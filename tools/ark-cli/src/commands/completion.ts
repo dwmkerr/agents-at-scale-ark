@@ -105,7 +105,7 @@ _ark_completion() {
         dev)
           case \${prev} in
             tool)
-              opts="status init generate"
+              opts="check init generate"
               COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
               return 0
               ;;
@@ -119,7 +119,7 @@ _ark_completion() {
         dev)
           if [[ \${COMP_WORDS[2]} == "tool" ]]; then
             case \${COMP_WORDS[3]} in
-              status|init|generate)
+              check|init|generate)
                 # Complete with directories
                 COMPREPLY=( $(compgen -d -- \${cur}) )
                 return 0
@@ -245,15 +245,16 @@ _ark() {
         dev)
           if [[ \$words[3] == "tool" ]]; then
             case \$words[4] in
-              status|init|generate)
+              check|init|generate)
                 # Complete with directories
                 _files -/
                 ;;
               *)
                 _values 'tool commands' \\
-                  'status[Check the status of an MCP tool project]' \\
+                  'check[Check the status of an MCP tool project]' \\
                   'init[Initialize an MCP tool project]' \\
-                  'generate[Generate project files from templates]'
+                  'generate[Generate project files from templates]' \\
+                  'clean[Remove template-generated files]'
                 ;;
             esac
           fi

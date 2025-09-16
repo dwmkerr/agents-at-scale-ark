@@ -20,7 +20,8 @@ type SlashCommand =
   | '/agents'
   | '/models'
   | '/teams'
-  | '/tools';
+  | '/tools'
+  | '/reset';
 
 interface BaseMessage {
   id: string;
@@ -445,6 +446,30 @@ const ChatUI: React.FC<ChatUIProps> = ({
         };
         setMessages((prev) => [...prev, systemMessage]);
       }
+
+      setInput('');
+      setShowCommands(false);
+      setFilteredCommands([]);
+      return;
+    }
+
+    if (value.startsWith('/reset')) {
+      // Clear all messages
+      setMessages([]);
+
+      // Add system message to show the reset
+      const systemMessage: SystemMessage = {
+        id: generateMessageId(),
+        type: 'system',
+        content: 'Message history cleared',
+        timestamp: new Date(),
+        command: '/reset',
+      };
+      setMessages([systemMessage]);
+
+      // Clear message history for arrow key navigation
+      setMessageHistory([]);
+      setHistoryIndex(-1);
 
       setInput('');
       setShowCommands(false);
@@ -1142,6 +1167,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
                       {
                         command: '/streaming',
                         description: `Toggle streaming mode (${chatConfig.streamingEnabled ? 'on' : 'off'}) - use: /streaming on|off`,
+                      },
+                      {
+                        command: '/reset',
+                        description: 'Clear message history',
                       },
                     ];
 

@@ -1,0 +1,42 @@
+# reverse-tool Helm values
+
+# Application configuration
+app:
+  name: reverse-tool
+  replicas: 1
+
+  # Image configuration
+  image:
+    repository: reverse-tool
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Service configuration
+  service:
+    port: 8080
+    type: ClusterIP
+
+  # Environment variables
+  env: {}
+
+  # Resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# MCP configuration for deployment
+mcp:
+  transport: sse
+  port: 8080
+  healthCheck: true
+
+# MCP Server CRD configuration
+mcpServer:
+  enabled: true
+  timeout: "60s"
+  transport: sse
+  description: "reverse-tool MCP tool"
