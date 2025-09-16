@@ -93,7 +93,7 @@ func (m *Model) ChatCompletion(ctx context.Context, messages []Message, memory M
 func (m *Model) wrapChunkWithMetadata(ctx context.Context, chunk *openai.ChatCompletionChunk) interface{} {
 	// Get execution metadata from context
 	metadata := GetExecutionMetadata(ctx)
-	
+
 	// Add query and session IDs
 	if queryID := getQueryID(ctx); queryID != "" {
 		metadata["query"] = queryID
@@ -101,17 +101,17 @@ func (m *Model) wrapChunkWithMetadata(ctx context.Context, chunk *openai.ChatCom
 	if sessionID := getSessionID(ctx); sessionID != "" {
 		metadata["session"] = sessionID
 	}
-	
+
 	// Add model name if not already in metadata
 	if _, exists := metadata["model"]; !exists {
 		metadata["model"] = m.Model
 	}
-	
+
 	// If no metadata, return chunk as-is for backward compatibility
 	if len(metadata) == 0 {
 		return chunk
 	}
-	
+
 	// Create an anonymous struct that embeds the chunk and adds ark field
 	// This creates a JSON structure with all chunk fields plus an "ark" field
 	return struct {

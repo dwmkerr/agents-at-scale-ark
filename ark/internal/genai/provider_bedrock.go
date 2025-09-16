@@ -159,7 +159,41 @@ func (bm *BedrockModel) ChatCompletionWithSchema(ctx context.Context, messages [
 }
 
 func (bm *BedrockModel) ChatCompletionStream(ctx context.Context, messages []Message, n int64, streamFunc func(*openai.ChatCompletionChunk) error, tools ...[]openai.ChatCompletionToolParam) (*openai.ChatCompletion, error) {
-	return nil, fmt.Errorf("streaming not yet implemented for Bedrock provider")
+	// Per OpenAI spec, when streaming is requested for a model that doesn't support it,
+	// return the complete response as a single chunk
+	completion, err := bm.ChatCompletion(ctx, messages, n, tools...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert the completion to a single streaming chunk
+	// We send the full content in one chunk as per the OpenAI fallback spec
+	for _, choice := range completion.Choices {
+		chunk := &openai.ChatCompletionChunk{
+			ID:      completion.ID,
+			Object:  "chat.completion.chunk",
+			Created: completion.Created,
+			Model:   completion.Model,
+			Choices: []openai.ChatCompletionChunkChoice{
+				{
+					Index: choice.Index,
+					Delta: openai.ChatCompletionChunkChoiceDelta{
+						Content: choice.Message.Content,
+						Role:    "assistant",
+					},
+					FinishReason: choice.FinishReason,
+				},
+			},
+		}
+
+		// Send the chunk via the stream callback
+		if err := streamFunc(chunk); err != nil {
+			return nil, err
+		}
+	}
+
+	// Return the original completion
+	return completion, nil
 }
 
 func (bm *BedrockModel) buildRequest(messages []bedrockMessage, systemPrompt string, tools []bedrockTool) bedrockRequest {

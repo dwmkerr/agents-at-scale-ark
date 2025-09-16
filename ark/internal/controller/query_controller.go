@@ -498,7 +498,7 @@ func (r *QueryReconciler) executeTarget(ctx context.Context, query arkv1alpha1.Q
 	queryID := string(query.UID)
 	sessionID := "" // Could be extracted from annotations or labels if available
 	ctx = genai.WithQueryContext(ctx, queryID, sessionID, query.Name)
-	
+
 	// Add execution metadata for streaming
 	targetString := fmt.Sprintf("%s/%s", target.Type, target.Name)
 	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
@@ -564,7 +564,7 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 
 	log := logf.FromContext(ctx)
 	log.Info("executing agent", "agent", agentCRD.Name)
-	
+
 	// Add agent to execution metadata
 	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
 		"agent": agentName,

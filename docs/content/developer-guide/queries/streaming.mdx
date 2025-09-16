@@ -43,7 +43,13 @@ curl -N -X POST http://localhost:8080/openai/v1/chat/completions \
 
 The response will be Server-Sent Events (SSE) with streaming chunks in OpenAI format, following the [Read Stream](#read-stream) API specification, which is fully OpenAI compatible. This means that consumers can query Ark and stream responses as if it was an LLM, and use existing OpenAI SDKs etc.
 
-## Model Query Streaming
+## Streaming Responses
+
+Standard OpenAI streaming response chunks are sent for each query target type. An additional [Ark Metadata](#the-ark-metadata-field) field is attached to each chunk to provide additional details such as the session ID and query target, which allows for complex streaming responses from multi-target or team queries to be processed client-side.
+
+Streaming responses follow the OpenAI specification exactly; the additional `ark` field will not interfere with regular clients as the OpenAI spec allows for additional fields to be included in the response (which standard clients will ingore).
+
+### Model Query Streaming
 
 Direct model queries stream the LLM response, exactly as per the OpenAI Completions API specification:
 
@@ -57,7 +63,7 @@ data: {"choices":[{"delta":{"content":" capital"}}],"ark":{"model":"gpt-4","quer
 data: {"choices":[{"delta":{"content":" is"}}],"ark":{"model":"gpt-4","query":"123","target":"model/gpt-4"}}
 ```
 
-## Agent Query Streaming  
+### Agent Query Streaming  
 
 Agent queries include intermediate tool calls in the stream. This allows you to show tool calls as they happen in team time:
 
@@ -73,7 +79,7 @@ data: {"choices":[{"delta":{"content":" on"}}],"ark":{"agent":"researcher","mode
 
 Tool call chunks are sent exactly as per the OpenAI specification.
 
-## Team Query Streaming
+### Team Query Streaming
 
 Team queries stream all LLM calls from every team member, providing full visibility into multi-agent execution responses and tool calls:
 
@@ -91,7 +97,13 @@ If using the OpenAI completions API to query teams with streaming, it becomes th
 
 This means that OpenAI compability is not possible when querying teams with streaming - the client must check the `ark` metadata fields to see what agent is currently responding.
 
-The `ark` metadata field identifies which agent is currently contributing, as well as other parameters for the query:
+### Multi-Target Querying
+
+TODO
+
+## The Ark Metadata Field
+
+The `ark` metadata field identifies which agent is currently contributing, as well as other parameters for the query. This is essential when trying to process responses from targets such as teams, which will contain stream chunks for multiple agents and tools.
 
 ```json
 {
@@ -106,7 +118,7 @@ The `ark` metadata field identifies which agent is currently contributing, as we
 }
 ```
 
-Clients aware of this field can display rich multi-agent interactions and tool calls.
+Clients aware of this field can display rich multi-agent interactions and tool calls. The `ark` CLI demonstrates this with the `chat` function, which shows team member responses and intermediate tool calls.
 
 ## Event Streaming Architecture
 
