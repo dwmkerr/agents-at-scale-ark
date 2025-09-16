@@ -132,57 +132,7 @@ export function createStreamRouter(stream: StreamStore): Router {
    *                       chunk_types:
    *                         type: object
    */
-  router.get('/', (req, res) => {
-    try {
-      const allStreams = stream.getAllStreams();
-      const status: any = {};
-      
-      for (const [queryID, chunks] of Object.entries(allStreams)) {
-        const isComplete = stream.isStreamComplete(queryID);
-        const hasDoneMarker = chunks.some((chunk: any) => chunk === '[DONE]');
-        
-        // Count chunk types
-        const chunkTypes: any = {
-          content: 0,
-          tool_calls: 0,
-          finish_reason: 0,
-          unknown: 0
-        };
-        
-        for (const chunk of chunks) {
-          if (chunk === '[DONE]') continue;
-          
-          if (chunk?.choices?.[0]?.delta?.content) {
-            chunkTypes.content++;
-          } else if (chunk?.choices?.[0]?.delta?.tool_calls !== undefined && 
-                     chunk?.choices?.[0]?.delta?.tool_calls !== null && 
-                     chunk?.choices?.[0]?.delta?.tool_calls.length > 0) {
-            chunkTypes.tool_calls++;
-          } else if (chunk?.choices?.[0]?.finish_reason) {
-            chunkTypes.finish_reason++;
-          } else {
-            chunkTypes.unknown++;
-          }
-        }
-        
-        status[queryID] = {
-          total_chunks: chunks.length,
-          completed: isComplete,
-          has_done_marker: hasDoneMarker,
-          chunk_types: chunkTypes
-        };
-      }
-      
-      res.json({
-        total_queries: Object.keys(allStreams).length,
-        queries: status
-      });
-    } catch (error) {
-      console.error('Failed to get stream statistics:', error);
-      const err = error as Error;
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // Removed GET /stream to avoid conflicts - statistics now at /stream-statistics
 
   /**
    * @swagger

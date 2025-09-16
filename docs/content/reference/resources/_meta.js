@@ -1,4 +1,6 @@
 export default {
+  models: 'Models',
   mcpserver: 'MCPServer',
-  memory: 'Memory'
+  memory: 'Memory',
+  tools: 'Tools'
 }

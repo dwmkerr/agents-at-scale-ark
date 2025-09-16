@@ -71,33 +71,35 @@ export function createMemoryRouter(memory: MemoryStore): Router {
     }
   });
 
-  /**
-   * @swagger
-   * /messages:
-   *   get:
-   *     summary: Get memory statistics
-   *     description: Returns statistics about all stored messages and sessions
-   *     tags:
-   *       - Memory
-   *     responses:
-   *       200:
-   *         description: Memory statistics retrieved successfully
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 total_sessions:
-   *                   type: integer
-   *                   description: Total number of sessions
-   *                 total_messages:
-   *                   type: integer
-   *                   description: Total number of messages across all sessions
-   *                 sessions:
-   *                   type: object
-   *                   description: Per-session statistics
-   */
+  // GET /messages - returns messages (original implementation for ark-api compatibility)
   router.get('/messages', (req, res) => {
+    try {
+      const session_id = req.query.session_id as string;
+      const query_id = req.query.query_id as string;
+      
+      const allMessages = memory.getAllMessages();
+      let filteredMessages = allMessages;
+      
+      // Apply filters if provided
+      if (session_id) {
+        filteredMessages = filteredMessages.filter(m => m.session_id === session_id);
+      }
+      
+      if (query_id) {
+        filteredMessages = filteredMessages.filter(m => m.query_id === query_id);
+      }
+      
+      // Return messages in the expected format
+      res.json({ messages: filteredMessages });
+    } catch (error) {
+      console.error('Failed to get messages:', error);
+      const err = error as Error;
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /memory-status - returns memory statistics summary
+  router.get('/memory-status', (req, res) => {
     try {
       const sessions = memory.getAllSessions();
       const allMessages = memory.getAllMessages();
@@ -127,11 +129,12 @@ export function createMemoryRouter(memory: MemoryStore): Router {
         sessions: sessionStats
       });
     } catch (error) {
-      console.error('Failed to get memory statistics:', error);
+      console.error('Failed to get memory status:', error);
       const err = error as Error;
       res.status(500).json({ error: err.message });
     }
   });
+
 
   // List sessions - GET /sessions
   router.get('/sessions', (req, res) => {
