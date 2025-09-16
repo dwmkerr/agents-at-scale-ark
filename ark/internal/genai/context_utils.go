@@ -47,7 +47,7 @@ func WithExecutionMetadata(ctx context.Context, metadata map[string]interface{})
 	for key, value := range metadata {
 		switch key {
 		case "target":
-			ctx := context.WithValue(ctx, targetKey, value)
+			ctx = context.WithValue(ctx, targetKey, value)
 		case "team":
 			ctx = context.WithValue(ctx, teamKey, value)
 		case "agent":
