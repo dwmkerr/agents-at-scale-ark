@@ -155,11 +155,9 @@ func (r *AgentReconciler) checkToolDependencies(ctx context.Context, agent *arkv
 func (r *AgentReconciler) checkA2AServerDependency(ctx context.Context, agent *arkv1alpha1.Agent) (arkv1alpha1.AgentPhase, error) {
 	// Check if agent has an A2AServer owner
 	for _, ownerRef := range agent.GetOwnerReferences() {
-		if ownerRef.Kind != "A2AServer" || ownerRef.APIVersion != "ark.mckinsey.com/v1prealpha1" {
-			continue
+		if ownerRef.Kind == "A2AServer" && ownerRef.APIVersion == "ark.mckinsey.com/v1prealpha1" {
+			return r.validateA2AServerDependency(ctx, agent, ownerRef)
 		}
-
-		return r.validateA2AServerDependency(ctx, agent, ownerRef)
 	}
 
 	// No A2AServer owner
