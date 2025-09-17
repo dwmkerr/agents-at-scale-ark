@@ -151,7 +151,9 @@ export async function installArk() {
       await createModel('default');
     } else {
       output.warning('skipping model creation');
-      output.info('you can create a model later using ark models create or the dashboard');
+      output.info(
+        'you can create a model later using ark models create or the dashboard'
+      );
     }
   }
 }

@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import {execa} from 'execa';
 import inquirer from 'inquirer';
 import output from '../../lib/output.js';
@@ -122,18 +121,24 @@ export async function createModel(modelName?: string): Promise<boolean> {
 
   try {
     // Delete existing secret if it exists (update scenario)
-    await execa('kubectl', ['delete', 'secret', secretName], {stdio: 'pipe'}).catch(() => {
+    await execa('kubectl', ['delete', 'secret', secretName], {
+      stdio: 'pipe',
+    }).catch(() => {
       // Ignore error if secret doesn't exist
     });
 
     // Create the secret
-    await execa('kubectl', [
-      'create',
-      'secret',
-      'generic',
-      secretName,
-      `--from-literal=api-key=${apiKey}`,
-    ], {stdio: 'pipe'});
+    await execa(
+      'kubectl',
+      [
+        'create',
+        'secret',
+        'generic',
+        secretName,
+        `--from-literal=api-key=${apiKey}`,
+      ],
+      {stdio: 'pipe'}
+    );
 
     output.success(`secret ${secretName} created`);
   } catch (error) {

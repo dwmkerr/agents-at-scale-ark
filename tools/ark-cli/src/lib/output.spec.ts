@@ -1,6 +1,6 @@
 import {describe, it, expect, beforeEach, afterEach, jest} from '@jest/globals';
 import chalk from 'chalk';
-import output, {StatusType} from './output.js';
+import output from './output.js';
 
 describe('output', () => {
   let consoleErrorSpy: any;
@@ -136,7 +136,12 @@ describe('output', () => {
     });
 
     it('should display missing status with details', () => {
-      output.statusCheck('missing', 'fastmcp', undefined, 'not in dependencies');
+      output.statusCheck(
+        'missing',
+        'fastmcp',
+        undefined,
+        'not in dependencies'
+      );
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         `  ${chalk.yellow('?')} ${chalk.yellow('fastmcp')}${chalk.gray(' not in dependencies')}`
@@ -164,9 +169,7 @@ describe('output', () => {
     it('should display section header with colon', () => {
       output.section('dev-tests');
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        chalk.cyan.bold('dev-tests:')
-      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(chalk.cyan.bold('dev-tests:'));
     });
 
     it('should display section header with custom text', () => {

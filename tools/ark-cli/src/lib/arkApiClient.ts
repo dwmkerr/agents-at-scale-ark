@@ -95,7 +95,7 @@ export class ArkApiClient {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = (await response.json()) as {items?: Agent[]};
       return data.items || [];
     } catch (error) {
       throw new Error(
@@ -112,7 +112,7 @@ export class ArkApiClient {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = (await response.json()) as {items?: Model[]};
       return data.items || [];
     } catch (error) {
       throw new Error(
@@ -129,7 +129,7 @@ export class ArkApiClient {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = (await response.json()) as {items?: Tool[]};
       return data.items || [];
     } catch (error) {
       throw new Error(
@@ -146,7 +146,7 @@ export class ArkApiClient {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = (await response.json()) as {items?: Team[]};
       return data.items || [];
     } catch (error) {
       throw new Error(
@@ -171,7 +171,7 @@ export class ArkApiClient {
       ...params,
       stream: true,
     });
-    
+
     for await (const chunk of stream) {
       yield chunk;
     }

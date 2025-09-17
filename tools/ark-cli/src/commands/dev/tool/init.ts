@@ -16,13 +16,13 @@ async function initTool(toolPath: string) {
   // Check if .ark.yaml already exists
   const arkConfigPath = path.join(absolutePath, '.ark.yaml');
   if (fs.existsSync(arkConfigPath)) {
-    const { overwrite } = await inquirer.prompt([
+    const {overwrite} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'overwrite',
         message: chalk.yellow('.ark.yaml already exists. Overwrite?'),
-        default: false
-      }
+        default: false,
+      },
     ]);
 
     if (!overwrite) {
@@ -34,7 +34,7 @@ async function initTool(toolPath: string) {
   // Initialize configuration object
   const arkConfig: any = {
     version: '1.0',
-    project: {}
+    project: {},
   };
 
   // Step 1: Check if path exists and is a directory
@@ -59,14 +59,18 @@ async function initTool(toolPath: string) {
   // Step 2: Detect platform
   console.log();
   if (!project.platform) {
-    console.log(chalk.yellow('⚠ No Python project files found (pyproject.toml or requirements.txt)'));
-    const { continueWithoutProject } = await inquirer.prompt([
+    console.log(
+      chalk.yellow(
+        '⚠ No Python project files found (pyproject.toml or requirements.txt)'
+      )
+    );
+    const {continueWithoutProject} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'continueWithoutProject',
         message: 'Continue without project files?',
-        default: false
-      }
+        default: false,
+      },
     ]);
 
     if (!continueWithoutProject) {
@@ -78,16 +82,22 @@ async function initTool(toolPath: string) {
     arkConfig.project.platform = 'python3';
     arkConfig.project.type = 'none';
   } else {
-    console.log(chalk.green(`✓ Detected platform: ${chalk.white(project.platform)}`));
-    console.log(chalk.gray(`  Found from: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`));
+    console.log(
+      chalk.green(`✓ Detected platform: ${chalk.white(project.platform)}`)
+    );
+    console.log(
+      chalk.gray(
+        `  Found from: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`
+      )
+    );
 
-    const { confirmPlatform } = await inquirer.prompt([
+    const {confirmPlatform} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'confirmPlatform',
         message: `Confirm platform is ${project.platform}?`,
-        default: true
-      }
+        default: true,
+      },
     ]);
 
     if (!confirmPlatform) {
@@ -101,16 +111,20 @@ async function initTool(toolPath: string) {
     // Step 3: Project metadata
     if (project.project_name) {
       console.log();
-      console.log(chalk.green(`✓ Found project name: ${chalk.white(project.project_name)}`));
+      console.log(
+        chalk.green(
+          `✓ Found project name: ${chalk.white(project.project_name)}`
+        )
+      );
       console.log(chalk.gray(`  From: pyproject.toml [project.name]`));
 
-      const { confirmName } = await inquirer.prompt([
+      const {confirmName} = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'confirmName',
           message: `Save project name as "${project.project_name}"?`,
-          default: true
-        }
+          default: true,
+        },
       ]);
 
       if (confirmName) {
@@ -119,16 +133,20 @@ async function initTool(toolPath: string) {
 
       if (project.project_version) {
         console.log();
-        console.log(chalk.green(`✓ Found project version: ${chalk.white(project.project_version)}`));
+        console.log(
+          chalk.green(
+            `✓ Found project version: ${chalk.white(project.project_version)}`
+          )
+        );
         console.log(chalk.gray(`  From: pyproject.toml [project.version]`));
 
-        const { confirmVersion } = await inquirer.prompt([
+        const {confirmVersion} = await inquirer.prompt([
           {
             type: 'confirm',
             name: 'confirmVersion',
             message: `Save project version as "${project.project_version}"?`,
-            default: true
-          }
+            default: true,
+          },
         ]);
 
         if (confirmVersion) {
@@ -140,16 +158,24 @@ async function initTool(toolPath: string) {
     // Step 4: Check for FastMCP
     console.log();
     if (project.has_fastmcp) {
-      console.log(chalk.green(`✓ Found FastMCP framework: ${chalk.white(`v${project.fastmcp_version || 'unknown'}`)}`));
-      console.log(chalk.gray(`  From: ${project.project_type === 'pyproject' ? 'pyproject.toml dependencies' : 'requirements.txt'}`));
+      console.log(
+        chalk.green(
+          `✓ Found FastMCP framework: ${chalk.white(`v${project.fastmcp_version || 'unknown'}`)}`
+        )
+      );
+      console.log(
+        chalk.gray(
+          `  From: ${project.project_type === 'pyproject' ? 'pyproject.toml dependencies' : 'requirements.txt'}`
+        )
+      );
 
-      const { confirmFramework } = await inquirer.prompt([
+      const {confirmFramework} = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'confirmFramework',
           message: `Save framework as FastMCP v${project.fastmcp_version}?`,
-          default: true
-        }
+          default: true,
+        },
       ]);
 
       if (confirmFramework) {
@@ -158,15 +184,19 @@ async function initTool(toolPath: string) {
       }
     } else {
       console.log(chalk.yellow('⚠ FastMCP not found in dependencies'));
-      console.log(chalk.gray(`  Checked: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`));
+      console.log(
+        chalk.gray(
+          `  Checked: ${project.project_type === 'pyproject' ? 'pyproject.toml' : 'requirements.txt'}`
+        )
+      );
 
-      const { recordMissing } = await inquirer.prompt([
+      const {recordMissing} = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'recordMissing',
           message: 'Record that FastMCP is not installed?',
-          default: true
-        }
+          default: true,
+        },
       ]);
 
       if (recordMissing) {
@@ -179,7 +209,9 @@ async function initTool(toolPath: string) {
   if (arkConfig.project.framework === 'fastmcp') {
     // Try to detect transport from existing code
     let detectedTransport = null;
-    const pythonFiles = fs.readdirSync(absolutePath).filter(f => f.endsWith('.py'));
+    const pythonFiles = fs
+      .readdirSync(absolutePath)
+      .filter((f) => f.endsWith('.py'));
 
     for (const file of pythonFiles) {
       const content = fs.readFileSync(path.join(absolutePath, file), 'utf-8');
@@ -189,32 +221,39 @@ async function initTool(toolPath: string) {
       } else if (content.includes('transport="http"')) {
         detectedTransport = 'http';
         break;
-      } else if (content.includes('transport="stdio"') || content.includes('.run()')) {
+      } else if (
+        content.includes('transport="stdio"') ||
+        content.includes('.run()')
+      ) {
         detectedTransport = 'stdio';
         break;
       }
     }
 
     if (detectedTransport) {
-      console.log(chalk.green(`✓ MCP: Detected transport ${chalk.white(detectedTransport)}`));
+      console.log(
+        chalk.green(
+          `✓ MCP: Detected transport ${chalk.white(detectedTransport)}`
+        )
+      );
 
-      const { confirmTransport } = await inquirer.prompt([
+      const {confirmTransport} = await inquirer.prompt([
         {
           type: 'confirm',
           name: 'confirmTransport',
           message: `Use transport "${detectedTransport}"?`,
-          default: true
-        }
+          default: true,
+        },
       ]);
 
       if (confirmTransport) {
-        arkConfig.mcp = { transport: detectedTransport };
+        arkConfig.mcp = {transport: detectedTransport};
       }
     }
 
     // If not detected or not confirmed, ask
     if (!arkConfig.mcp) {
-      const { transport } = await inquirer.prompt([
+      const {transport} = await inquirer.prompt([
         {
           type: 'list',
           name: 'transport',
@@ -223,29 +262,29 @@ async function initTool(toolPath: string) {
             {
               name: 'SSE (Server-Sent Events) - Recommended for Kubernetes',
               value: 'sse',
-              short: 'SSE'
+              short: 'SSE',
             },
             {
               name: 'HTTP - Stateless request/response',
               value: 'http',
-              short: 'HTTP'
+              short: 'HTTP',
             },
             {
               name: 'STDIO - Standard input/output for CLI tools',
               value: 'stdio',
-              short: 'STDIO'
-            }
+              short: 'STDIO',
+            },
           ],
-          default: 'sse'
-        }
+          default: 'sse',
+        },
       ]);
 
-      arkConfig.mcp = { transport };
+      arkConfig.mcp = {transport};
     }
 
     // Ask for port if not stdio
     if (arkConfig.mcp.transport !== 'stdio') {
-      const { port } = await inquirer.prompt([
+      const {port} = await inquirer.prompt([
         {
           type: 'input',
           name: 'port',
@@ -257,8 +296,8 @@ async function initTool(toolPath: string) {
               return 'Please enter a valid port number (1-65535)';
             }
             return true;
-          }
-        }
+          },
+        },
       ]);
 
       arkConfig.mcp.port = parseInt(port);
@@ -269,19 +308,25 @@ async function initTool(toolPath: string) {
       console.log(chalk.gray('─'.repeat(40)));
 
       if (arkConfig.mcp.transport === 'sse') {
-        console.log(chalk.green(`if __name__ == "__main__":
+        console.log(
+          chalk.green(`if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", "${arkConfig.mcp.port}"))
-    mcp.run(transport="sse", host="0.0.0.0", port=port)`));
+    mcp.run(transport="sse", host="0.0.0.0", port=port)`)
+        );
       } else if (arkConfig.mcp.transport === 'http') {
-        console.log(chalk.green(`if __name__ == "__main__":
+        console.log(
+          chalk.green(`if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", "${arkConfig.mcp.port}"))
-    mcp.run(transport="http", host="0.0.0.0", port=port, path="/")`));
+    mcp.run(transport="http", host="0.0.0.0", port=port, path="/")`)
+        );
       }
 
       console.log(chalk.gray('─'.repeat(40)));
-      console.log(chalk.dim('The PORT environment variable will be set by Kubernetes'));
+      console.log(
+        chalk.dim('The PORT environment variable will be set by Kubernetes')
+      );
     }
   }
 
@@ -319,26 +364,33 @@ async function initTool(toolPath: string) {
 
     // Step 6: Ask about generating project files
     console.log();
-    const { generateFiles } = await inquirer.prompt([
+    const {generateFiles} = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'generateFiles',
         message: 'Generate project files (Dockerfile, .dockerignore, etc.)?',
-        default: true
-      }
+        default: true,
+      },
     ]);
 
     if (generateFiles) {
       console.log();
-      await generateProjectFiles(absolutePath, {interactive: true, dryRun: false, overwrite: false});
+      await generateProjectFiles(absolutePath, {
+        interactive: true,
+        dryRun: false,
+        overwrite: false,
+      });
     }
 
     console.log();
-    console.log('  • Edit ' + chalk.cyan('.ark.yaml') + ' to update configuration');
-
+    console.log(
+      '  • Edit ' + chalk.cyan('.ark.yaml') + ' to update configuration'
+    );
   } catch (error) {
     writeSpinner.fail('Failed to write .ark.yaml');
-    output.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    output.error(
+      `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
     process.exit(1);
   }
 }

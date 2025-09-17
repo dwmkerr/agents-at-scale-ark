@@ -1,4 +1,4 @@
-import {describe, it, expect, jest, beforeEach, afterEach} from '@jest/globals';
+import {describe, it, expect, beforeEach, afterEach} from '@jest/globals';
 import {execSync} from 'child_process';
 import path from 'path';
 import {fileURLToPath} from 'url';
@@ -20,7 +20,7 @@ describe('ark dev tool generate', () => {
   afterEach(() => {
     // Clean up temp directory
     if (tempDir && fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, {recursive: true, force: true});
     }
   });
 
@@ -40,7 +40,9 @@ project:
       fs.writeFileSync(path.join(tempDir, '.ark.yaml'), arkYaml);
 
       // Run the generate command
-      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {encoding: 'utf8'});
+      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
+        encoding: 'utf8',
+      });
 
       // Check Dockerfile was generated
       const dockerfilePath = path.join(tempDir, 'Dockerfile');
@@ -54,7 +56,9 @@ project:
       expect(dockerfileContent).toContain('COPY pyproject.toml ./');
       expect(dockerfileContent).toContain('COPY uv.lock* ./');
       expect(dockerfileContent).toContain('RUN uv sync --frozen');
-      expect(dockerfileContent).toContain('CMD ["uv", "run", "python", "-m", "test-tool"]');
+      expect(dockerfileContent).toContain(
+        'CMD ["uv", "run", "python", "-m", "test_tool"]'
+      );
 
       // Should NOT have requirements.txt commands
       expect(dockerfileContent).not.toContain('requirements.txt');
@@ -74,7 +78,9 @@ project:
       fs.writeFileSync(path.join(tempDir, '.ark.yaml'), arkYaml);
 
       // Run the generate command
-      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {encoding: 'utf8'});
+      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
+        encoding: 'utf8',
+      });
 
       // Check Dockerfile was generated
       const dockerfilePath = path.join(tempDir, 'Dockerfile');
@@ -85,8 +91,12 @@ project:
 
       // Should have pip commands for requirements.txt
       expect(dockerfileContent).toContain('COPY requirements.txt ./');
-      expect(dockerfileContent).toContain('RUN pip install --no-cache-dir -r requirements.txt');
-      expect(dockerfileContent).toContain('CMD ["python", "-m", "test-req-tool"]');
+      expect(dockerfileContent).toContain(
+        'RUN pip install --no-cache-dir -r requirements.txt'
+      );
+      expect(dockerfileContent).toContain(
+        'CMD ["python", "-m", "test_req_tool"]'
+      );
 
       // Should NOT have uv commands
       expect(dockerfileContent).not.toContain('RUN pip install uv');
@@ -108,7 +118,9 @@ project:
       fs.writeFileSync(path.join(tempDir, '.ark.yaml'), arkYaml);
 
       // Run the generate command
-      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {encoding: 'utf8'});
+      execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
+        encoding: 'utf8',
+      });
 
       // Check .dockerignore was generated
       const dockerignorePath = path.join(tempDir, '.dockerignore');
@@ -155,14 +167,19 @@ project:
       fs.writeFileSync(path.join(tempDir, 'Dockerfile'), customDockerfile);
 
       // Run the generate command
-      const output = execSync(`node ${cliPath} dev tool generate ${tempDir}`, {encoding: 'utf8'});
+      const output = execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
+        encoding: 'utf8',
+      });
 
       // Check that existing file was not overwritten
-      const dockerfileContent = fs.readFileSync(path.join(tempDir, 'Dockerfile'), 'utf-8');
+      const dockerfileContent = fs.readFileSync(
+        path.join(tempDir, 'Dockerfile'),
+        'utf-8'
+      );
       expect(dockerfileContent).toBe(customDockerfile);
 
-      // Check that output mentions skipping
-      expect(output).toContain('No new files generated');
+      // Check that output mentions skipping the existing file
+      expect(output).toContain('Skipping Dockerfile (already exists)');
     });
   });
 
@@ -170,7 +187,9 @@ project:
     it('should fail when .ark.yaml is missing', () => {
       // Try to run generate without .ark.yaml
       expect(() => {
-        execSync(`node ${cliPath} dev tool generate ${tempDir}`, {encoding: 'utf8'});
+        execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
+          encoding: 'utf8',
+        });
       }).toThrow('.ark.yaml not found');
     });
   });

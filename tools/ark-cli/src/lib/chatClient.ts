@@ -44,7 +44,11 @@ export class ChatClient {
     targetId: string,
     messages: Array<{role: 'user' | 'assistant' | 'system'; content: string}>,
     config: ChatConfig,
-    onChunk?: (chunk: string, toolCalls?: ToolCall[], arkMetadata?: ArkMetadata) => void,
+    onChunk?: (
+      chunk: string,
+      toolCalls?: ToolCall[],
+      arkMetadata?: ArkMetadata
+    ) => void,
     signal?: AbortSignal
   ): Promise<string> {
     const shouldStream = config.streamingEnabled && !!onChunk;
@@ -92,8 +96,8 @@ export class ChatClient {
                   type: toolCallDelta.type || 'function',
                   function: {
                     name: toolCallDelta.function?.name || '',
-                    arguments: ''
-                  }
+                    arguments: '',
+                  },
                 });
               }
 
@@ -117,7 +121,6 @@ export class ChatClient {
         const message = response.choices[0]?.message;
         const content = message?.content || '';
 
-
         // Handle tool calls in non-streaming mode
         if (message?.tool_calls && message.tool_calls.length > 0) {
           const toolCalls: ToolCall[] = message.tool_calls.map((tc: any) => ({
@@ -125,8 +128,8 @@ export class ChatClient {
             type: tc.type || 'function',
             function: {
               name: tc.function?.name || '',
-              arguments: tc.function?.arguments || ''
-            }
+              arguments: tc.function?.arguments || '',
+            },
           }));
 
           // Send tool calls first

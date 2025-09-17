@@ -3,6 +3,7 @@ import {render} from 'ink';
 import * as React from 'react';
 import ChatUI from '../components/ChatUI.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
+import {loadConfig} from '../lib/config.js';
 import output from '../lib/output.js';
 
 export function createChatCommand(): Command {
@@ -30,17 +31,21 @@ export function createChatCommand(): Command {
         initialTargetId = `model/${options.model}`;
       }
 
+      // Load config
+      const config = loadConfig();
+
       // Initialize proxy first - no spinner, just let ChatUI handle loading state
       try {
         const proxy = new ArkApiProxy();
         const arkApiClient = await proxy.start();
 
-        // Pass the initialized client to ChatUI
+        // Pass the initialized client and config to ChatUI
         render(
           <ChatUI
             initialTargetId={initialTargetId}
             arkApiClient={arkApiClient}
             arkApiProxy={proxy}
+            config={config}
           />
         );
       } catch (error) {

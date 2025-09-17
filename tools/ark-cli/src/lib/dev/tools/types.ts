@@ -44,7 +44,7 @@ export interface ProjectDiscoveryResult {
 
 export interface ProjectInfo {
   path: string;
-  platform: 'python3';  // Only Python for now, can add 'nodejs' later
+  platform: 'python3'; // Only Python for now, can add 'nodejs' later
   projectType: 'pyproject' | 'requirements' | 'unknown';
   hasVenv: boolean;
   fastMCP: boolean;

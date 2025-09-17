@@ -7,7 +7,14 @@ import yaml from 'yaml';
 import {execSync} from 'child_process';
 import output from '../../../lib/output.js';
 
-export async function generateProjectFiles(toolPath: string, options: {interactive?: boolean, dryRun?: boolean, overwrite?: boolean} = {interactive: true, dryRun: false, overwrite: false}) {
+export async function generateProjectFiles(
+  toolPath: string,
+  options: {interactive?: boolean; dryRun?: boolean; overwrite?: boolean} = {
+    interactive: true,
+    dryRun: false,
+    overwrite: false,
+  }
+) {
   const absolutePath = path.resolve(toolPath);
   const arkConfigPath = path.join(absolutePath, '.ark.yaml');
 
@@ -20,12 +27,16 @@ export async function generateProjectFiles(toolPath: string, options: {interacti
   // Load .ark.yaml
   const arkConfig = yaml.parse(fs.readFileSync(arkConfigPath, 'utf-8'));
 
-  const generateSpinner = options.dryRun ? null : ora('Generating project files...').start();
+  const generateSpinner = options.dryRun
+    ? null
+    : ora('Generating project files...').start();
 
   try {
     // Find template directory - templates are in the source tree
     const currentFile = fileURLToPath(import.meta.url);
-    const distDir = path.dirname(path.dirname(path.dirname(path.dirname(currentFile)))); // Goes to dist/
+    const distDir = path.dirname(
+      path.dirname(path.dirname(path.dirname(currentFile)))
+    ); // Goes to dist/
     const arkCliDir = path.dirname(distDir); // Goes to ark-cli/
     const templateDir = path.join(arkCliDir, 'templates', 'python-mcp-tool');
 
@@ -46,7 +57,7 @@ export async function generateProjectFiles(toolPath: string, options: {interacti
     processTemplateDirectory(templateDir, absolutePath, arkConfig, options, {
       generatedItems,
       skippedItems,
-      errors
+      errors,
     });
 
     if (!options.dryRun) {
@@ -56,12 +67,14 @@ export async function generateProjectFiles(toolPath: string, options: {interacti
         if (options.interactive && generatedItems.size > 0) {
           // Sort items for consistent display
           const sortedItems = Array.from(generatedItems).sort();
-          sortedItems.forEach(item => {
+          sortedItems.forEach((item) => {
             console.log(chalk.green(`  ✓ Generated ${item}`));
           });
         }
       } else if (skippedItems.size > 0) {
-        generateSpinner!.warn(`No new files generated (${skippedItems.size} already exist)`);
+        generateSpinner!.warn(
+          `No new files generated (${skippedItems.size} already exist)`
+        );
       } else {
         generateSpinner!.warn('No files to generate');
       }
@@ -69,17 +82,20 @@ export async function generateProjectFiles(toolPath: string, options: {interacti
 
     if (errors.length > 0 && options.interactive) {
       console.log(chalk.red('Errors:'));
-      errors.forEach(e => console.log(chalk.red(`  - ${e}`)));
+      errors.forEach((e) => console.log(chalk.red(`  - ${e}`)));
     }
 
     return generatedItems.size > 0;
-
   } catch (error) {
     if (!options.dryRun && generateSpinner) {
       generateSpinner.fail('Failed to generate project files');
     }
     if (options.interactive) {
-      console.log(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      console.log(
+        chalk.red(
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      );
     }
     return false;
   }
@@ -89,8 +105,12 @@ function processTemplateDirectory(
   sourceDir: string,
   targetDir: string,
   arkConfig: any,
-  options: {dryRun?: boolean, overwrite?: boolean, interactive?: boolean},
-  stats: {generatedItems: Set<string>, skippedItems: Set<string>, errors: string[]},
+  options: {dryRun?: boolean; overwrite?: boolean; interactive?: boolean},
+  stats: {
+    generatedItems: Set<string>;
+    skippedItems: Set<string>;
+    errors: string[];
+  },
   rootTargetDir?: string
 ) {
   // Track the root target directory for relative path calculations
@@ -101,15 +121,16 @@ function processTemplateDirectory(
 
   // Create target directory if it doesn't exist
   if (!options.dryRun && !dirExists) {
-    fs.mkdirSync(targetDir, { recursive: true });
+    fs.mkdirSync(targetDir, {recursive: true});
     // Track the directory creation (relative to root)
     const relativePath = path.relative(actualRootTargetDir, targetDir);
-    if (relativePath) { // Don't add empty string for root directory
+    if (relativePath) {
+      // Don't add empty string for root directory
       stats.generatedItems.add(`${relativePath}/`);
     }
   }
 
-  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+  const entries = fs.readdirSync(sourceDir, {withFileTypes: true});
 
   for (const entry of entries) {
     const sourcePath = path.join(sourceDir, entry.name);
@@ -125,11 +146,20 @@ function processTemplateDirectory(
         console.log(chalk.cyan(`=== END ${relativePath}/ directory ===\n`));
       }
 
-      processTemplateDirectory(sourcePath, targetSubDir, arkConfig, options, stats, actualRootTargetDir);
+      processTemplateDirectory(
+        sourcePath,
+        targetSubDir,
+        arkConfig,
+        options,
+        stats,
+        actualRootTargetDir
+      );
     } else {
       // Process file - check if it's a template
       const isTemplate = entry.name.startsWith('template.');
-      const targetFileName = isTemplate ? entry.name.replace('template.', '') : entry.name;
+      const targetFileName = isTemplate
+        ? entry.name.replace('template.', '')
+        : entry.name;
       const targetPath = path.join(targetDir, targetFileName);
 
       // Make target path relative to the original target directory for display
@@ -140,7 +170,9 @@ function processTemplateDirectory(
 
       if (!options.dryRun && !options.overwrite && fileExists) {
         if (options.interactive) {
-          console.log(chalk.yellow(`  Skipping ${displayPath} (already exists)`));
+          console.log(
+            chalk.yellow(`  Skipping ${displayPath} (already exists)`)
+          );
         }
         stats.skippedItems.add(displayPath);
         continue;
@@ -151,7 +183,13 @@ function processTemplateDirectory(
 
         if (isTemplate) {
           // Process template file with helm - pass the actual root target directory
-          content = processTemplateFile(sourcePath, targetFileName, arkConfig, options, actualRootTargetDir);
+          content = processTemplateFile(
+            sourcePath,
+            targetFileName,
+            arkConfig,
+            options,
+            actualRootTargetDir
+          );
         } else {
           // Regular file, just read it
           content = fs.readFileSync(sourcePath, 'utf-8');
@@ -167,21 +205,32 @@ function processTemplateDirectory(
           fs.writeFileSync(targetPath, content);
           stats.generatedItems.add(displayPath);
         }
-
       } catch (err) {
         const errorMsg = `${displayPath}: ${err instanceof Error ? err.message : 'Unknown error'}`;
         stats.errors.push(errorMsg);
         if (options.dryRun) {
-          console.log(chalk.red(`Error processing ${displayPath}: ${err instanceof Error ? err.message : 'Unknown error'}`));
+          console.log(
+            chalk.red(
+              `Error processing ${displayPath}: ${err instanceof Error ? err.message : 'Unknown error'}`
+            )
+          );
         }
       }
     }
   }
 }
 
-function processTemplateFile(templatePath: string, targetFileName: string, arkConfig: any, options: {dryRun?: boolean}, rootTargetDir?: string): string {
+function processTemplateFile(
+  templatePath: string,
+  targetFileName: string,
+  arkConfig: any,
+  options: {dryRun?: boolean},
+  rootTargetDir?: string
+): string {
   // Prepare consistent values structure for all templates
-  const projectName = arkConfig.project?.name || path.basename(rootTargetDir || path.dirname(templatePath));
+  const projectName =
+    arkConfig.project?.name ||
+    path.basename(rootTargetDir || path.dirname(templatePath));
   const values = {
     project: {
       name: projectName,
@@ -189,41 +238,45 @@ function processTemplateFile(templatePath: string, targetFileName: string, arkCo
       platform: arkConfig.project?.platform || 'python3',
       version: arkConfig.project?.version || '0.1.0',
       framework: arkConfig.project?.framework || 'fastmcp',
-      description: arkConfig.project?.description || `${projectName} MCP tool`
+      description: arkConfig.project?.description || `${projectName} MCP tool`,
     },
     python: {
-      version: '3.11',  // Default Python version
-      module_name: projectName.replace(/-/g, '_')  // Convert kebab-case to snake_case
+      version: '3.11', // Default Python version
+      module_name: projectName.replace(/-/g, '_'), // Convert kebab-case to snake_case
     },
     mcp: {
-      transport: arkConfig.mcp?.transport || 'sse',  // Default to SSE for Kubernetes
+      transport: arkConfig.mcp?.transport || 'sse', // Default to SSE for Kubernetes
       port: arkConfig.mcp?.port || 8080,
-      healthCheck: arkConfig.mcp?.transport !== 'stdio'  // No health checks for stdio
+      healthCheck: arkConfig.mcp?.transport !== 'stdio', // No health checks for stdio
     },
     devspace: {
       namespace: 'default',
       image: {
-        repository: projectName  // Default repository name
-      }
-    }
+        repository: projectName, // Default repository name
+      },
+    },
   };
 
   // Create temp directory for helm processing
   const tempDir = path.join('/tmp', `ark-helm-${Date.now()}`);
   const tempChartDir = path.join(tempDir, 'chart');
   const tempTemplatesDir = path.join(tempChartDir, 'templates');
-  fs.mkdirSync(tempTemplatesDir, { recursive: true });
+  fs.mkdirSync(tempTemplatesDir, {recursive: true});
 
   try {
     // Write minimal Chart.yaml
-    fs.writeFileSync(path.join(tempChartDir, 'Chart.yaml'), 'apiVersion: v2\nname: temp\nversion: 0.1.0\n');
+    fs.writeFileSync(
+      path.join(tempChartDir, 'Chart.yaml'),
+      'apiVersion: v2\nname: temp\nversion: 0.1.0\n'
+    );
 
     // Write values file
     const tempValuesFile = path.join(tempDir, 'values.yaml');
     fs.writeFileSync(tempValuesFile, yaml.stringify(values));
 
     // Determine if this is a YAML file
-    const isYamlFile = targetFileName.endsWith('.yaml') || targetFileName.endsWith('.yml');
+    const isYamlFile =
+      targetFileName.endsWith('.yaml') || targetFileName.endsWith('.yml');
 
     // For dotfiles, replace the leading dot with 'dot' for helm processing
     const helmTemplateName = targetFileName.startsWith('.')
@@ -232,21 +285,35 @@ function processTemplateFile(templatePath: string, targetFileName: string, arkCo
 
     if (isYamlFile) {
       // Copy YAML files directly
-      fs.copyFileSync(templatePath, path.join(tempTemplatesDir, helmTemplateName));
+      fs.copyFileSync(
+        templatePath,
+        path.join(tempTemplatesDir, helmTemplateName)
+      );
     } else {
       // Wrap non-YAML content in a YAML structure for helm
       const originalContent = fs.readFileSync(templatePath, 'utf-8');
-      const wrappedContent = `# Wrapped for helm processing\ncontent: |\n${originalContent.split('\n').map(line => '  ' + line).join('\n')}`;
-      fs.writeFileSync(path.join(tempTemplatesDir, helmTemplateName + '.yaml'), wrappedContent);
+      const wrappedContent = `# Wrapped for helm processing\ncontent: |\n${originalContent
+        .split('\n')
+        .map((line) => '  ' + line)
+        .join('\n')}`;
+      fs.writeFileSync(
+        path.join(tempTemplatesDir, helmTemplateName + '.yaml'),
+        wrappedContent
+      );
     }
 
     // Run helm template to process the file
-    const actualHelmFile = isYamlFile ? helmTemplateName : helmTemplateName + '.yaml';
+    const actualHelmFile = isYamlFile
+      ? helmTemplateName
+      : helmTemplateName + '.yaml';
     const helmCommand = `helm template temp ${tempChartDir} --values ${tempValuesFile} -s templates/${actualHelmFile}`;
 
     let content: string;
     try {
-      content = execSync(helmCommand, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      content = execSync(helmCommand, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
       // Remove the YAML document separator that helm adds
       content = content.replace(/^---\n/, '');
       // Remove helm's source comment
@@ -264,11 +331,10 @@ function processTemplateFile(templatePath: string, targetFileName: string, arkCo
     }
 
     return content;
-
   } finally {
     // Clean up temp directory
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, {recursive: true, force: true});
     }
   }
 }

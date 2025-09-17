@@ -23,7 +23,7 @@ async function checkTool(toolPath: string, options: {output?: string}) {
     hasFastmcp: false,
     fastmcpVersion: null,
     tools: [],
-    toolDiscoveryError: null
+    toolDiscoveryError: null,
   };
 
   if (!isJson) {
@@ -31,11 +31,13 @@ async function checkTool(toolPath: string, options: {output?: string}) {
   }
 
   // Single spinner for all analysis (skip for JSON output)
-  const analyzeSpinner = isJson ? null : ora(`analyzing ${absolutePath}`).start();
+  const analyzeSpinner = isJson
+    ? null
+    : ora(`analyzing ${absolutePath}`).start();
 
   // Small delay to let user see what's happening (skip for JSON)
   if (!isJson) {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   // Collect all information
@@ -64,12 +66,15 @@ async function checkTool(toolPath: string, options: {output?: string}) {
   }
 
   if (!project.platform) {
-    result.error = 'platform unknown - no pyproject.toml or requirements.txt found';
+    result.error =
+      'platform unknown - no pyproject.toml or requirements.txt found';
     if (isJson) {
       console.log(JSON.stringify(result, null, 2));
     } else {
       analyzeSpinner!.stop();
-      output.error(`no pyproject.toml or requirements.txt found in: ${absolutePath}`);
+      output.error(
+        `no pyproject.toml or requirements.txt found in: ${absolutePath}`
+      );
     }
     process.exit(1);
   }
@@ -91,7 +96,8 @@ async function checkTool(toolPath: string, options: {output?: string}) {
       rawTools.push(...projectTools.tools);
     }
   } catch (error) {
-    result.toolDiscoveryError = error instanceof Error ? error.message : 'Unknown error';
+    result.toolDiscoveryError =
+      error instanceof Error ? error.message : 'Unknown error';
   }
 
   // Store tools in the appropriate format
@@ -124,7 +130,9 @@ async function checkTool(toolPath: string, options: {output?: string}) {
 
   // Framework with version in gray
   if (result.hasFastmcp) {
-    const fastmcpDetails = result.fastmcpVersion ? `v${result.fastmcpVersion}` : undefined;
+    const fastmcpDetails = result.fastmcpVersion
+      ? `v${result.fastmcpVersion}`
+      : undefined;
     output.statusCheck('found', 'framework', 'fastmcp', fastmcpDetails);
   } else {
     output.statusCheck('missing', 'framework', 'fastmcp');

@@ -101,7 +101,9 @@ export class ArkDevToolAnalyzer {
   /**
    * Discover project configuration
    */
-  async discoverProject(targetPath: string): Promise<ProjectDiscoveryResult | undefined> {
+  async discoverProject(
+    targetPath: string
+  ): Promise<ProjectDiscoveryResult | undefined> {
     try {
       // Check if Python is available
       try {
@@ -113,15 +115,20 @@ export class ArkDevToolAnalyzer {
 
       // Check if discover_tools.py exists
       if (!fs.existsSync(this.discoverToolsScript)) {
-        console.warn(`discover_tools.py not found at ${this.discoverToolsScript}`);
+        console.warn(
+          `discover_tools.py not found at ${this.discoverToolsScript}`
+        );
         return undefined;
       }
 
       // Run the discovery script with 'project' command
-      const result = execSync(`python3 "${this.discoverToolsScript}" project "${targetPath}"`, {
-        encoding: 'utf-8',
-        maxBuffer: 1024 * 1024, // 1MB buffer
-      });
+      const result = execSync(
+        `python3 "${this.discoverToolsScript}" project "${targetPath}"`,
+        {
+          encoding: 'utf-8',
+          maxBuffer: 1024 * 1024, // 1MB buffer
+        }
+      );
 
       return JSON.parse(result) as ProjectDiscoveryResult;
     } catch (error) {
@@ -133,7 +140,9 @@ export class ArkDevToolAnalyzer {
   /**
    * Discover tools using the Python script
    */
-  async discoverTools(targetPath: string): Promise<DiscoveryResult | undefined> {
+  async discoverTools(
+    targetPath: string
+  ): Promise<DiscoveryResult | undefined> {
     try {
       // Check if Python is available
       try {
@@ -145,15 +154,20 @@ export class ArkDevToolAnalyzer {
 
       // Check if discover_tools.py exists
       if (!fs.existsSync(this.discoverToolsScript)) {
-        console.warn(`discover_tools.py not found at ${this.discoverToolsScript}`);
+        console.warn(
+          `discover_tools.py not found at ${this.discoverToolsScript}`
+        );
         return undefined;
       }
 
       // Run the discovery script with 'tools' command
-      const result = execSync(`python3 "${this.discoverToolsScript}" tools "${targetPath}"`, {
-        encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
-      });
+      const result = execSync(
+        `python3 "${this.discoverToolsScript}" tools "${targetPath}"`,
+        {
+          encoding: 'utf-8',
+          maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+        }
+      );
 
       return JSON.parse(result) as DiscoveryResult;
     } catch (error) {
@@ -161,7 +175,6 @@ export class ArkDevToolAnalyzer {
       return undefined;
     }
   }
-
 
   /**
    * Recursively find all MCP tools in a project
@@ -179,15 +192,20 @@ export class ArkDevToolAnalyzer {
 
       // Check if discover_tools.py exists
       if (!fs.existsSync(this.discoverToolsScript)) {
-        console.warn(`discover_tools.py not found at ${this.discoverToolsScript}`);
+        console.warn(
+          `discover_tools.py not found at ${this.discoverToolsScript}`
+        );
         return null;
       }
 
       // Run the discovery script with 'project-tools' command
-      const result = execSync(`python3 "${this.discoverToolsScript}" project-tools "${projectRoot}"`, {
-        encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
-      });
+      const result = execSync(
+        `python3 "${this.discoverToolsScript}" project-tools "${projectRoot}"`,
+        {
+          encoding: 'utf-8',
+          maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+        }
+      );
 
       return JSON.parse(result);
     } catch (error) {

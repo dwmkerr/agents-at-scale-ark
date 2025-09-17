@@ -6,7 +6,12 @@ const output = {
   /**
    * Display a status message with flexible formatting
    */
-  statusMessage(type: StatusType, title: string, message?: string, ...args: unknown[]): void {
+  statusMessage(
+    type: StatusType,
+    title: string,
+    message?: string,
+    ...args: unknown[]
+  ): void {
     const icons = {
       success: chalk.green('✓'),
       warning: chalk.yellow.bold('!'),
@@ -24,7 +29,7 @@ const output = {
     const icon = icons[type];
     const color = colors[type];
     const logFn = type === 'error' ? console.error : console.log;
-    
+
     if (message) {
       logFn(icon, color(`${title}:`), message, ...args);
     } else {

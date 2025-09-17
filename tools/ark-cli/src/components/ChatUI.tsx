@@ -6,7 +6,13 @@ import * as React from 'react';
 import {marked} from 'marked';
 // @ts-ignore - no types available
 import TerminalRenderer from 'marked-terminal';
-import {ChatClient, QueryTarget, ChatConfig, ToolCall, ArkMetadata} from '../lib/chatClient.js';
+import {
+  ChatClient,
+  QueryTarget,
+  ChatConfig,
+  ToolCall,
+  ArkMetadata,
+} from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
 import {AgentSelector} from '../commands/agents/selector.js';
@@ -66,35 +72,21 @@ interface ChatUIProps {
   initialTargetId?: string;
   arkApiClient: ArkApiClient;
   arkApiProxy: ArkApiProxy;
+  config?: {
+    chat?: {
+      streaming?: boolean;
+      outputFormat?: 'text' | 'markdown';
+    };
+  };
 }
 
 // Output format configuration (default: text)
 type OutputFormat = 'text' | 'markdown';
 
-// Get output format from environment variable
-const getOutputFormat = (): OutputFormat => {
-  const format = process.env.ARK_OUTPUT_FORMAT?.toLowerCase();
-  return format === 'markdown' ? 'markdown' : 'text';
-};
-
 // Generate a unique ID for messages
 let messageIdCounter = 0;
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${messageIdCounter++}`;
-};
-
-// Color palette for team members
-const AGENT_COLORS = ['cyan', 'magenta', 'yellow', 'blue', 'green', 'red'] as const;
-
-// Get a consistent color for an agent name
-const getAgentColor = (agentName: string): string => {
-  // Simple hash function to get consistent color
-  let hash = 0;
-  for (let i = 0; i < agentName.length; i++) {
-    hash = ((hash << 5) - hash) + agentName.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return AGENT_COLORS[Math.abs(hash) % AGENT_COLORS.length];
 };
 
 // Configure marked with terminal renderer for markdown output
@@ -113,6 +105,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   initialTargetId,
   arkApiClient,
   arkApiProxy,
+  config,
 }) => {
   const {exit} = useApp();
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -132,8 +125,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
     Array<{command: string; description: string}>
   >([]);
   const [inputKey, setInputKey] = React.useState(0); // Key to force re-mount of TextInput
-  const [outputFormat, setOutputFormat] =
-    React.useState<OutputFormat>(getOutputFormat());
+  const [outputFormat, setOutputFormat] = React.useState<OutputFormat>(
+    config?.chat?.outputFormat || 'text'
+  );
   const [showAgentSelector, setShowAgentSelector] = React.useState(false);
   const [showModelSelector, setShowModelSelector] = React.useState(false);
   const [showTeamSelector, setShowTeamSelector] = React.useState(false);
@@ -143,9 +137,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [messageHistory, setMessageHistory] = React.useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = React.useState(-1);
 
-  // Initialize chat config from environment variable
+  // Initialize chat config from config prop
   const [chatConfig, setChatConfig] = React.useState<ChatConfig>({
-    streamingEnabled: process.env.ARK_ENABLE_STREAMING === '1',
+    streamingEnabled: config?.chat?.streaming ?? true,
     currentTarget: undefined,
   });
 
@@ -269,14 +263,14 @@ const ChatUI: React.FC<ChatUIProps> = ({
     // Note: Ctrl+W for word deletion doesn't work reliably due to terminal/readline
     // intercepting it before it reaches the app. Most terminals handle this at a lower level.
 
-
     // Handle arrow keys for message history navigation
     if (!showCommands && messageHistory.length > 0) {
       if (key.upArrow && input === '') {
         // Go back in history
-        const newIndex = historyIndex === -1
-          ? messageHistory.length - 1
-          : Math.max(0, historyIndex - 1);
+        const newIndex =
+          historyIndex === -1
+            ? messageHistory.length - 1
+            : Math.max(0, historyIndex - 1);
 
         if (newIndex >= 0 && newIndex < messageHistory.length) {
           setHistoryIndex(newIndex);
@@ -289,7 +283,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
       if (key.downArrow && input === '') {
         // Go forward in history
         if (historyIndex >= 0) {
-          const newIndex = Math.min(messageHistory.length - 1, historyIndex + 1);
+          const newIndex = Math.min(
+            messageHistory.length - 1,
+            historyIndex + 1
+          );
 
           if (newIndex === messageHistory.length - 1) {
             // At the end of history, clear input
@@ -343,12 +340,18 @@ const ChatUI: React.FC<ChatUIProps> = ({
       setMessages((prev) => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage && (lastMessage.type === 'agent' || lastMessage.type === 'team')) {
+        if (
+          lastMessage &&
+          (lastMessage.type === 'agent' || lastMessage.type === 'team')
+        ) {
           lastMessage.cancelled = true;
           // Remove the message if it has no content
           if (lastMessage.type === 'agent' && !lastMessage.content) {
             newMessages.pop();
-          } else if (lastMessage.type === 'team' && lastMessage.members.length === 0) {
+          } else if (
+            lastMessage.type === 'team' &&
+            lastMessage.members.length === 0
+          ) {
             newMessages.pop();
           }
         }
@@ -376,9 +379,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
       if (arg === 'text' || arg === 'markdown') {
         // Set output format
         setOutputFormat(arg);
-
-        // Update environment variable for consistency
-        process.env.ARK_OUTPUT_FORMAT = arg;
 
         // Add system message to show the change
         const systemMessage: SystemMessage = {
@@ -548,7 +548,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
       // Convert messages to format expected by OpenAI API - only include user and agent messages
       const apiMessages = messages
-        .filter((msg) => msg.type === 'user' || msg.type === 'agent' || msg.type === 'team')
+        .filter(
+          (msg) =>
+            msg.type === 'user' || msg.type === 'agent' || msg.type === 'team'
+        )
         .map((msg) => {
           if (msg.type === 'user') {
             return {
@@ -562,15 +565,13 @@ const ChatUI: React.FC<ChatUIProps> = ({
             };
           } else if (msg.type === 'team') {
             // For teams, concatenate all member responses
-            const content = msg.members
-              .map(m => m.content)
-              .join(' ');
+            const content = msg.members.map((m) => m.content).join(' ');
             return {
               role: 'assistant' as const,
               content: content || '',
             };
           }
-          return { role: 'user' as const, content: '' };
+          return {role: 'user' as const, content: ''};
         });
 
       // Add the new user message
@@ -621,7 +622,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
                 const teamMsg = lastMessage as TeamMessage;
 
                 // Find or create team member entry
-                let member = teamMsg.members.find(m => m.agentName === arkMetadata.agent);
+                let member = teamMsg.members.find(
+                  (m) => m.agentName === arkMetadata.agent
+                );
                 if (!member) {
                   member = {
                     agentName: arkMetadata.agent,
@@ -675,7 +678,11 @@ const ChatUI: React.FC<ChatUIProps> = ({
           } else if (lastMessage.type === 'team') {
             const teamMsg = lastMessage as TeamMessage;
             // For teams in non-streaming mode, add the full response as a single member
-            if (!chatConfig.streamingEnabled && fullResponse && teamMsg.members.length === 0) {
+            if (
+              !chatConfig.streamingEnabled &&
+              fullResponse &&
+              teamMsg.members.length === 0
+            ) {
               teamMsg.members.push({
                 agentName: 'team',
                 content: fullResponse,
@@ -711,11 +718,13 @@ const ChatUI: React.FC<ChatUIProps> = ({
             lastMessage.content = `Error: ${errorMessage}`;
           } else if (lastMessage.type === 'team') {
             // For team messages, add error as a single member
-            lastMessage.members = [{
-              agentName: 'error',
-              content: `Error: ${errorMessage}`,
-              color: 'red',
-            }];
+            lastMessage.members = [
+              {
+                agentName: 'error',
+                content: `Error: ${errorMessage}`,
+                color: 'red',
+              },
+            ];
           }
         }
         return newMessages;
@@ -770,13 +779,14 @@ const ChatUI: React.FC<ChatUIProps> = ({
   };
 
   const renderUserMessage = (msg: UserMessage, index: number) => {
-
     return (
       <Box key={index} flexDirection="column" marginBottom={1}>
         <Box>
           <Text color="cyan">●</Text>
           <Text> </Text>
-          <Text color="cyan" bold>You</Text>
+          <Text color="cyan" bold>
+            You
+          </Text>
           <Text color="gray"> {msg.timestamp.toLocaleTimeString()}</Text>
         </Box>
         <Box marginLeft={2}>
@@ -786,8 +796,15 @@ const ChatUI: React.FC<ChatUIProps> = ({
     );
   };
 
-  const renderAgentMessage = (msg: AgentMessage, index: number, isCurrentlyTyping: boolean, isCancelled: boolean) => {
-    const hasError = msg.content.startsWith('Error:') || msg.content === 'No response received';
+  const renderAgentMessage = (
+    msg: AgentMessage,
+    index: number,
+    isCurrentlyTyping: boolean,
+    isCancelled: boolean
+  ) => {
+    const hasError =
+      msg.content.startsWith('Error:') ||
+      msg.content === 'No response received';
 
     return (
       <Box key={index} flexDirection="column" marginBottom={1}>
@@ -830,7 +847,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
         </Box>
 
         {/* Tool calls */}
-        {msg.toolCalls && msg.toolCalls.length > 0 && renderToolCalls(msg.toolCalls)}
+        {msg.toolCalls &&
+          msg.toolCalls.length > 0 &&
+          renderToolCalls(msg.toolCalls)}
 
         {/* Content */}
         {msg.content && (
@@ -846,14 +865,17 @@ const ChatUI: React.FC<ChatUIProps> = ({
     );
   };
 
-  const renderTeamMessage = (msg: TeamMessage, index: number, isCurrentlyTyping: boolean, isCancelled: boolean) => {
+  const renderTeamMessage = (
+    msg: TeamMessage,
+    index: number,
+    isCurrentlyTyping: boolean,
+    isCancelled: boolean
+  ) => {
     return (
       <Box key={index} flexDirection="column" marginBottom={1}>
         <Box>
           {/* Status indicator */}
-          {!isCurrentlyTyping && !isCancelled && (
-            <Text color="green">●</Text>
-          )}
+          {!isCurrentlyTyping && !isCancelled && <Text color="green">●</Text>}
           {isCurrentlyTyping && (
             <Text color="yellow">
               <Spinner type="dots" />
@@ -865,11 +887,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
           {/* Team name */}
           <Text
             color={
-              isCurrentlyTyping
-                ? 'yellow'
-                : isCancelled
-                  ? 'gray'
-                  : 'green'
+              isCurrentlyTyping ? 'yellow' : isCancelled ? 'gray' : 'green'
             }
             bold
           >
@@ -886,7 +904,12 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
         {/* Render each team member's contribution */}
         {msg.members.map((member, memberIndex) => (
-          <Box key={memberIndex} flexDirection="column" marginLeft={2} marginTop={memberIndex > 0 ? 1 : 0}>
+          <Box
+            key={memberIndex}
+            flexDirection="column"
+            marginLeft={2}
+            marginTop={memberIndex > 0 ? 1 : 0}
+          >
             <Box>
               <Text color="blueBright">•</Text>
               <Text> </Text>
@@ -895,9 +918,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
               </Text>
             </Box>
             {member.toolCalls && member.toolCalls.length > 0 && (
-              <Box marginLeft={2}>
-                {renderToolCalls(member.toolCalls)}
-              </Box>
+              <Box marginLeft={2}>{renderToolCalls(member.toolCalls)}</Box>
             )}
             {member.content && (
               <Box marginLeft={2}>
@@ -922,9 +943,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
         </Text>
         {toolCalls.map((toolCall, toolIndex) => (
           <Box key={toolIndex} marginLeft={2} flexDirection="column">
-            <Text color="magenta">
-              • {toolCall.function.name}
-            </Text>
+            <Text color="magenta">• {toolCall.function.name}</Text>
             {toolCall.function.arguments && (
               <Box marginLeft={2}>
                 <Text color="gray" dimColor>

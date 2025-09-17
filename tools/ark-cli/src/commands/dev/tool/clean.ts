@@ -17,12 +17,14 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
     process.exit(1);
   }
 
-  // Load .ark.yaml
-  const arkConfig = yaml.parse(fs.readFileSync(arkConfigPath, 'utf-8'));
+  // Load .ark.yaml to validate it's parseable
+  yaml.parse(fs.readFileSync(arkConfigPath, 'utf-8'));
 
   // Find template directory
   const currentFile = fileURLToPath(import.meta.url);
-  const distDir = path.dirname(path.dirname(path.dirname(path.dirname(currentFile)))); // Goes to dist/
+  const distDir = path.dirname(
+    path.dirname(path.dirname(path.dirname(currentFile)))
+  ); // Goes to dist/
   const arkCliDir = path.dirname(distDir); // Goes to ark-cli/
   const templateDir = path.join(arkCliDir, 'templates', 'python-mcp-tool');
 
@@ -34,10 +36,15 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
   // Collect all template-based files (not directories)
   const allTemplateFiles: string[] = [];
   const dirsToCheck: Set<string> = new Set();
-  collectTemplateFiles(templateDir, absolutePath, allTemplateFiles, dirsToCheck);
+  collectTemplateFiles(
+    templateDir,
+    absolutePath,
+    allTemplateFiles,
+    dirsToCheck
+  );
 
   // Filter to only existing files
-  const filesToClean = allTemplateFiles.filter(file => {
+  const filesToClean = allTemplateFiles.filter((file) => {
     const fullPath = path.join(absolutePath, file);
     return fs.existsSync(fullPath);
   });
@@ -47,10 +54,14 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
     return;
   }
 
-  console.log(chalk.yellow(`Found ${filesToClean.length} template-generated file(s) to potentially remove:`));
+  console.log(
+    chalk.yellow(
+      `Found ${filesToClean.length} template-generated file(s) to potentially remove:`
+    )
+  );
 
   // Display the list of files
-  filesToClean.forEach(file => {
+  filesToClean.forEach((file) => {
     console.log(chalk.gray(`  - ${file}`));
   });
   console.log();
@@ -71,8 +82,8 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
           type: 'confirm',
           name: 'delete',
           message: `Delete file ${chalk.cyan(file)}?`,
-          default: false
-        }
+          default: false,
+        },
       ]);
       shouldDelete = answer.delete;
     }
@@ -83,7 +94,11 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
         console.log(chalk.green(`  ✓ Removed ${file}`));
         removedCount++;
       } catch (err) {
-        console.log(chalk.red(`  ✗ Failed to remove ${file}: ${err instanceof Error ? err.message : 'Unknown error'}`));
+        console.log(
+          chalk.red(
+            `  ✗ Failed to remove ${file}: ${err instanceof Error ? err.message : 'Unknown error'}`
+          )
+        );
       }
     } else {
       console.log(chalk.gray(`  - Skipped ${file}`));
@@ -92,7 +107,9 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
   }
 
   // Now check for empty directories and offer to delete them
-  const sortedDirs = Array.from(dirsToCheck).sort((a, b) => b.length - a.length); // Process deepest dirs first
+  const sortedDirs = Array.from(dirsToCheck).sort(
+    (a, b) => b.length - a.length
+  ); // Process deepest dirs first
 
   for (const dir of sortedDirs) {
     const fullPath = path.join(absolutePath, dir);
@@ -111,8 +128,8 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
               type: 'confirm',
               name: 'delete',
               message: `Delete empty directory ${chalk.cyan(dir)}?`,
-              default: false
-            }
+              default: false,
+            },
           ]);
           shouldDelete = answer.delete;
         }
@@ -122,7 +139,11 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
             fs.rmdirSync(fullPath);
             console.log(chalk.green(`  ✓ Removed empty directory ${dir}`));
           } catch (err) {
-            console.log(chalk.red(`  ✗ Failed to remove directory ${dir}: ${err instanceof Error ? err.message : 'Unknown error'}`));
+            console.log(
+              chalk.red(
+                `  ✗ Failed to remove directory ${dir}: ${err instanceof Error ? err.message : 'Unknown error'}`
+              )
+            );
           }
         } else {
           console.log(chalk.gray(`  - Kept empty directory ${dir}`));
@@ -140,8 +161,14 @@ async function cleanTool(toolPath: string, options: {yes?: boolean} = {}) {
   }
 }
 
-function collectTemplateFiles(sourceDir: string, targetDir: string, files: string[], dirsToCheck: Set<string>, relativePath: string = '') {
-  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+function collectTemplateFiles(
+  sourceDir: string,
+  targetDir: string,
+  files: string[],
+  dirsToCheck: Set<string>,
+  relativePath: string = ''
+) {
+  const entries = fs.readdirSync(sourceDir, {withFileTypes: true});
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
@@ -151,7 +178,13 @@ function collectTemplateFiles(sourceDir: string, targetDir: string, files: strin
 
       // Recursively collect from subdirectory
       const subSourceDir = path.join(sourceDir, entry.name);
-      collectTemplateFiles(subSourceDir, targetDir, files, dirsToCheck, dirPath);
+      collectTemplateFiles(
+        subSourceDir,
+        targetDir,
+        files,
+        dirsToCheck,
+        dirPath
+      );
     } else {
       // Check if it's a template file
       const targetFileName = entry.name.startsWith('template.')
