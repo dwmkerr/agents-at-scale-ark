@@ -2,11 +2,11 @@ import {Command} from 'commander';
 import chalk from 'chalk';
 import {execa} from 'execa';
 import inquirer from 'inquirer';
-import {isCommandAvailable} from '../lib/commandUtils.js';
-import {getClusterInfo} from '../lib/cluster.js';
-import output from '../lib/output.js';
-import {getInstallableServices, arkDependencies} from '../arkServices.js';
-import {createModel} from './models/create.js';
+import {isCommandAvailable} from '../../lib/commandUtils.js';
+import {getClusterInfo} from '../../lib/cluster.js';
+import output from '../../lib/output.js';
+import {getInstallableServices, arkDependencies} from '../../arkServices.js';
+import {createModel} from '../models/create.js';
 
 export async function installArk() {
   // Check if helm is installed

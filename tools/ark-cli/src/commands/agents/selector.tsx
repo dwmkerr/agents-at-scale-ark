@@ -31,7 +31,7 @@ export function AgentSelector({
       });
   }, [arkApiClient]);
 
-  useInput((input, key) => {
+  useInput((input: string, key: any) => {
     if (key.escape) {
       onExit();
     } else if (key.upArrow || input === 'k') {

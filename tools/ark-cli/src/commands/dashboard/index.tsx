@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import {Command} from 'commander';
 import open from 'open';
 import ora from 'ora';
-import {ArkServiceProxy} from '../lib/arkServiceProxy.js';
-import {arkServices} from '../arkServices.js';
+import {ArkServiceProxy} from '../../lib/arkServiceProxy.js';
+import {arkServices} from '../../arkServices.js';
 
 export async function openDashboard() {
   const spinner = ora('Connecting to dashboard').start();

@@ -2,10 +2,10 @@ import {Command} from 'commander';
 import chalk from 'chalk';
 import {execa} from 'execa';
 import inquirer from 'inquirer';
-import {isCommandAvailable} from '../lib/commandUtils.js';
-import {getClusterInfo} from '../lib/cluster.js';
-import output from '../lib/output.js';
-import {getInstallableServices} from '../arkServices.js';
+import {isCommandAvailable} from '../../lib/commandUtils.js';
+import {getClusterInfo} from '../../lib/cluster.js';
+import output from '../../lib/output.js';
+import {getInstallableServices} from '../../arkServices.js';
 
 async function uninstallArk() {
   // Check if helm is installed

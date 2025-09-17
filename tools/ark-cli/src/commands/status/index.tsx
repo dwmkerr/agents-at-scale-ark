@@ -1,10 +1,10 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import {StatusChecker} from '../components/statusChecker.js';
-import {ConfigManager} from '../config.js';
-import {ArkClient} from '../lib/arkClient.js';
-import {StatusFormatter} from '../ui/statusFormatter.js';
+import {StatusChecker} from '../../components/statusChecker.js';
+import {ConfigManager} from '../../config.js';
+import {ArkClient} from '../../lib/arkClient.js';
+import {StatusFormatter} from '../../ui/statusFormatter.js';
 
 export async function checkStatus() {
   const spinner = ora('Checking system status').start();

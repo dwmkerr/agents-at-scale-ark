@@ -20,7 +20,7 @@ async function listModels(
       }
 
       models.forEach((model) => {
-        console.log(`model/${model.name}`);
+        console.log(model.name);
       });
     }
   } catch (error) {

@@ -1,6 +1,6 @@
 import {Command} from 'commander';
-import output from '../lib/output.js';
-import {ArkApiProxy} from '../lib/arkApiProxy.js';
+import output from '../../lib/output.js';
+import {ArkApiProxy} from '../../lib/arkApiProxy.js';
 
 async function listTargets(options: {output?: string; type?: string}) {
   let proxy: ArkApiProxy | undefined;

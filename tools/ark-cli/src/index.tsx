@@ -9,21 +9,21 @@ const packageJson = require('../package.json');
 
 import output from './lib/output.js';
 import {createAgentsCommand} from './commands/agents/index.js';
-import {createChatCommand} from './commands/chat.js';
+import {createChatCommand} from './commands/chat/index.js';
 import {createClusterCommand} from './commands/cluster/index.js';
-import {createCompletionCommand} from './commands/completion.js';
-import {createDashboardCommand} from './commands/dashboard.js';
+import {createCompletionCommand} from './commands/completion/index.js';
+import {createDashboardCommand} from './commands/dashboard/index.js';
 import {createDevCommand} from './commands/dev/index.js';
 import {createGenerateCommand} from './commands/generate/index.js';
-import {createInstallCommand} from './commands/install.js';
+import {createInstallCommand} from './commands/install/index.js';
 import {createModelsCommand} from './commands/models/index.js';
-import {createUninstallCommand} from './commands/uninstall.js';
-import {createStatusCommand} from './commands/status.js';
-import {createConfigCommand} from './commands/config.js';
-import {createTargetsCommand} from './commands/targets.js';
+import {createUninstallCommand} from './commands/uninstall/index.js';
+import {createStatusCommand} from './commands/status/index.js';
+import {createConfigCommand} from './commands/config/index.js';
+import {createTargetsCommand} from './commands/targets/index.js';
 import {createTeamsCommand} from './commands/teams/index.js';
 import {createToolsCommand} from './commands/tools/index.js';
-import {createRoutesCommand} from './commands/routes.js';
+import {createRoutesCommand} from './commands/routes/index.js';
 import MainMenu from './ui/MainMenu.js';
 
 function showMainMenu() {

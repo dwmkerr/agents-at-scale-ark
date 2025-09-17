@@ -1,8 +1,8 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import {execa} from 'execa';
-import output from '../lib/output.js';
-import {isCommandAvailable} from '../lib/commandUtils.js';
+import output from '../../lib/output.js';
+import {isCommandAvailable} from '../../lib/commandUtils.js';
 
 async function listRoutes() {
   // Check if kubectl is installed

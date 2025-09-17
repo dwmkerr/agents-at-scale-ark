@@ -19,9 +19,9 @@ async function listAgents(options: {output?: string}) {
         return;
       }
 
-      // Simple list output - just agent names with namespace prefix
+      // Simple list output - just agent names
       agents.forEach((agent) => {
-        console.log(`agent/${agent.name}`);
+        console.log(agent.name);
       });
     }
   } catch (error) {

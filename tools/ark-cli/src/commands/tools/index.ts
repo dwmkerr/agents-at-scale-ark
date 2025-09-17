@@ -19,7 +19,7 @@ async function listTools(
       }
 
       tools.forEach((tool) => {
-        console.log(`tool/${tool.name}`);
+        console.log(tool.name);
       });
     }
   } catch (error) {

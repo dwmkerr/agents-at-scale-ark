@@ -1,10 +1,10 @@
 import {Command} from 'commander';
 import {render} from 'ink';
 import * as React from 'react';
-import ChatUI from '../components/ChatUI.js';
-import {ArkApiProxy} from '../lib/arkApiProxy.js';
-import {loadConfig} from '../lib/config.js';
-import output from '../lib/output.js';
+import ChatUI from '../../components/ChatUI.js';
+import {ArkApiProxy} from '../../lib/arkApiProxy.js';
+import {loadConfig} from '../../lib/config.js';
+import output from '../../lib/output.js';
 
 export function createChatCommand(): Command {
   const chatCommand = new Command('chat');

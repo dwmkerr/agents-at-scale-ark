@@ -90,7 +90,7 @@ const MainMenu: React.FC = () => {
     {label: 'Exit', description: 'Exit ARK CLI', value: 'exit'},
   ];
 
-  useInput((input, key) => {
+  useInput((input: string, key: any) => {
     if (key.upArrow || input === 'k') {
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choices.length - 1));
     } else if (key.downArrow || input === 'j') {
@@ -179,7 +179,7 @@ const MainMenu: React.FC = () => {
         //  Unmount fullscreen app and clear screen.
         await unmountInkApp();
 
-        const {openDashboard} = await import('../commands/dashboard.js');
+        const {openDashboard} = await import('../commands/dashboard/index.js');
         await openDashboard();
         break;
       }
@@ -188,7 +188,7 @@ const MainMenu: React.FC = () => {
         //  Unmount fullscreen app and clear screen.
         await unmountInkApp();
 
-        const {checkStatus} = await import('../commands/status.js');
+        const {checkStatus} = await import('../commands/status/index.js');
         await checkStatus();
         break;
       }

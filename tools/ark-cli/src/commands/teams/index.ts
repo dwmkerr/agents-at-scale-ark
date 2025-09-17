@@ -19,7 +19,7 @@ async function listTeams(
       }
 
       teams.forEach((team) => {
-        console.log(`team/${team.name}`);
+        console.log(team.name);
       });
     }
   } catch (error) {
