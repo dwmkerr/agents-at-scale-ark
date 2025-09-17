@@ -68,7 +68,7 @@ const MainMenu: React.FC = () => {
   const allChoices: MenuItem[] = [
     {
       label: 'Chat',
-      description: 'Interactive chat with ARK agents',
+      description: 'Interactive chat with Ark agents',
       value: 'chat',
       command: 'ark chat',
     },
@@ -80,38 +80,38 @@ const MainMenu: React.FC = () => {
     },
     {
       label: 'Dashboard',
-      description: 'Open ARK dashboard in browser',
+      description: 'Open Ark dashboard in browser',
       value: 'dashboard',
       command: 'ark dashboard',
     },
     {
       label: 'Status',
-      description: 'Check ARK services status',
+      description: 'Check Ark services status',
       value: 'status',
       command: 'ark status',
     },
     {
       label: 'Generate',
-      description: 'Generate new ARK components',
+      description: 'Generate new Ark components',
       value: 'generate',
       command: 'ark generate',
     },
-    {label: 'Exit', description: 'Exit ARK CLI', value: 'exit'},
+    {label: 'Exit', description: 'Exit Ark CLI', value: 'exit'},
   ];
 
-  // Filter choices based on ARK readiness
+  // Filter choices based on Ark readiness
   const choices = React.useMemo(() => {
     // Don't return any choices while checking
     if (isChecking) return [];
 
     if (!arkReady) {
-      // Only show Install, Status, and Exit when ARK is not ready
+      // Only show Install, Status, and Exit when Ark is not ready
       return allChoices.filter(choice =>
         ['install', 'status', 'exit'].includes(choice.value)
       );
     }
 
-    // Show all options when ARK is ready
+    // Show all options when Ark is ready
     return allChoices;
   }, [arkReady, isChecking]);
 
@@ -160,7 +160,7 @@ const MainMenu: React.FC = () => {
           output.error(
             error instanceof Error
               ? error.message
-              : 'Failed to connect to ARK API'
+              : 'Failed to connect to Ark API'
           );
           process.exit(1);
         }
@@ -234,18 +234,18 @@ const MainMenu: React.FC = () => {
         {/* Status replaces welcome message */}
         {isChecking ? (
           <Text color="gray">
-            <Spinner type="dots" /> Checking ARK status...
+            <Spinner type="dots" /> Checking Ark status...
           </Text>
         ) : arkReady ? (
           <Text color="green" bold>
-            ● ARK is ready
+            ● Ark is ready
           </Text>
         ) : (
           <Text color="yellow" bold>
-            ● ARK is not ready
+            ● Ark is not installed
           </Text>
         )}
-        <Text color="gray">Interactive terminal interface for ARK agents</Text>
+        <Text color="gray">Interactive terminal interface for Ark agents</Text>
       </Box>
 
       {/* Show menu only when not checking */}
