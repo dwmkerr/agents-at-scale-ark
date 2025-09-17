@@ -1,5 +1,7 @@
 import {Text, Box, render, useInput} from 'ink';
+import Spinner from 'ink-spinner';
 import * as React from 'react';
+import {isArkReady} from '../lib/arkStatus.js';
 
 type MenuChoice =
   | 'dashboard'
@@ -55,8 +57,20 @@ async function unmountInkApp() {
 
 const MainMenu: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const [arkReady, setArkReady] = React.useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = React.useState(true);
 
-  const choices: MenuItem[] = [
+  React.useEffect(() => {
+    const checkArkStatus = async () => {
+      setIsChecking(true);
+      const ready = await isArkReady();
+      setArkReady(ready);
+      setIsChecking(false);
+    };
+    checkArkStatus();
+  }, []);
+
+  const allChoices: MenuItem[] = [
     {
       label: 'Chat',
       description: 'Interactive chat with ARK agents',
@@ -89,6 +103,21 @@ const MainMenu: React.FC = () => {
     },
     {label: 'Exit', description: 'Exit ARK CLI', value: 'exit'},
   ];
+
+  // Filter choices based on ARK readiness
+  const choices = React.useMemo(() => {
+    if (arkReady === null || isChecking) return allChoices;
+
+    if (!arkReady) {
+      // Only show Install, Status, and Exit when ARK is not ready
+      return allChoices.filter(choice =>
+        ['install', 'status', 'exit'].includes(choice.value)
+      );
+    }
+
+    // Show all options when ARK is ready
+    return allChoices;
+  }, [arkReady, isChecking]);
 
   useInput((input: string, key: any) => {
     if (key.upArrow || input === 'k') {
@@ -225,6 +254,22 @@ const MainMenu: React.FC = () => {
           Welcome to ARK! 🚀
         </Text>
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
+
+        {/* Status indicator */}
+        <Box marginTop={1}>
+          {isChecking ? (
+            <Text color="gray">
+              <Spinner type="dots" /> Checking ARK status...
+            </Text>
+          ) : arkReady ? (
+            <Text color="green">✓ ARK is ready</Text>
+          ) : (
+            <Box flexDirection="column" alignItems="center">
+              <Text color="yellow">⚠ ARK is not ready</Text>
+              <Text color="gray">Run 'Install' to set up ARK or 'Status Check' for details</Text>
+            </Box>
+          )}
+        </Box>
       </Box>
 
       <Box flexDirection="column" paddingX={4} marginTop={1}>
