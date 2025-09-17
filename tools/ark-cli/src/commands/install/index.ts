@@ -67,25 +67,23 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
     const allChoices = [
       new inquirer.Separator(chalk.bold('──── Dependencies (Required) ────')),
       {
-        name: `cert-manager ${chalk.gray('- Certificate management')}`,
+        name: `cert-manager ${chalk.gray('- Certificate management')} ${chalk.red('*')}`,
         value: 'cert-manager',
         checked: true,
+        disabled: 'Required',
       },
       {
-        name: `gateway-api ${chalk.gray('- Gateway API CRDs')}`,
+        name: `gateway-api ${chalk.gray('- Gateway API CRDs')} ${chalk.red('*')}`,
         value: 'gateway-api',
         checked: true,
+        disabled: 'Required',
       },
-      new inquirer.Separator(chalk.bold('──── ARK Core ────')),
+      new inquirer.Separator(chalk.bold('──── ARK Core (Required) ────')),
       {
-        name: `ark-controller ${chalk.gray('- Core ARK controller')}`,
+        name: `ark-controller ${chalk.gray('- Core ARK controller')} ${chalk.red('*')}`,
         value: 'ark-controller',
         checked: true,
-      },
-      {
-        name: `localhost-gateway ${chalk.gray('- Gateway for local access')}`,
-        value: 'localhost-gateway',
-        checked: true,
+        disabled: 'Required',
       },
       new inquirer.Separator(chalk.bold('──── ARK Services ────')),
       {
@@ -103,6 +101,11 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
         value: 'ark-mcp',
         checked: true,
       },
+      {
+        name: `localhost-gateway ${chalk.gray('- Gateway for local access')}`,
+        value: 'localhost-gateway',
+        checked: true,
+      },
     ];
 
     let selectedComponents: string[] = [];
@@ -117,6 +120,14 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
         },
       ]);
       selectedComponents = answers.components;
+
+      // Always ensure required components are included
+      const requiredComponents = ['cert-manager', 'gateway-api', 'ark-controller'];
+      for (const required of requiredComponents) {
+        if (!selectedComponents.includes(required)) {
+          selectedComponents.push(required);
+        }
+      }
 
       if (selectedComponents.length === 0) {
         output.warning('No components selected. Exiting.');

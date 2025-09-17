@@ -231,23 +231,21 @@ const MainMenu: React.FC = () => {
     ╚═══════════════════════════════════════╝
         `}
         </Text>
-        <Text color="green" bold>
-          Welcome to ARK!
-        </Text>
+        {/* Status replaces welcome message */}
+        {isChecking ? (
+          <Text color="gray">
+            <Spinner type="dots" /> Checking ARK status...
+          </Text>
+        ) : arkReady ? (
+          <Text color="green" bold>
+            ● ARK is ready
+          </Text>
+        ) : (
+          <Text color="yellow" bold>
+            ● ARK is not ready
+          </Text>
+        )}
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
-
-        {/* Status indicator */}
-        <Box marginTop={1}>
-          {isChecking ? (
-            <Text color="gray">
-              <Spinner type="dots" /> Checking ARK status...
-            </Text>
-          ) : arkReady ? (
-            <Text color="green">● Ready</Text>
-          ) : (
-            <Text color="yellow">● Not ready, choose 'Install'</Text>
-          )}
-        </Box>
       </Box>
 
       {/* Show menu only when not checking */}
