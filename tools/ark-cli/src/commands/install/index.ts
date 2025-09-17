@@ -65,25 +65,22 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
 
     // Build choices for the checkbox prompt
     const allChoices = [
-      new inquirer.Separator(chalk.bold('──── Dependencies (Required) ────')),
+      new inquirer.Separator(chalk.bold('──── Dependencies ────')),
       {
-        name: `cert-manager ${chalk.gray('- Certificate management')} ${chalk.red('*')}`,
+        name: `cert-manager ${chalk.gray('- Certificate management')}`,
         value: 'cert-manager',
         checked: true,
-        disabled: 'Required',
       },
       {
-        name: `gateway-api ${chalk.gray('- Gateway API CRDs')} ${chalk.red('*')}`,
+        name: `gateway-api ${chalk.gray('- Gateway API CRDs')}`,
         value: 'gateway-api',
         checked: true,
-        disabled: 'Required',
       },
-      new inquirer.Separator(chalk.bold('──── ARK Core (Required) ────')),
+      new inquirer.Separator(chalk.bold('──── ARK Core ────')),
       {
-        name: `ark-controller ${chalk.gray('- Core ARK controller')} ${chalk.red('*')}`,
+        name: `ark-controller ${chalk.gray('- Core ARK controller')}`,
         value: 'ark-controller',
         checked: true,
-        disabled: 'Required',
       },
       new inquirer.Separator(chalk.bold('──── ARK Services ────')),
       {
@@ -120,14 +117,6 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
         },
       ]);
       selectedComponents = answers.components;
-
-      // Always ensure required components are included
-      const requiredComponents = ['cert-manager', 'gateway-api', 'ark-controller'];
-      for (const required of requiredComponents) {
-        if (!selectedComponents.includes(required)) {
-          selectedComponents.push(required);
-        }
-      }
 
       if (selectedComponents.length === 0) {
         output.warning('No components selected. Exiting.');
