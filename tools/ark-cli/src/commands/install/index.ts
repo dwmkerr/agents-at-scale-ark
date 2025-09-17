@@ -58,29 +58,176 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
   }
   console.log(); // Add blank line after cluster info
 
-  // Ask about installing dependencies
-  let shouldInstallDeps = false;
-  try {
-    shouldInstallDeps = options.yes || (
-      await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'shouldInstallDeps',
-          message: 'install required dependencies (cert-manager, gateway api)?',
-          default: true,
-        },
-      ])
-    ).shouldInstallDeps;
-  } catch (error) {
-    // Handle Ctrl-C gracefully
-    if (error && (error as any).name === 'ExitPromptError') {
-      console.log('\nInstallation cancelled');
-      process.exit(130); // Standard exit code for SIGINT
-    }
-    throw error;
-  }
+  // If not using -y flag, show checklist interface
+  if (!options.yes) {
+    console.log(chalk.cyan.bold('\nSelect components to install:'));
+    console.log(chalk.gray('Use arrow keys to navigate, space to toggle, enter to confirm\n'));
 
-  if (shouldInstallDeps) {
+    // Build choices for the checkbox prompt
+    const allChoices = [
+      new inquirer.Separator(chalk.bold('──── Dependencies (Required) ────')),
+      {
+        name: `cert-manager ${chalk.gray('- Certificate management')}`,
+        value: 'cert-manager',
+        checked: true,
+      },
+      {
+        name: `gateway-api ${chalk.gray('- Gateway API CRDs')}`,
+        value: 'gateway-api',
+        checked: true,
+      },
+      new inquirer.Separator(chalk.bold('──── ARK Core ────')),
+      {
+        name: `ark-controller ${chalk.gray('- Core ARK controller')}`,
+        value: 'ark-controller',
+        checked: true,
+      },
+      {
+        name: `localhost-gateway ${chalk.gray('- Gateway for local access')}`,
+        value: 'localhost-gateway',
+        checked: true,
+      },
+      new inquirer.Separator(chalk.bold('──── ARK Services ────')),
+      {
+        name: `ark-api ${chalk.gray('- API service')}`,
+        value: 'ark-api',
+        checked: true,
+      },
+      {
+        name: `ark-dashboard ${chalk.gray('- Web dashboard')}`,
+        value: 'ark-dashboard',
+        checked: true,
+      },
+      {
+        name: `ark-mcp ${chalk.gray('- MCP services')}`,
+        value: 'ark-mcp',
+        checked: true,
+      },
+    ];
+
+    let selectedComponents: string[] = [];
+    try {
+      const answers = await inquirer.prompt([
+        {
+          type: 'checkbox',
+          name: 'components',
+          message: 'Components to install:',
+          choices: allChoices,
+          pageSize: 15,
+        },
+      ]);
+      selectedComponents = answers.components;
+
+      if (selectedComponents.length === 0) {
+        output.warning('No components selected. Exiting.');
+        process.exit(0);
+      }
+    } catch (error) {
+      // Handle Ctrl-C gracefully
+      if (error && (error as any).name === 'ExitPromptError') {
+        console.log('\nInstallation cancelled');
+        process.exit(130);
+      }
+      throw error;
+    }
+
+    // Install dependencies if selected
+    const shouldInstallDeps = selectedComponents.includes('cert-manager') ||
+                             selectedComponents.includes('gateway-api');
+
+    // Install selected dependencies
+    if (shouldInstallDeps) {
+      // Always install cert-manager repo and update if installing any dependency
+      if (selectedComponents.includes('cert-manager') || selectedComponents.includes('gateway-api')) {
+        for (const depKey of ['cert-manager-repo', 'helm-repo-update']) {
+          const dep = arkDependencies[depKey];
+          output.info(`installing ${dep.description || dep.name}...`);
+          try {
+            await execa(dep.command, dep.args, {
+              stdio: 'inherit',
+            });
+            output.success(`${dep.name} completed`);
+            console.log();
+          } catch {
+            console.log();
+            process.exit(1);
+          }
+        }
+      }
+
+      // Install cert-manager if selected
+      if (selectedComponents.includes('cert-manager')) {
+        const dep = arkDependencies['cert-manager'];
+        output.info(`installing ${dep.description || dep.name}...`);
+        try {
+          await execa(dep.command, dep.args, {
+            stdio: 'inherit',
+          });
+          output.success(`${dep.name} completed`);
+          console.log();
+        } catch {
+          console.log();
+          process.exit(1);
+        }
+      }
+
+      // Install gateway-api if selected
+      if (selectedComponents.includes('gateway-api')) {
+        const dep = arkDependencies['gateway-api-crds'];
+        output.info(`installing ${dep.description || dep.name}...`);
+        try {
+          await execa(dep.command, dep.args, {
+            stdio: 'inherit',
+          });
+          output.success(`${dep.name} completed`);
+          console.log();
+        } catch {
+          console.log();
+          process.exit(1);
+        }
+      }
+    }
+
+    // Install selected services
+    const services = getInstallableServices();
+    for (const service of Object.values(services)) {
+      // Check if this service was selected
+      const serviceKey = service.helmReleaseName;
+      if (!selectedComponents.includes(serviceKey)) {
+        continue;
+      }
+
+      output.info(`installing ${service.name}...`);
+      try {
+        // Build helm arguments
+        const helmArgs = [
+          'upgrade',
+          '--install',
+          service.helmReleaseName,
+          service.chartPath!,
+          '--namespace',
+          service.namespace,
+        ];
+
+        // Add any additional args from the service definition
+        if (service.installArgs) {
+          helmArgs.push(...service.installArgs);
+        }
+
+        // Run helm upgrade --install with streaming output
+        await execa('helm', helmArgs, {
+          stdio: 'inherit',
+        });
+
+        console.log(); // Add blank line after command output
+      } catch {
+        // Continue with remaining services on error
+        console.log(); // Add blank line after error output
+      }
+    }
+  } else {
+    // -y flag was used, install everything
+    // Install all dependencies
     for (const dep of Object.values(arkDependencies)) {
       output.info(`installing ${dep.description || dep.name}...`);
 
@@ -95,64 +242,38 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
         process.exit(1);
       }
     }
-  }
 
-  // Get installable services and iterate through them
-  const services = getInstallableServices();
+    // Install all services
+    const services = getInstallableServices();
+    for (const service of Object.values(services)) {
+      output.info(`installing ${service.name}...`);
 
-  for (const service of Object.values(services)) {
-    // Ask for confirmation
-    let shouldInstall = false;
-    try {
-      shouldInstall = options.yes || (
-        await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'shouldInstall',
-            message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
-            default: true,
-          },
-        ])
-      ).shouldInstall;
-    } catch (error) {
-      // Handle Ctrl-C gracefully
-      if (error && (error as any).name === 'ExitPromptError') {
-        console.log('\nInstallation cancelled');
-        process.exit(130); // Standard exit code for SIGINT
+      try {
+        // Build helm arguments
+        const helmArgs = [
+          'upgrade',
+          '--install',
+          service.helmReleaseName,
+          service.chartPath!,
+          '--namespace',
+          service.namespace,
+        ];
+
+        // Add any additional args from the service definition
+        if (service.installArgs) {
+          helmArgs.push(...service.installArgs);
+        }
+
+        // Run helm upgrade --install with streaming output
+        await execa('helm', helmArgs, {
+          stdio: 'inherit',
+        });
+
+        console.log(); // Add blank line after command output
+      } catch {
+        // Continue with remaining services on error
+        console.log(); // Add blank line after error output
       }
-      throw error;
-    }
-
-    if (!shouldInstall) {
-      output.warning(`skipping ${service.name}`);
-      continue;
-    }
-
-    try {
-      // Build helm arguments
-      const helmArgs = [
-        'upgrade',
-        '--install',
-        service.helmReleaseName,
-        service.chartPath!,
-        '--namespace',
-        service.namespace,
-      ];
-
-      // Add any additional args from the service definition
-      if (service.installArgs) {
-        helmArgs.push(...service.installArgs);
-      }
-
-      // Run helm upgrade --install with streaming output
-      await execa('helm', helmArgs, {
-        stdio: 'inherit',
-      });
-
-      console.log(); // Add blank line after command output
-    } catch {
-      // Continue with remaining services on error
-      console.log(); // Add blank line after error output
     }
   }
 
