@@ -8,7 +8,7 @@ import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
 import {createModel} from '../models/create.js';
 
-export async function installArk() {
+export async function installArk(options: { yes?: boolean } = {}) {
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {
@@ -52,14 +52,16 @@ export async function installArk() {
   console.log(); // Add blank line after cluster info
 
   // Ask about installing dependencies
-  const {shouldInstallDeps} = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'shouldInstallDeps',
-      message: 'install required dependencies (cert-manager, gateway api)?',
-      default: true,
-    },
-  ]);
+  const shouldInstallDeps = options.yes || (
+    await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'shouldInstallDeps',
+        message: 'install required dependencies (cert-manager, gateway api)?',
+        default: true,
+      },
+    ])
+  ).shouldInstallDeps;
 
   if (shouldInstallDeps) {
     for (const dep of Object.values(arkDependencies)) {
@@ -83,14 +85,16 @@ export async function installArk() {
 
   for (const service of Object.values(services)) {
     // Ask for confirmation
-    const {shouldInstall} = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'shouldInstall',
-        message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
-        default: true,
-      },
-    ]);
+    const shouldInstall = options.yes || (
+      await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'shouldInstall',
+          message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
+          default: true,
+        },
+      ])
+    ).shouldInstall;
 
     if (!shouldInstall) {
       output.warning(`skipping ${service.name}`);
@@ -161,9 +165,12 @@ export async function installArk() {
 export function createInstallCommand() {
   const command = new Command('install');
 
-  command.description('Install ARK components using Helm').action(async () => {
-    await installArk();
-  });
+  command
+    .description('Install ARK components using Helm')
+    .option('-y, --yes', 'automatically confirm all installations (except model creation)')
+    .action(async (options) => {
+      await installArk(options);
+    });
 
   return command;
 }

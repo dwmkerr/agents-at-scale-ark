@@ -7,7 +7,7 @@ import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
-async function uninstallArk() {
+async function uninstallArk(options: { yes?: boolean } = {}) {
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {
@@ -50,14 +50,16 @@ async function uninstallArk() {
 
   for (const [, service] of serviceEntries) {
     // Ask for confirmation
-    const {shouldUninstall} = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'shouldUninstall',
-        message: `uninstall ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
-        default: true,
-      },
-    ]);
+    const shouldUninstall = options.yes || (
+      await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'shouldUninstall',
+          message: `uninstall ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
+          default: true,
+        },
+      ])
+    ).shouldUninstall;
 
     if (!shouldUninstall) {
       output.warning(`skipping ${service.name}`);
@@ -93,8 +95,9 @@ export function createUninstallCommand() {
 
   command
     .description('Uninstall ARK components using Helm')
-    .action(async () => {
-      await uninstallArk();
+    .option('-y, --yes', 'automatically confirm all uninstallations')
+    .action(async (options) => {
+      await uninstallArk(options);
     });
 
   return command;
