@@ -178,9 +178,20 @@ const MainMenu: React.FC = () => {
         //  Unmount fullscreen app and clear screen.
         await unmountInkApp();
 
-        const {installArk} = await import('../commands/install/index.js');
-        await installArk();
-        process.exit(0);
+        // NOTE: We must spawn the install command as a separate process to avoid
+        // signal handling conflicts between Ink's useInput and inquirer's prompts.
+        // Even after unmounting, the signal-exit library used by inquirer conflicts
+        // with residual handlers, causing immediate ExitPromptError.
+        const {spawn} = await import('child_process');
+        const child = spawn(process.execPath, [process.argv[1], 'install'], {
+          stdio: 'inherit',
+          env: { ...process.env, FORCE_COLOR: '1' } // Preserve color output
+        });
+
+        child.on('exit', (code) => {
+          process.exit(code || 0);
+        });
+        break;
       }
 
       case 'dashboard': {
