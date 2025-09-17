@@ -15,8 +15,15 @@ npm install -g @agents-at-scale/ark
 
 ```bash
 # Enable tab completion (add to ~/.bashrc or ~/.zshrc)
-eval "$(ark completion bash)"  # For bash
-eval "$(ark completion zsh)"   # For zsh
+eval "$(ark completion bash)"      # For bash
+eval "$(ark completion zsh)"       # For zsh
+
+# Install ark - or install and wait for it to be ready.
+ark install
+ark install -y --wait-for-ready=5m  # chooses 'yes' for each option
+
+# Show ark status.
+ark status
 
 # Start interactive chat
 ark chat
@@ -24,14 +31,11 @@ ark chat
 # Chat with a specific target
 ark chat agent/math
 
-# Enable streaming responses (disabled by default)
-ARK_ENABLE_STREAMING=1 ark chat
+# Show current config.
+ark config
 
-# Enable markdown rendering for assistant responses (disabled by default)
-ARK_ENABLE_MARKDOWN=1 ark chat
-
-# Enable both streaming and markdown
-ARK_ENABLE_STREAMING=1 ARK_ENABLE_MARKDOWN=1 ark chat
+# Uninstall ark.
+ark uninstall
 ```
 
 Then query any agent:
