@@ -178,36 +178,9 @@ const MainMenu: React.FC = () => {
         //  Unmount fullscreen app and clear screen.
         await unmountInkApp();
 
-        // NOTE: We spawn the install command as a separate process to avoid
-        // signal handling conflicts between Ink's useInput and inquirer's prompts.
-        // The signal-exit library used by inquirer conflicts with Ink's signal handlers,
-        // causing ExitPromptError even after proper cleanup. Spawning ensures
-        // a clean process environment for inquirer to work correctly.
-        const {spawn} = await import('child_process');
-        const child = spawn(process.execPath, [process.argv[1], 'install'], {
-          stdio: 'inherit',
-        });
-
-        await new Promise<void>((resolve, reject) => {
-          child.on('close', (code) => {
-            if (code === 0) {
-              resolve();
-            } else if (code === 130) {
-              // 130 is the exit code for SIGINT (Ctrl+C)
-              process.exit(130);
-            } else {
-              reject(new Error(`Install command failed with code ${code}`));
-            }
-          });
-          child.on('error', reject);
-
-          // Forward SIGINT to child and exit
-          process.on('SIGINT', () => {
-            child.kill('SIGINT');
-            process.exit(130);
-          });
-        });
-        break;
+        const {installArk} = await import('../commands/install/index.js');
+        await installArk();
+        process.exit(0);
       }
 
       case 'dashboard': {
@@ -225,7 +198,7 @@ const MainMenu: React.FC = () => {
 
         const {checkStatus} = await import('../commands/status/index.js');
         await checkStatus();
-        break;
+        process.exit(0);
       }
 
       case 'generate': {
