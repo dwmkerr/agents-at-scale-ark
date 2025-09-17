@@ -74,10 +74,17 @@ export class StatusFormatter {
       // Show ark-controller status
       const controllerStatus = statusData.services?.find(s => s.name === 'ark-controller');
       if (controllerStatus) {
-        StatusFormatter.printService(controllerStatus);
+        // Show the actual status but replace "not installed" with "not ready" for display
+        if (controllerStatus.status === 'not installed') {
+          console.log(
+            `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
+          );
+        } else {
+          StatusFormatter.printService(controllerStatus);
+        }
       } else {
         console.log(
-          `  ${chalk.yellow('? not installed')} ${chalk.bold('ark-controller')}`
+          `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')}`
         );
       }
 

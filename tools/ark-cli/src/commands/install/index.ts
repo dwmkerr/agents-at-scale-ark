@@ -10,6 +10,12 @@ import {isArkReady} from '../../lib/arkStatus.js';
 import ora from 'ora';
 
 export async function installArk(options: { yes?: boolean; waitForReady?: string } = {}) {
+  // Validate that --wait-for-ready requires -y
+  if (options.waitForReady && !options.yes) {
+    output.error('--wait-for-ready requires -y flag for non-interactive mode');
+    process.exit(1);
+  }
+
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {
