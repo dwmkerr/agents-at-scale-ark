@@ -24,34 +24,52 @@ async function unmountInkApp() {
   interface GlobalWithInkApp {
     inkApp?: {
       unmount: () => void;
+      waitUntilExit: () => Promise<void>;
     };
   }
   const app = (globalThis as GlobalWithInkApp).inkApp;
   if (app) {
+    // Properly unmount Ink
     app.unmount();
 
-    // Remove all existing signal listeners that might interfere with inquirer
+    // Remove ALL listeners from process events
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');
     process.removeAllListeners('SIGQUIT');
+    process.removeAllListeners('SIGHUP');
     process.removeAllListeners('exit');
+    process.removeAllListeners('beforeExit');
+    process.removeAllListeners('uncaughtException');
+    process.removeAllListeners('unhandledRejection');
 
     // Reset stdin completely
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(false);
       process.stdin.pause();
-      process.stdin.removeAllListeners();
-      process.stdin.resume();
+      process.stdin.removeAllListeners('data');
+      process.stdin.removeAllListeners('keypress');
+      process.stdin.removeAllListeners('end');
+      process.stdin.removeAllListeners('error');
     }
 
     // Reset stdout/stderr
     process.stdout.removeAllListeners();
     process.stderr.removeAllListeners();
 
+    // Clear the global reference
+    delete (globalThis as GlobalWithInkApp).inkApp;
+
+    // Clear screen
     console.clear();
 
-    // Give terminal more time to fully reset
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Give terminal time to reset and flush any pending I/O
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Re-enable default Ctrl+C behavior for inquirer
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+    }
   }
 }
 
@@ -178,19 +196,27 @@ const MainMenu: React.FC = () => {
         //  Unmount fullscreen app and clear screen.
         await unmountInkApp();
 
-        // NOTE: We must spawn the install command as a separate process to avoid
-        // signal handling conflicts between Ink's useInput and inquirer's prompts.
-        // Even after unmounting, the signal-exit library used by inquirer conflicts
-        // with residual handlers, causing immediate ExitPromptError.
-        const {spawn} = await import('child_process');
-        const child = spawn(process.execPath, [process.argv[1], 'install'], {
-          stdio: 'inherit',
-          env: { ...process.env, FORCE_COLOR: '1' } // Preserve color output
-        });
-
-        child.on('exit', (code) => {
-          process.exit(code || 0);
-        });
+        // Try running install directly with improved cleanup
+        try {
+          const {installArk} = await import('../commands/install/index.js');
+          await installArk();
+          process.exit(0);
+        } catch (error) {
+          // If we get an ExitPromptError, fall back to spawning
+          if (error && (error as any).name === 'ExitPromptError') {
+            console.log('Signal handler conflict detected, retrying with spawn...');
+            const {spawn} = await import('child_process');
+            const child = spawn(process.execPath, [process.argv[1], 'install'], {
+              stdio: 'inherit',
+              env: { ...process.env, FORCE_COLOR: '1' }
+            });
+            child.on('exit', (code) => {
+              process.exit(code || 0);
+            });
+          } else {
+            throw error;
+          }
+        }
         break;
       }
 
