@@ -11,6 +11,7 @@ import * as k8s from '@kubernetes/client-node';
 import {ArkClient} from '../lib/arkClient.js';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {arkServices} from '../arkServices.js';
+import {isArkReady} from '../lib/arkStatus.js';
 
 const execAsync = promisify(exec);
 
@@ -388,15 +389,14 @@ export class StatusChecker {
       services = await Promise.all(serviceChecks);
     }
 
-    // Check if ARK is ready (controller is healthy)
+    // Check if ARK is ready (controller is running)
     let arkReady = false;
     let defaultModelExists = false;
 
     if (clusterAccess) {
-      const controllerStatus = services.find(s => s.name === 'ark-controller');
-      arkReady = controllerStatus?.status === 'healthy';
+      arkReady = await isArkReady();
 
-      // Only check for default model if controller is ready
+      // Check for default model
       if (arkReady) {
         try {
           await execAsync('kubectl get model default -o name');
