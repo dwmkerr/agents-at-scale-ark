@@ -8,20 +8,10 @@ export class StatusFormatter {
   public static printStatus(
     statusData: StatusData & {clusterAccess?: boolean; clusterInfo?: any}
   ): void {
-    // Print ARK status header
     console.log();
-    if (!statusData.clusterAccess) {
-      console.log(chalk.red.bold('ARK STATUS: ') + chalk.red('No cluster access'));
-    } else if (!statusData.arkReady) {
-      console.log(chalk.yellow.bold('ARK STATUS: ') + chalk.yellow('Not ready (controller not running)'));
-    } else if (!statusData.defaultModelExists) {
-      console.log(chalk.green.bold('ARK STATUS: ') + chalk.green('Ready') + chalk.gray(' (no default model configured)'));
-    } else {
-      console.log(chalk.green.bold('ARK STATUS: ') + chalk.green('Ready'));
-    }
 
     // Print dependencies status first
-    console.log(chalk.cyan.bold('\nsystem dependencies:'));
+    console.log(chalk.cyan.bold('system dependencies:'));
     for (const dep of statusData.dependencies) {
       StatusFormatter.printDependency(dep);
     }
@@ -58,11 +48,49 @@ export class StatusFormatter {
       );
     }
 
+    // Print ARK status section
+    console.log(chalk.cyan.bold('\nark status:'));
+    if (!statusData.clusterAccess) {
+      console.log(
+        `  ${chalk.red('✗ no cluster access')}`
+      );
+    } else {
+      // Show ark-controller status
+      const controllerStatus = statusData.services?.find(s => s.name === 'ark-controller');
+      if (controllerStatus) {
+        StatusFormatter.printService(controllerStatus);
+      } else {
+        console.log(
+          `  ${chalk.yellow('? not installed')} ${chalk.bold('ark-controller')}`
+        );
+      }
+
+      // Show overall ARK readiness
+      if (statusData.arkReady) {
+        if (!statusData.defaultModelExists) {
+          console.log(
+            `  ${chalk.green('✓ ready')} ${chalk.gray('(no default model configured)')}`
+          );
+        } else {
+          console.log(
+            `  ${chalk.green('✓ ready')}`
+          );
+        }
+      } else {
+        console.log(
+          `  ${chalk.yellow('○ not ready')}`
+        );
+      }
+    }
+
     // Only show ARK services if we have cluster access
     if (statusData.clusterAccess) {
       console.log(chalk.cyan.bold('\nark services:'));
+      // Show all services except ark-controller (already shown in ark status)
       for (const service of statusData.services) {
-        StatusFormatter.printService(service);
+        if (service.name !== 'ark-controller') {
+          StatusFormatter.printService(service);
+        }
       }
     } else {
       console.log(chalk.cyan.bold('\nark services:'));
