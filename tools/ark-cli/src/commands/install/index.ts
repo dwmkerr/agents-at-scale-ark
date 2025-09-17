@@ -6,7 +6,6 @@ import {isCommandAvailable} from '../../lib/commandUtils.js';
 import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
-import {createModel} from '../models/create.js';
 
 export async function installArk(options: { yes?: boolean } = {}) {
   // Check if helm is installed
@@ -128,38 +127,6 @@ export async function installArk(options: { yes?: boolean } = {}) {
       console.log(); // Add blank line after error output
     }
   }
-
-  // Check for default model after installing services
-  output.info('checking for default model...');
-
-  let modelExists = false;
-  try {
-    await execa('kubectl', ['get', 'model', 'default'], {stdio: 'pipe'});
-    modelExists = true;
-    output.success('default model already configured');
-  } catch {
-    output.warning('no default model found');
-  }
-
-  if (!modelExists) {
-    const {shouldCreateModel} = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'shouldCreateModel',
-        message: 'would you like to create a default model?',
-        default: true,
-      },
-    ]);
-
-    if (shouldCreateModel) {
-      await createModel('default');
-    } else {
-      output.warning('skipping model creation');
-      output.info(
-        'you can create a model later using ark models create or the dashboard'
-      );
-    }
-  }
 }
 
 export function createInstallCommand() {
@@ -167,7 +134,7 @@ export function createInstallCommand() {
 
   command
     .description('Install ARK components using Helm')
-    .option('-y, --yes', 'automatically confirm all installations (except model creation)')
+    .option('-y, --yes', 'automatically confirm all installations')
     .action(async (options) => {
       await installArk(options);
     });
