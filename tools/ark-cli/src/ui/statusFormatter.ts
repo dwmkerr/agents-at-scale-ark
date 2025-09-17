@@ -79,29 +79,26 @@ export class StatusFormatter {
           console.log(
             `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
           );
+        } else if (controllerStatus.status === 'healthy') {
+          // Controller is healthy - show ready status with model info
+          if (!statusData.defaultModelExists) {
+            console.log(
+              `  ${chalk.green('✓ ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
+            );
+            console.log(
+              `  ${chalk.gray('  (no default model configured)')}`
+            );
+          } else {
+            console.log(
+              `  ${chalk.green('✓ ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
+            );
+          }
         } else {
           StatusFormatter.printService(controllerStatus);
         }
       } else {
         console.log(
           `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')}`
-        );
-      }
-
-      // Show overall ARK readiness
-      if (statusData.arkReady) {
-        if (!statusData.defaultModelExists) {
-          console.log(
-            `  ${chalk.green('✓ ready')} ${chalk.gray('(no default model configured)')}`
-          );
-        } else {
-          console.log(
-            `  ${chalk.green('✓ ready')}`
-          );
-        }
-      } else {
-        console.log(
-          `  ${chalk.yellow('○ not ready')}`
         );
       }
     }
