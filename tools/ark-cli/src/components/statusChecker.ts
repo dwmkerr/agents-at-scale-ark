@@ -140,8 +140,15 @@ export class StatusChecker {
       const allReplicasReady =
         readyReplicas === replicas && availableReplicas === replicas;
 
-      // Only consider healthy if Available=True AND all replicas ready
-      const status = isAvailable && allReplicasReady ? 'healthy' : 'warning';
+      // Determine status: not ready if 0 replicas, healthy if available and all ready, warning otherwise
+      let status: 'healthy' | 'warning' | 'not ready';
+      if (replicas === 0 || readyReplicas === 0) {
+        status = 'not ready';
+      } else if (isAvailable && allReplicasReady) {
+        status = 'healthy';
+      } else {
+        status = 'warning';
+      }
 
       return {
         name: serviceName,

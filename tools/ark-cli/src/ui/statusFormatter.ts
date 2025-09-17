@@ -70,7 +70,9 @@ export class StatusFormatter {
           ? chalk.red('✗ unhealthy')
           : service.status === 'warning'
             ? chalk.yellow('⚠ warning')
-            : chalk.yellow('? not installed');
+            : service.status === 'not ready'
+              ? chalk.yellow('○ not ready')
+              : chalk.yellow('? not installed');
 
     // Show version and revision in grey after the name for healthy services
     let versionInfo = '';

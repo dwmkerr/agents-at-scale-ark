@@ -25,7 +25,7 @@ export type DeploymentStatus =
 
 export type ServiceStatus = {
   name: string;
-  status: 'healthy' | 'warning' | 'unhealthy' | 'not installed';
+  status: 'healthy' | 'warning' | 'unhealthy' | 'not installed' | 'not ready';
   deploymentStatus?: DeploymentStatus;
   url?: string;
   version?: string;
