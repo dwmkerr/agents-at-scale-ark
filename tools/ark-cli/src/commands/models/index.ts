@@ -1,17 +1,20 @@
 import {Command} from 'commander';
-import {ArkApiProxy} from '../../lib/arkApiProxy.js';
-import {ArkApiClient} from '../../lib/arkApiClient.js';
+import {execa} from 'execa';
 import output from '../../lib/output.js';
 import {createModel} from './create.js';
 
-async function listModels(
-  arkApiClient: ArkApiClient,
-  options: {output?: string}
-) {
+async function listModels(options: {output?: string}) {
   try {
-    const models = await arkApiClient.getModels();
+    // Use kubectl to get models
+    const result = await execa('kubectl', ['get', 'models', '-o', 'json'], {
+      stdio: 'pipe',
+    });
+
+    const data = JSON.parse(result.stdout);
+    const models = data.items || [];
 
     if (options.output === 'json') {
+      // Output the raw items for JSON format
       console.log(JSON.stringify(models, null, 2));
     } else {
       if (models.length === 0) {
@@ -19,14 +22,19 @@ async function listModels(
         return;
       }
 
-      models.forEach((model) => {
-        console.log(model.name);
+      // Just output the model names
+      models.forEach((model: any) => {
+        console.log(model.metadata.name);
       });
     }
   } catch (error) {
-    output.error(
-      `Failed to list models: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
+      output.error('Model CRDs not installed. Is the ARK controller running?');
+    } else {
+      output.error(
+        `Failed to list models: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
     process.exit(1);
   }
 }
@@ -38,20 +46,7 @@ export function createModelsCommand(): Command {
     .description('List available models')
     .option('-o, --output <format>', 'Output format (json)', 'text')
     .action(async (options) => {
-      const proxy = new ArkApiProxy();
-      try {
-        const arkApiClient = await proxy.start();
-        await listModels(arkApiClient, options);
-      } catch (error) {
-        output.error(
-          error instanceof Error
-            ? error.message
-            : 'Failed to connect to ARK API'
-        );
-        process.exit(1);
-      } finally {
-        proxy.stop();
-      }
+      await listModels(options);
     });
 
   const listCommand = new Command('list');
@@ -60,20 +55,7 @@ export function createModelsCommand(): Command {
     .description('List available models')
     .option('-o, --output <format>', 'Output format (json)', 'text')
     .action(async (options) => {
-      const proxy = new ArkApiProxy();
-      try {
-        const arkApiClient = await proxy.start();
-        await listModels(arkApiClient, options);
-      } catch (error) {
-        output.error(
-          error instanceof Error
-            ? error.message
-            : 'Failed to connect to ARK API'
-        );
-        process.exit(1);
-      } finally {
-        proxy.stop();
-      }
+      await listModels(options);
     });
 
   modelsCommand.addCommand(listCommand);

@@ -43,6 +43,8 @@ export interface DependencyStatus {
 export interface StatusData {
   services: ServiceStatus[];
   dependencies: DependencyStatus[];
+  arkReady?: boolean;
+  defaultModelExists?: boolean;
 }
 
 export interface CommandVersionConfig {

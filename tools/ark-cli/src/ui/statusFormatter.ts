@@ -8,6 +8,18 @@ export class StatusFormatter {
   public static printStatus(
     statusData: StatusData & {clusterAccess?: boolean; clusterInfo?: any}
   ): void {
+    // Print ARK status header
+    console.log();
+    if (!statusData.clusterAccess) {
+      console.log(chalk.red.bold('ARK STATUS: ') + chalk.red('No cluster access'));
+    } else if (!statusData.arkReady) {
+      console.log(chalk.yellow.bold('ARK STATUS: ') + chalk.yellow('Not ready (controller not running)'));
+    } else if (!statusData.defaultModelExists) {
+      console.log(chalk.green.bold('ARK STATUS: ') + chalk.green('Ready') + chalk.gray(' (no default model configured)'));
+    } else {
+      console.log(chalk.green.bold('ARK STATUS: ') + chalk.green('Ready'));
+    }
+
     // Print dependencies status first
     console.log(chalk.cyan.bold('\nsystem dependencies:'));
     for (const dep of statusData.dependencies) {

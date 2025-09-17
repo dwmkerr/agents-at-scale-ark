@@ -388,11 +388,32 @@ export class StatusChecker {
       services = await Promise.all(serviceChecks);
     }
 
+    // Check if ARK is ready (controller is healthy)
+    let arkReady = false;
+    let defaultModelExists = false;
+
+    if (clusterAccess) {
+      const controllerStatus = services.find(s => s.name === 'ark-controller');
+      arkReady = controllerStatus?.status === 'healthy';
+
+      // Only check for default model if controller is ready
+      if (arkReady) {
+        try {
+          await execAsync('kubectl get model default -o name');
+          defaultModelExists = true;
+        } catch {
+          defaultModelExists = false;
+        }
+      }
+    }
+
     return {
       services,
       dependencies,
       clusterAccess,
       clusterInfo,
+      arkReady,
+      defaultModelExists,
     };
   }
 }

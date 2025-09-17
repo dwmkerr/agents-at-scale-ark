@@ -1,17 +1,19 @@
 import {Command} from 'commander';
-import {ArkApiProxy} from '../../lib/arkApiProxy.js';
+import {execa} from 'execa';
 import output from '../../lib/output.js';
 
 async function listAgents(options: {output?: string}) {
-  let proxy: ArkApiProxy | undefined;
-
   try {
-    proxy = new ArkApiProxy();
-    const arkApiClient = await proxy.start();
+    // Use kubectl to get agents
+    const result = await execa('kubectl', ['get', 'agents', '-o', 'json'], {
+      stdio: 'pipe',
+    });
 
-    const agents = await arkApiClient.getAgents();
+    const data = JSON.parse(result.stdout);
+    const agents = data.items || [];
 
     if (options.output === 'json') {
+      // Output the raw items for JSON format
       console.log(JSON.stringify(agents, null, 2));
     } else {
       if (agents.length === 0) {
@@ -20,20 +22,20 @@ async function listAgents(options: {output?: string}) {
       }
 
       // Simple list output - just agent names
-      agents.forEach((agent) => {
-        console.log(agent.name);
+      agents.forEach((agent: any) => {
+        console.log(agent.metadata.name);
       });
     }
   } catch (error) {
-    output.error(
-      'fetching agents:',
-      error instanceof Error ? error.message : error
-    );
-    process.exit(1);
-  } finally {
-    if (proxy) {
-      proxy.stop();
+    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
+      output.error('Agent CRDs not installed. Is the ARK controller running?');
+    } else {
+      output.error(
+        'fetching agents:',
+        error instanceof Error ? error.message : error
+      );
     }
+    process.exit(1);
   }
 }
 

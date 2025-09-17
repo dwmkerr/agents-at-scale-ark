@@ -1,16 +1,19 @@
 import {Command} from 'commander';
-import {ArkApiProxy} from '../../lib/arkApiProxy.js';
-import {ArkApiClient} from '../../lib/arkApiClient.js';
+import {execa} from 'execa';
 import output from '../../lib/output.js';
 
-async function listTools(
-  arkApiClient: ArkApiClient,
-  options: {output?: string}
-) {
+async function listTools(options: {output?: string}) {
   try {
-    const tools = await arkApiClient.getTools();
+    // Use kubectl to get tools (MCPServers)
+    const result = await execa('kubectl', ['get', 'mcpservers', '-o', 'json'], {
+      stdio: 'pipe',
+    });
+
+    const data = JSON.parse(result.stdout);
+    const tools = data.items || [];
 
     if (options.output === 'json') {
+      // Output the raw items for JSON format
       console.log(JSON.stringify(tools, null, 2));
     } else {
       if (tools.length === 0) {
@@ -18,14 +21,18 @@ async function listTools(
         return;
       }
 
-      tools.forEach((tool) => {
-        console.log(tool.name);
+      tools.forEach((tool: any) => {
+        console.log(tool.metadata.name);
       });
     }
   } catch (error) {
-    output.error(
-      `Failed to list tools: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
+      output.error('MCPServer CRDs not installed. Is the ARK controller running?');
+    } else {
+      output.error(
+        `Failed to list tools: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
     process.exit(1);
   }
 }
@@ -37,20 +44,7 @@ export function createToolsCommand(): Command {
     .description('List available tools')
     .option('-o, --output <format>', 'Output format (json)', 'text')
     .action(async (options) => {
-      const proxy = new ArkApiProxy();
-      try {
-        const arkApiClient = await proxy.start();
-        await listTools(arkApiClient, options);
-      } catch (error) {
-        output.error(
-          error instanceof Error
-            ? error.message
-            : 'Failed to connect to ARK API'
-        );
-        process.exit(1);
-      } finally {
-        proxy.stop();
-      }
+      await listTools(options);
     });
 
   const listCommand = new Command('list');
@@ -59,20 +53,7 @@ export function createToolsCommand(): Command {
     .description('List available tools')
     .option('-o, --output <format>', 'Output format (json)', 'text')
     .action(async (options) => {
-      const proxy = new ArkApiProxy();
-      try {
-        const arkApiClient = await proxy.start();
-        await listTools(arkApiClient, options);
-      } catch (error) {
-        output.error(
-          error instanceof Error
-            ? error.message
-            : 'Failed to connect to ARK API'
-        );
-        process.exit(1);
-      } finally {
-        proxy.stop();
-      }
+      await listTools(options);
     });
 
   toolsCommand.addCommand(listCommand);
