@@ -6,8 +6,10 @@ import {isCommandAvailable} from '../../lib/commandUtils.js';
 import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
+import {isArkReady} from '../../lib/arkStatus.js';
+import ora from 'ora';
 
-export async function installArk(options: { yes?: boolean } = {}) {
+export async function installArk(options: { yes?: boolean; waitForReady?: string } = {}) {
   // Check if helm is installed
   const helmInstalled = await isCommandAvailable('helm');
   if (!helmInstalled) {
@@ -127,6 +129,48 @@ export async function installArk(options: { yes?: boolean } = {}) {
       console.log(); // Add blank line after error output
     }
   }
+
+  // Wait for ARK to be ready if requested
+  if (options.waitForReady) {
+    // Parse timeout value (e.g., '30s', '2m', '60')
+    const parseTimeout = (value: string): number => {
+      const match = value.match(/^(\d+)([sm])?$/);
+      if (!match) {
+        throw new Error('Invalid timeout format. Use format like 30s or 2m');
+      }
+      const num = parseInt(match[1], 10);
+      const unit = match[2] || 's';
+      return unit === 'm' ? num * 60 : num;
+    };
+
+    try {
+      const timeoutSeconds = parseTimeout(options.waitForReady);
+      const startTime = Date.now();
+      const endTime = startTime + timeoutSeconds * 1000;
+
+      const spinner = ora(`Waiting for ARK to be ready (timeout: ${timeoutSeconds}s)...`).start();
+
+      while (Date.now() < endTime) {
+        if (await isArkReady()) {
+          spinner.succeed('ARK is ready!');
+          return;
+        }
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        spinner.text = `Waiting for ARK to be ready (${elapsed}/${timeoutSeconds}s)...`;
+
+        // Wait 2 seconds before checking again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Timeout reached
+      spinner.fail(`ARK did not become ready within ${timeoutSeconds} seconds`);
+      process.exit(1);
+    } catch (error) {
+      output.error(`Failed to wait for ready: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  }
 }
 
 export function createInstallCommand() {
@@ -135,6 +179,7 @@ export function createInstallCommand() {
   command
     .description('Install ARK components using Helm')
     .option('-y, --yes', 'automatically confirm all installations')
+    .option('--wait-for-ready <timeout>', 'wait for ARK to be ready after installation (e.g., 30s, 2m)')
     .action(async (options) => {
       await installArk(options);
     });

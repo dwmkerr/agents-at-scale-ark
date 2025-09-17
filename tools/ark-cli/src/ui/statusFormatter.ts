@@ -48,6 +48,22 @@ export class StatusFormatter {
       );
     }
 
+    // Only show ARK services if we have cluster access
+    if (statusData.clusterAccess) {
+      console.log(chalk.cyan.bold('\nark services:'));
+      // Show all services except ark-controller (already shown in ark status)
+      for (const service of statusData.services) {
+        if (service.name !== 'ark-controller') {
+          StatusFormatter.printService(service);
+        }
+      }
+    } else {
+      console.log(chalk.cyan.bold('\nark services:'));
+      console.log(
+        `  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`
+      );
+    }
+
     // Print ARK status section
     console.log(chalk.cyan.bold('\nark status:'));
     if (!statusData.clusterAccess) {
@@ -81,22 +97,6 @@ export class StatusFormatter {
           `  ${chalk.yellow('○ not ready')}`
         );
       }
-    }
-
-    // Only show ARK services if we have cluster access
-    if (statusData.clusterAccess) {
-      console.log(chalk.cyan.bold('\nark services:'));
-      // Show all services except ark-controller (already shown in ark status)
-      for (const service of statusData.services) {
-        if (service.name !== 'ark-controller') {
-          StatusFormatter.printService(service);
-        }
-      }
-    } else {
-      console.log(chalk.cyan.bold('\nark services:'));
-      console.log(
-        `  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`
-      );
     }
 
     console.log();
