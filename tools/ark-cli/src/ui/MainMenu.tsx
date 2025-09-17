@@ -232,32 +232,26 @@ const MainMenu: React.FC = () => {
         `}
         </Text>
         <Text color="green" bold>
-          Welcome to ARK! 🚀
+          Welcome to ARK!
         </Text>
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
 
+        {/* Status indicator */}
+        <Box marginTop={1}>
+          {isChecking ? (
+            <Text color="gray">
+              <Spinner type="dots" /> Checking ARK status...
+            </Text>
+          ) : arkReady ? (
+            <Text color="green">● Ready</Text>
+          ) : (
+            <Text color="yellow">● Not ready, choose 'Install'</Text>
+          )}
+        </Box>
       </Box>
 
-      {/* Show loading state or menu based on status check */}
-      {isChecking ? (
-        <Box justifyContent="center" alignItems="center" marginTop={2}>
-          <Text color="gray">
-            <Spinner type="dots" /> Checking ARK status...
-          </Text>
-        </Box>
-      ) : (
-        <>
-          {/* Status indicator */}
-          <Box justifyContent="center" alignItems="center" marginBottom={1}>
-            {arkReady ? (
-              <Text color="green">✓ ARK is ready</Text>
-            ) : (
-              <Box flexDirection="column" alignItems="center">
-                <Text color="yellow">⚠ ARK is not ready</Text>
-                <Text color="gray">Run 'Install' to set up ARK or 'Status' for details</Text>
-              </Box>
-            )}
-          </Box>
+      {/* Show menu only when not checking */}
+      {!isChecking && (
 
           <Box flexDirection="column" paddingX={4} marginTop={1}>
             {choices.map((choice, index) => {
@@ -280,7 +274,6 @@ const MainMenu: React.FC = () => {
           );
         })}
           </Box>
-        </>
       )}
     </>
   );
