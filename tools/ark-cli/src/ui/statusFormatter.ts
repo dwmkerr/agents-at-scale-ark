@@ -1,154 +1,74 @@
 import chalk from 'chalk';
-import {StatusData, ServiceStatus, DependencyStatus} from '../lib/types.js';
 
+export type StatusColor = 'green' | 'red' | 'yellow' | 'gray' | 'white' | 'cyan' | 'bold';
+
+export interface StatusLine {
+  icon: string;
+  iconColor?: StatusColor;
+  status: string;
+  statusColor?: StatusColor;
+  name: string;
+  nameColor?: StatusColor;
+  details?: string;
+  subtext?: string;
+}
+
+export interface StatusSection {
+  title: string;
+  lines: StatusLine[];
+}
+
+/**
+ * Simple status formatter that just formats sections and lines
+ * The caller is responsible for deciding what to show
+ */
 export class StatusFormatter {
-  /**
-   * Print status check results to console
-   */
-  public static printStatus(
-    statusData: StatusData & {clusterAccess?: boolean; clusterInfo?: any}
-  ): void {
+  public static printSections(sections: StatusSection[]): void {
     console.log();
 
-    // Print dependencies status first
-    console.log(chalk.cyan.bold('system dependencies:'));
-    for (const dep of statusData.dependencies) {
-      StatusFormatter.printDependency(dep);
-    }
+    sections.forEach((section, index) => {
+      console.log(chalk.cyan.bold(section.title));
+      section.lines.forEach(line => this.printLine(line));
 
-    // Print cluster status
-    console.log(chalk.cyan.bold('\ncluster access:'));
-    if (statusData.clusterAccess && statusData.clusterInfo) {
-      const clusterName =
-        statusData.clusterInfo.context || 'kubernetes cluster';
-      const clusterDetails = [];
-      if (
-        statusData.clusterInfo.type &&
-        statusData.clusterInfo.type !== 'unknown'
-      ) {
-        clusterDetails.push(statusData.clusterInfo.type);
+      if (index < sections.length - 1) {
+        console.log();
       }
-      if (statusData.clusterInfo.ip) {
-        clusterDetails.push(statusData.clusterInfo.ip);
-      }
-
-      console.log(
-        `  ${chalk.green('✓ accessible')} ${chalk.bold.white(clusterName)}${clusterDetails.length > 0 ? chalk.gray(' ' + clusterDetails.join(', ')) : ''}`
-      );
-    } else if (statusData.clusterAccess) {
-      console.log(
-        `  ${chalk.green('✓ accessible')} ${chalk.bold('kubernetes cluster')}`
-      );
-    } else {
-      console.log(
-        `  ${chalk.red('✗ unreachable')} ${chalk.bold('kubernetes cluster')}`
-      );
-      console.log(
-        `    ${chalk.gray('Install minikube: https://minikube.sigs.k8s.io/docs/start')}`
-      );
-    }
-
-    // Only show ARK services if we have cluster access
-    if (statusData.clusterAccess) {
-      console.log(chalk.cyan.bold('\nark services:'));
-      // Show all services except ark-controller (already shown in ark status)
-      for (const service of statusData.services) {
-        if (service.name !== 'ark-controller') {
-          StatusFormatter.printService(service);
-        }
-      }
-    } else {
-      console.log(chalk.cyan.bold('\nark services:'));
-      console.log(
-        `  ${chalk.gray('Cannot check ARK services - cluster not accessible')}`
-      );
-    }
-
-    // Print ARK status section
-    console.log(chalk.cyan.bold('\nark status:'));
-    if (!statusData.clusterAccess) {
-      console.log(
-        `  ${chalk.red('✗ no cluster access')}`
-      );
-    } else {
-      // Show ark-controller status
-      const controllerStatus = statusData.services?.find(s => s.name === 'ark-controller');
-      if (controllerStatus) {
-        // Show the actual status but replace "not installed" with "not ready" for display
-        if (controllerStatus.status === 'not installed') {
-          console.log(
-            `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
-          );
-        } else if (controllerStatus.status === 'healthy') {
-          // Controller is healthy - show ready status with model info
-          if (!statusData.defaultModelExists) {
-            console.log(
-              `  ${chalk.green('✓ ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
-            );
-            console.log(
-              `  ${chalk.gray('  (no default model configured)')}`
-            );
-          } else {
-            console.log(
-              `  ${chalk.green('✓ ready')} ${chalk.bold('ark-controller')} ${chalk.gray(controllerStatus.details || '')}`
-            );
-          }
-        } else {
-          StatusFormatter.printService(controllerStatus);
-        }
-      } else {
-        console.log(
-          `  ${chalk.yellow('○ not ready')} ${chalk.bold('ark-controller')}`
-        );
-      }
-    }
+    });
 
     console.log();
   }
 
-  private static printService(service: ServiceStatus): void {
-    const statusColor =
-      service.status === 'healthy'
-        ? chalk.green('✓ healthy')
-        : service.status === 'unhealthy'
-          ? chalk.red('✗ unhealthy')
-          : service.status === 'warning'
-            ? chalk.yellow('⚠ warning')
-            : service.status === 'not ready'
-              ? chalk.yellow('○ not ready')
-              : chalk.yellow('? not installed');
+  private static applyColor(text: string, color?: StatusColor): string {
+    if (!color) return text;
 
-    // Show version and revision in grey after the name for healthy services
-    let versionInfo = '';
-    if (service.status === 'healthy' && (service.version || service.revision)) {
-      const parts = [];
-      if (service.version) parts.push(`v${service.version}`);
-      if (service.revision) parts.push(`revision ${service.revision}`);
-      versionInfo = chalk.gray(` ${parts.join(', ')}`);
-    }
+    const colorMap = {
+      green: chalk.green,
+      red: chalk.red,
+      yellow: chalk.yellow,
+      gray: chalk.gray,
+      white: chalk.white,
+      cyan: chalk.cyan,
+      bold: chalk.bold,
+    };
 
-    // Show details inline in grey for all statuses
-    let inlineDetails = '';
-    if (service.details) {
-      inlineDetails = chalk.gray(` ${service.details}`);
-    }
-
-    console.log(
-      `  ${statusColor} ${chalk.bold(service.name)}${versionInfo}${inlineDetails}`
-    );
+    return colorMap[color](text);
   }
 
-  private static printDependency(dep: DependencyStatus): void {
-    const statusColor = dep.installed
-      ? chalk.green('✓ installed')
-      : chalk.red('✗ missing');
+  private static printLine(line: StatusLine): void {
+    const icon = this.applyColor(line.icon, line.iconColor);
+    const status = this.applyColor(line.status, line.statusColor);
+    const name = chalk.bold(this.applyColor(line.name, line.nameColor || 'white'));
 
-    const versionText = dep.version ? chalk.gray(` ${dep.version}`) : '';
-    console.log(`  ${statusColor} ${chalk.bold(dep.name)}${versionText}`);
+    const parts = [
+      `  ${icon} ${status}`,
+      name,
+      line.details ? chalk.gray(line.details) : '',
+    ].filter(Boolean);
 
-    if (dep.details && !dep.installed) {
-      // Only show details if there's an issue
-      console.log(`    ${chalk.gray(dep.details)}`);
+    console.log(parts.join(' '));
+
+    if (line.subtext) {
+      console.log(`    ${chalk.gray(line.subtext)}`);
     }
   }
 }

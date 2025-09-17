@@ -11,7 +11,6 @@ import {
   CONFIG_DIR_NAME,
   CONFIG_FILE_NAME,
 } from './lib/consts.js';
-import {GatewayManager} from './lib/gatewayManager.js';
 import {KubernetesConfigManager} from './lib/kubernetes.js';
 import {ArkConfig, KubernetesConfig} from './lib/types.js';
 import {getStatusCheckableServices} from './arkServices.js';
@@ -32,14 +31,12 @@ export class ConfigManager {
   private configDir: string;
   private configFile: string;
   private kubernetesManager: KubernetesConfigManager;
-  private gatewayManager: GatewayManager;
   private kubeConfig: KubernetesConfig | null = null;
 
   constructor() {
     this.configDir = join(homedir(), '.config', CONFIG_DIR_NAME);
     this.configFile = join(this.configDir, CONFIG_FILE_NAME);
     this.kubernetesManager = new KubernetesConfigManager();
-    this.gatewayManager = new GatewayManager();
   }
 
   async ensureConfigDir(): Promise<void> {
