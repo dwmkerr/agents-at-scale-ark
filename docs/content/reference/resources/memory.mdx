@@ -109,8 +109,13 @@ Request body includes session/query context and message array:
 
 **GET** `/messages?session_id={id}&query_id={id}&limit={n}&offset={n}`
 
-Returns timestamped message records. All parameters optional.
-Without session_id, returns all messages with pagination:
+Retrieves stored conversation messages:
+- `session_id` (optional) - Filter by session
+- `query_id` (optional) - Filter by query
+- `limit` (optional, default: 100) - Max messages to return
+- `offset` (optional, default: 0) - Skip messages for pagination
+
+Returns timestamped message records:
 
 ```json
 {
