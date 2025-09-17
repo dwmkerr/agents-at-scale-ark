@@ -9,8 +9,8 @@ global:
 app:
   name: ark-api
   image:
-    repository: ark-api
-    tag: latest
+    repository: ghcr.io/mckinsey/agents-at-scale-ark/ark-api
+    # tag defaults to .Chart.AppVersion if not specified
     pullPolicy: IfNotPresent
   
   # Resource configuration
@@ -27,6 +27,13 @@ app:
   env:
     - name: CORS_ORIGINS
       value: "*"
+    # Authentication environment variables
+    - name: OIDC_ISSUER_URL
+      value: ""
+    - name: OIDC_APPLICATION_ID
+      value: ""
+    - name: AUTH_MODE
+      value: "open"
   # Optional: Import entire secrets/configmaps as env vars
   # envFrom:
   #   - secretRef:

@@ -25,11 +25,27 @@ permissions:
 # same pull request or branch (which only triggers for 'main' in this workflow).
 # People therefore cannot cancel each others' build, only cancel pending builds
 # on their own PRs.
+# This pattern does *not* apply to the 'main' branch - which we want to always
+# have the full pipeline run on.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Setup job to determine container cache registry
+  setup-container-cache-registry:
+    runs-on: ubuntu-24.04
+    outputs:
+      ci-cache-registry: ${{ steps.setup-registry.outputs.ci-cache-registry }}
+      ci-cache-registry-hostname: ${{ steps.setup-registry.outputs.ci-cache-registry-hostname }}
+      is-fork-pr: ${{ steps.setup-registry.outputs.is-fork-pr }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: setup-registry
+        uses: ./.github/actions/setup-container-cache-registry
+        with:
+          docker-cicd-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY }}
+
   # Security scan with JFrog Xray
   jfrog-xray-scan:
     runs-on: ubuntu-24.04
@@ -130,7 +146,7 @@ jobs:
           artifact-suffix: ark-api-a2a-unit
 
   build-containers:
-    needs: [build-libs]
+    needs: [setup-container-cache-registry, build-libs]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -147,9 +163,9 @@ jobs:
           - path: services/ark-dashboard
             image: ark-dashboard
             prebuild: "make ark-dashboard-deps"
-          - path: services/evaluator-llm
-            image: evaluator-llm
-            prebuild: "make evaluator-llm-deps"
+          - path: services/ark-evaluator
+            image: ark-evaluator
+            prebuild: "make ark-evaluator-deps"
           - path: services/executor-langchain
             image: executor-langchain
             prebuild: "make executor-langchain-deps && mkdir -p services/executor-langchain/build-context && cp out/executor-common/dist/executor_common-*.whl services/executor-langchain/build-context/"
@@ -175,7 +191,7 @@ jobs:
       - name: Login to Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry-hostname }}
           username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -184,7 +200,7 @@ jobs:
           path: ${{ matrix.path }}
           image: ${{ matrix.image }}
           tag: ${{ github.sha }}
-          registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           platforms: linux/amd64
           push: true
           prebuild: ${{ matrix.prebuild }}
@@ -209,7 +225,7 @@ jobs:
           retention-days: 30
 
   e2e-quickstart:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -319,7 +335,7 @@ jobs:
           fark agent sample-agent "confirm you have read this message"
 
   e2e-smoke-test:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -329,7 +345,7 @@ jobs:
           ark-image-tag: ${{ github.sha }}
           install-coverage: "false"
           install-evaluator: "false"
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -446,7 +462,7 @@ jobs:
 
 
   e2e-tests-standard:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -456,7 +472,7 @@ jobs:
           ark-image-tag: ${{ github.sha }}
           install-coverage: "true"
           install-evaluator: "false" # Standard tests don't need evaluator
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -484,7 +500,7 @@ jobs:
           artifact-name: coverage-reports-standard
 
   e2e-tests-evaluated:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -493,10 +509,10 @@ jobs:
         with:
           ark-image-tag: ${{ github.sha }}
           install-coverage: "true"
-          install-evaluator: "true" # Evaluated tests need evaluator-llm service
+          install-evaluator: "true" # Evaluated tests need ark-evaluator service
           azure-openai-key: ${{ secrets.CICD_AZURE_OPENAI_KEY }}
           azure-openai-base-url: ${{ secrets.CICD_AZURE_OPENAI_BASE_URL }}
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -523,8 +539,17 @@ jobs:
         with:
           artifact-name: coverage-reports-evaluated
 
-  build-chart:
+  build-charts:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        chart:
+          # Package only the essential charts.
+          - { name: ark-controller, path: ark/dist/chart }
+          - { name: ark-api, path: services/ark-api/chart }
+          - { name: ark-dashboard, path: services/ark-dashboard/chart }
+          - { name: ark-mcp, path: services/ark-mcp/chart }
+          - { name: localhost-gateway, path: services/localhost-gateway/chart }
     steps:
       - uses: actions/checkout@v4
 
@@ -533,33 +558,17 @@ jobs:
         with:
           version: "3.14.0"
 
-      - name: Lint Helm Chart
+      - name: Lint and Package ${{ matrix.chart.name }}
         run: |
-          cd ark/dist/chart
+          cd ${{ matrix.chart.path }}
           helm lint .
-      - name: Render and Validate Helm Chart
-        run: |
-          cd ark/dist/chart
-          # Test rendering with different values
-          helm template test-release . --debug --dry-run
+          helm package .
 
-          # Test with custom values
-          helm template test-release . \
-            --set image.tag=${{ github.sha }} \
-            --set replicaCount=2 \
-            --debug --dry-run
-      - name: Package Helm Chart
-        run: |
-          mkdir -p out
-          cd ark/dist/chart
-          # Package the chart (release-please handles versioning)
-          helm package . --destination ../../../out/
-
-      - name: Upload Chart Artifact
+      - name: Upload ${{ matrix.chart.name }} Chart
         uses: actions/upload-artifact@v4
         with:
-          name: ark-chart-${{ github.sha }}
-          path: out/ark-*.tgz
+          name: ${{ matrix.chart.name }}-${{ github.sha }}
+          path: ${{ matrix.chart.path }}/${{ matrix.chart.name }}-*.tgz
           retention-days: 30
 
   build-docs:
@@ -648,7 +657,7 @@ jobs:
         build-and-test-ark,
         build-and-test-services,
         build-docs,
-        build-chart,
+        build-charts,
         build-ark-cli,
       ]
     runs-on: ubuntu-24.04
@@ -710,7 +719,7 @@ jobs:
         build-and-test-ark,
         build-and-test-services,
         build-docs,
-        build-chart,
+        build-charts,
         build-ark-cli,
       ]
     runs-on: ubuntu-24.04
@@ -781,36 +790,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
 
-  release-chart:
+  release-charts:
     needs: [check-release]
     runs-on: ubuntu-24.04
     if: ${{ needs.check-release.outputs.released && github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        chart:
+          - ark-controller
+          - ark-api
+          - ark-dashboard
+          - ark-mcp
+          - localhost-gateway
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download chart artifact
+      - name: Download ${{ matrix.chart }} artifact
         uses: actions/download-artifact@v4
         with:
-          name: ark-chart-${{ github.sha }}
+          name: ${{ matrix.chart }}-${{ github.sha }}
           path: ./
 
-      - name: Attach chart to release
+      - name: Attach ${{ matrix.chart }} to release
         run: |
           RELEASE_TAG="${{ needs.check-release.outputs.tag }}"
-          echo "Attaching chart to release: $RELEASE_TAG"
-
-          # List what we downloaded
-          echo "Chart files:"
-          ls -la ark-*.tgz || echo "No chart files found"
-
-          # Upload chart file to release
-          find . -name "ark-*.tgz" -type f | while read chart; do
-            if [ -f "$chart" ]; then
-              filename=$(basename "$chart")
-              echo "Uploading $chart as $filename"
-              gh release upload "$RELEASE_TAG" "$chart" || echo "Failed to upload $chart (may already exist)"
-            fi
-          done
+          gh release upload "$RELEASE_TAG" ${{ matrix.chart }}-*.tgz
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -860,6 +864,7 @@ jobs:
           gh workflow run deploy.yml \
             --field ark_version="${{ needs.check-release.outputs.tag }}" \
             --field deploy_containers=true \
+            --field deploy_containers_to_latest=true \
             --field deploy_to_pages=true \
             --field deploy_to_npm=true \
             --field deploy_helm_chart=true \

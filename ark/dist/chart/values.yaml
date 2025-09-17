@@ -3,8 +3,8 @@ controllerManager:
   replicas: 1
   container:
     image:
-      repository: controller
-      tag: latest
+      repository: ghcr.io/mckinsey/agents-at-scale-ark/ark-controller
+      # tag defaults to .Chart.AppVersion if not specified
       pullPolicy: IfNotPresent
     args:
       - "--leader-elect"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Pencil, Trash2, Settings, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,29 +10,20 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { EvaluatorEditor } from "@/components/editors"
-import type {
-  Evaluator,
-  EvaluatorCreateRequest,
-  EvaluatorUpdateRequest
-} from "@/lib/services"
+import type { Evaluator } from "@/lib/services"
 
 interface EvaluatorRowProps {
   evaluator: Evaluator
-  onUpdate?: (
-    evaluator: (EvaluatorCreateRequest | EvaluatorUpdateRequest) & { id?: string }
-  ) => void
   onDelete?: (id: string) => void
   namespace: string
 }
 
 export function EvaluatorRow({
   evaluator,
-  onUpdate,
   onDelete,
   namespace
 }: EvaluatorRowProps) {
-  const [editorOpen, setEditorOpen] = useState(false)
+  const router = useRouter()
 
   const getAddressDisplay = () => {
     return evaluator.address || "Not configured"
@@ -87,25 +78,23 @@ export function EvaluatorRow({
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          {onUpdate && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditorOpen(true)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit evaluator</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/evaluators/${evaluator.name}/edit?namespace=${namespace}`)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Edit evaluator</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {onDelete && (
             <TooltipProvider>
@@ -128,16 +117,6 @@ export function EvaluatorRow({
           )}
         </div>
       </div>
-
-      {onUpdate && (
-        <EvaluatorEditor
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-          evaluator={evaluator}
-          onSave={onUpdate}
-          namespace={namespace}
-        />
-      )}
     </>
   )
 }

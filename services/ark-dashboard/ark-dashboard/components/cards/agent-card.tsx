@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Bot, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { BaseCard, type BaseCardAction } from "./base-card";
+import { AgentPhaseBadge } from "@/components/ui/agent-phase-badge";
 import { getCustomIcon } from "@/lib/utils/icon-resolver";
 import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import { toggleFloatingChat } from "@/lib/chat-events";
 import { useChatState } from "@/lib/chat-context";
 import { AgentEditor } from "@/components/editors";
+import { ConfirmationDialog } from "@/components/dialogs/confirmation-dialog";
 import type {
   Agent,
   AgentCreateRequest,
@@ -38,6 +40,7 @@ export function AgentCard({
   const { isOpen } = useChatState();
   const isChatOpen = isOpen(agent.name);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Get the model name from the modelRef
   const modelName = agent.modelRef?.name || "No model assigned";
@@ -62,7 +65,7 @@ export function AgentCard({
     actions.push({
       icon: Trash2,
       label: "Delete agent",
-      onClick: () => onDelete(agent.id),
+      onClick: () => setDeleteConfirmOpen(true),
       disabled: isChatOpen
     });
   }
@@ -82,10 +85,13 @@ export function AgentCard({
         icon={<IconComponent className="h-5 w-5" />}
         actions={actions}
         footer={
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Bot className="h-4 w-4" />
-            {!isA2A && <span>Model: {modelName}</span>}
-            {isA2A && <span>A2A Agent</span>}
+          <div className="flex flex-row items-end w-full justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Bot className="h-4 w-4" />
+              {!isA2A && <span>Model: {modelName}</span>}
+              {isA2A && <span>A2A Agent</span>}
+            </div>
+            <AgentPhaseBadge agent={agent} />
           </div>
         }
       />
@@ -98,6 +104,18 @@ export function AgentCard({
         onSave={onUpdate || (() => {})}
         namespace={namespace}
       />
+      {onDelete && (
+        <ConfirmationDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Delete Agent"
+          description={`Do you want to delete "${agent.name}" agent? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={() => onDelete(agent.id)}
+          variant="destructive"
+        />
+      )}
     </>
   );
 }

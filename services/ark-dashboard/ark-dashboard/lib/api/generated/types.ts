@@ -2680,9 +2680,9 @@ export interface components {
             /** Memoryname */
             memoryName: string;
             /** Queries */
-            queries: string[];
+            queries?: string[] | null;
             /** Messagecount */
-            messageCount: number;
+            messageCount?: number | null;
             /** Lastactivity */
             lastActivity?: string | null;
         };
@@ -2895,6 +2895,8 @@ export interface components {
             annotations?: {
                 [key: string]: string;
             } | null;
+            /** Type */
+            type?: string | null;
         };
         /** TopLogprob */
         TopLogprob: {
@@ -4866,6 +4868,8 @@ export interface operations {
             query?: {
                 /** @description Include enhanced metadata from annotations */
                 enhanced?: boolean;
+                /** @description Filter evaluations by query reference name */
+                query_ref?: string;
             };
             header?: never;
             path: {

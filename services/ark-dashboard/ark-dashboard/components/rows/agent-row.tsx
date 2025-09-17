@@ -1,8 +1,5 @@
 "use client";
 
-import { Bot, MessageCircle, Pencil, Trash2 } from "lucide-react";
-import { getCustomIcon } from "@/lib/utils/icon-resolver";
-import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -10,28 +7,33 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { toggleFloatingChat } from "@/lib/chat-events";
+import { AgentPhaseBadge } from "@/components/ui/agent-phase-badge";
 import { useChatState } from "@/lib/chat-context";
-import { useState } from "react";
+import { toggleFloatingChat } from "@/lib/chat-events";
+import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import { AgentEditor } from "@/components/editors";
+import { ConfirmationDialog } from "@/components/dialogs/confirmation-dialog";
 import type {
   Agent,
   AgentCreateRequest,
   AgentUpdateRequest,
-  Team,
-  Model
+  Model,
+  Team
 } from "@/lib/services";
+import { cn } from "@/lib/utils";
+import { getCustomIcon } from "@/lib/utils/icon-resolver";
+import { Bot, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface AgentRowProps {
-  agent: Agent;
-  teams: Team[];
-  models: Model[];
-  onUpdate?: (
+  readonly   agent: Agent;
+  readonly   teams: Team[];
+  readonly   models: Model[];
+  readonly   onUpdate?: (
     agent: (AgentCreateRequest | AgentUpdateRequest) & { id?: string }
   ) => void;
-  onDelete?: (id: string) => void;
-  namespace: string;
+  readonly   onDelete?: (id: string) => void;
+  readonly   namespace: string;
 }
 
 export function AgentRow({
@@ -45,6 +47,7 @@ export function AgentRow({
   const { isOpen } = useChatState();
   const isChatOpen = isOpen(agent.name);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Get the model name from the modelRef
   const modelName = agent.modelRef?.name || "No model assigned";
@@ -53,11 +56,14 @@ export function AgentRow({
   const isA2A = agent.isA2A || false;
 
   // Get custom icon or default Bot icon
-  const IconComponent = getCustomIcon(agent.annotations?.[ARK_ANNOTATIONS.DASHBOARD_ICON], Bot);
+  const IconComponent = getCustomIcon(
+    agent.annotations?.[ARK_ANNOTATIONS.DASHBOARD_ICON],
+    Bot
+  );
 
   return (
     <>
-      <div className="flex items-center py-3 px-4 bg-card border rounded-md shadow-sm hover:bg-accent/5 transition-colors w-full gap-4 flex-wrap">
+      <div className="flex items-center py-3 px-4 bg-card border rounded-md hover:bg-accent/5 transition-colors w-full gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-grow overflow-hidden">
           <IconComponent className="h-5 w-5 text-muted-foreground flex-shrink-0" />
 
@@ -78,6 +84,8 @@ export function AgentRow({
           {!isA2A && <span>Model: {modelName}</span>}
           {isA2A && <span>A2A Agent</span>}
         </div>
+
+        <AgentPhaseBadge agent={agent} />
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {onUpdate && (
@@ -109,7 +117,7 @@ export function AgentRow({
                       "h-8 w-8 p-0",
                       isChatOpen && "opacity-50 cursor-not-allowed"
                     )}
-                    onClick={() => !isChatOpen && onDelete(agent.id)}
+                    onClick={() => !isChatOpen && setDeleteConfirmOpen(true)}
                     disabled={isChatOpen}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -153,6 +161,18 @@ export function AgentRow({
         onSave={onUpdate || (() => {})}
         namespace={namespace}
       />
+      {onDelete && (
+        <ConfirmationDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Delete Agent"
+          description={`Do you want to delete "${agent.name}" agent? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={() => onDelete(agent.id)}
+          variant="destructive"
+        />
+      )}
     </>
   );
 }

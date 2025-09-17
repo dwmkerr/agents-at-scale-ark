@@ -1,36 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronRight, Trash2, Wrench, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { getCustomIcon } from "@/lib/utils/icon-resolver";
-import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
+import { ConfirmationDialog } from "@/components/dialogs/confirmation-dialog";
 import type { Tool } from "@/lib/services/tools";
+import { cn } from "@/lib/utils";
+import { getCustomIcon } from "@/lib/utils/icon-resolver";
 
 type ToolRowProps = {
-    readonly tool: Tool;
-    readonly onInfo?: (tool: Tool) => void;
-    readonly onDelete?: (id: string) => void;
-    readonly inUse?: boolean;
-    readonly inUseReason?: string;
-    readonly namespace?: string;
+  readonly tool: Tool;
+  readonly onInfo?: (tool: Tool) => void;
+  readonly onDelete?: (id: string) => void;
+  readonly inUse?: boolean;
+  readonly inUseReason?: string;
+  readonly namespace?: string;
 };
 
 export function ToolRow(props: ToolRowProps) {
   const { tool, onInfo, onDelete, inUse, inUseReason } = props;
   const router = useRouter();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   
   // Get custom icon or default Wrench icon
   const annotations = tool.annotations as Record<string, string> | undefined;
-  const IconComponent = getCustomIcon(annotations?.[ARK_ANNOTATIONS.DASHBOARD_ICON], Wrench);
-  
+  const IconComponent = getCustomIcon(
+    annotations?.[ARK_ANNOTATIONS.DASHBOARD_ICON],
+    Wrench
+  );
+
   const handleInfo = () => {
     if (onInfo) {
       onInfo(tool);
@@ -38,10 +44,15 @@ export function ToolRow(props: ToolRowProps) {
   };
 
   const handleQueryTool = () => {
-    router.push(`/query/new?namespace=${props.namespace || 'default'}&target_tool=${tool.name}`);
+    router.push(
+      `/query/new?namespace=${props.namespace || "default"}&target_tool=${
+        tool.name
+      }`
+    );
   };
 
   return (
+    <>
       <div className="flex items-center py-3 px-4 bg-card border rounded-md shadow-sm hover:bg-accent/5 transition-colors w-full gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-grow overflow-hidden">
           <IconComponent className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -86,7 +97,7 @@ export function ToolRow(props: ToolRowProps) {
                       "h-8 w-8 p-0",
                       inUse && "opacity-50 cursor-not-allowed"
                     )}
-                    onClick={() => !inUse && onDelete(tool.id)}
+                    onClick={() => !inUse && setDeleteConfirmOpen(true)}
                     disabled={inUse}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -118,5 +129,18 @@ export function ToolRow(props: ToolRowProps) {
           </TooltipProvider>
         </div>
       </div>
+      {onDelete && (
+        <ConfirmationDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Delete Tool"
+          description={`Do you want to delete "${tool.name || tool.type || "this tool"}" tool? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={() => onDelete(tool.id)}
+          variant="destructive"
+        />
+      )}
+    </>
   );
 }

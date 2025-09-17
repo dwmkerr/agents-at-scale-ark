@@ -20,6 +20,12 @@ brew install devspace
 # Install localhost gateway
 make localhost-gateway-install
 ```
+**Note:** If you delete the deployment/pods of `localhost-gateway` and see `make: Nothing to be done for 'localhost-gateway-install'` while installing,
+then the stamp file from the previous needs to be deleted. Do a force reinstall with 
+```bash
+rm out/localhost-gateway/stamp-install
+make localhost-gateway-install
+```
 
 ## Start the dev environment
 ```bash
@@ -47,19 +53,17 @@ kubectl port-forward -n default svc/ark-dashboard 3000:3000
 ```
 
 ## Live reload behavior
-- Dashboard (Next.js): hot reloads on save
-- API (FastAPI): hot reloads on save
-- Controller (Go): does NOT auto-reload
-  - Restart options:
-    - Stop & start DevSpace: `devspace stop && devspace dev`
-    - Or restart the controller pod: `kubectl delete pod -n ark-system -l app=ark-controller`
+- `ark-dashboard`: hot reloads on save
+- `ark-api`: hot reloads on save  
+- `ark-controller`: restarts container on save
 
 ## When you change CRDs
 ```bash
 cd ark/
 make manifests
 kubectl apply -f config/crd/bases/ark.mckinsey.com_queries.yaml
-# Then restart the controller (see above)
+# Then restart the controller
+make deploy
 ```
 
 ## Build/deploy production images

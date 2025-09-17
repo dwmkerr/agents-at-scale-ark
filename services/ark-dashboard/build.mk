@@ -46,12 +46,12 @@ $(DASHBOARD_OPENAPI): $(OUT)/ark-api/stamp-test | $(OUT)
 $(ARK_DASHBOARD_SERVICE_NAME)-deps: $(ARK_DASHBOARD_STAMP_DEPS) # HELP: Install ARK Dashboard dependencies
 $(ARK_DASHBOARD_STAMP_DEPS): $(ARK_DASHBOARD_SERVICE_SOURCE_DIR)/package.json $(DASHBOARD_OPENAPI) | $(OUT)
 	@mkdir -p $(dir $@)
-	cd $(ARK_DASHBOARD_SERVICE_SOURCE_DIR) && npm install && npm run generate:api
+	cd $(ARK_DASHBOARD_SERVICE_SOURCE_DIR) && npm ci && npm run generate:api
 	@touch $@
 
 # Test target
 $(ARK_DASHBOARD_SERVICE_NAME)-test: $(ARK_DASHBOARD_STAMP_TEST) # HELP: Run ARK Dashboard UI tests
-$(ARK_DASHBOARD_STAMP_TEST): $(ARK_DASHBOARD_STAMP_DEPS)
+$(ARK_DASHBOARD_STAMP_TEST): $(ARK_DASHBOARD_STAMP_DEPS) # This command will fail if any critical vulnerabilities are identified
 	cd $(ARK_DASHBOARD_SERVICE_SOURCE_DIR) && npm audit --audit-level=critical && npm run test
 	@touch $@
 
@@ -69,6 +69,7 @@ $(ARK_DASHBOARD_STAMP_INSTALL): $(ARK_DASHBOARD_STAMP_BUILD) $$(ARK_API_STAMP_IN
 	helm upgrade --install $(ARK_DASHBOARD_SERVICE_NAME) $(ARK_DASHBOARD_SERVICE_DIR)/chart \
 		--namespace $(DASHBOARD_NAMESPACE) \
 		--create-namespace \
+		--set app.image.repository=$(DASHBOARD_IMAGE) \
 		--set app.image.tag=$(DASHBOARD_TAG) \
 		--wait \
 		--timeout=5m

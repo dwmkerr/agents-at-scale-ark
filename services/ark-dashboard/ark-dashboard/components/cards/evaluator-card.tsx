@@ -1,42 +1,31 @@
 "use client"
 
-import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Pencil, Trash2, Globe, Settings } from "lucide-react"
 import { DASHBOARD_SECTIONS } from "@/lib/constants/dashboard-icons"
 import { BaseCard, type BaseCardAction } from "./base-card"
-import { EvaluatorEditor } from "@/components/editors"
-import type {
-  Evaluator,
-  EvaluatorCreateRequest,
-  EvaluatorUpdateRequest
-} from "@/lib/services"
+import type { Evaluator } from "@/lib/services"
 
 interface EvaluatorCardProps {
   evaluator: Evaluator
-  onUpdate?: (
-    evaluator: (EvaluatorCreateRequest | EvaluatorUpdateRequest) & { id?: string }
-  ) => void
   onDelete?: (id: string) => void
   namespace: string
 }
 
 export function EvaluatorCard({
   evaluator,
-  onUpdate,
   onDelete,
   namespace
 }: EvaluatorCardProps) {
-  const [editorOpen, setEditorOpen] = useState(false)
+  const router = useRouter()
 
-  const actions: BaseCardAction[] = []
-
-  if (onUpdate) {
-    actions.push({
+  const actions: BaseCardAction[] = [
+    {
       icon: Pencil,
       label: "Edit evaluator",
-      onClick: () => setEditorOpen(true)
-    })
-  }
+      onClick: () => router.push(`/evaluators/${evaluator.name}/edit?namespace=${namespace}`)
+    }
+  ]
 
   if (onDelete) {
     actions.push({
@@ -91,13 +80,6 @@ export function EvaluatorCard({
             )}
           </div>
         }
-      />
-      <EvaluatorEditor
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        evaluator={evaluator}
-        onSave={onUpdate || (() => {})}
-        namespace={namespace}
       />
     </>
   )

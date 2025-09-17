@@ -7,8 +7,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from kubernetes_asyncio import client
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 from .api import router
 from .core.config import setup_logging
+from .auth.middleware import AuthMiddleware
 from ark_sdk.k8s import init_k8s
 
 # Initialize logging
@@ -99,6 +104,9 @@ else:
 
 # Include routes
 app.include_router(router)
+
+# Add global authentication middleware (protects all routes by default except PUBLIC_ROUTES)
+app.add_middleware(AuthMiddleware)
 
 
 # Custom exception handler for validation errors
