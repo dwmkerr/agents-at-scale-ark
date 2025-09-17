@@ -186,11 +186,17 @@ project:
   describe('error handling', () => {
     it('should fail when .ark.yaml is missing', () => {
       // Try to run generate without .ark.yaml
-      expect(() => {
+      let error: any = null;
+      try {
         execSync(`node ${cliPath} dev tool generate ${tempDir}`, {
           encoding: 'utf8',
+          stdio: 'pipe',
         });
-      }).toThrow('.ark.yaml not found');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).not.toBeNull();
+      expect(error.message).toContain('.ark.yaml not found');
     });
   });
 });
