@@ -36,6 +36,8 @@ export default {
     '!src/**/*.test.ts',
     '!src/index.tsx',
     '!src/commands/chat.tsx',
+    '!src/commands/chat/index.tsx',
+    '!src/commands/**/selector.tsx',
     '!src/components/*.tsx',
     '!src/ui/*.tsx'
   ],
