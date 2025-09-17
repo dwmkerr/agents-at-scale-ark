@@ -66,6 +66,8 @@ const MainMenu: React.FC = () => {
       const ready = await isArkReady();
       setArkReady(ready);
       setIsChecking(false);
+      // Reset selected index to 0 after status check
+      setSelectedIndex(0);
     };
     checkArkStatus();
   }, []);
@@ -90,7 +92,7 @@ const MainMenu: React.FC = () => {
       command: 'ark dashboard',
     },
     {
-      label: 'Status Check',
+      label: 'Status',
       description: 'Check ARK services status',
       value: 'status',
       command: 'ark status',
@@ -106,7 +108,8 @@ const MainMenu: React.FC = () => {
 
   // Filter choices based on ARK readiness
   const choices = React.useMemo(() => {
-    if (arkReady === null || isChecking) return allChoices;
+    // Don't return any choices while checking
+    if (isChecking) return [];
 
     if (!arkReady) {
       // Only show Install, Status, and Exit when ARK is not ready
@@ -120,6 +123,9 @@ const MainMenu: React.FC = () => {
   }, [arkReady, isChecking]);
 
   useInput((input: string, key: any) => {
+    // Don't process input while checking status
+    if (isChecking) return;
+
     if (key.upArrow || input === 'k') {
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choices.length - 1));
     } else if (key.downArrow || input === 'j') {
@@ -255,25 +261,31 @@ const MainMenu: React.FC = () => {
         </Text>
         <Text color="gray">Interactive terminal interface for ARK agents</Text>
 
-        {/* Status indicator */}
-        <Box marginTop={1}>
-          {isChecking ? (
-            <Text color="gray">
-              <Spinner type="dots" /> Checking ARK status...
-            </Text>
-          ) : arkReady ? (
-            <Text color="green">✓ ARK is ready</Text>
-          ) : (
-            <Box flexDirection="column" alignItems="center">
-              <Text color="yellow">⚠ ARK is not ready</Text>
-              <Text color="gray">Run 'Install' to set up ARK or 'Status Check' for details</Text>
-            </Box>
-          )}
-        </Box>
       </Box>
 
-      <Box flexDirection="column" paddingX={4} marginTop={1}>
-        {choices.map((choice, index) => {
+      {/* Show loading state or menu based on status check */}
+      {isChecking ? (
+        <Box justifyContent="center" alignItems="center" marginTop={2}>
+          <Text color="gray">
+            <Spinner type="dots" /> Checking ARK status...
+          </Text>
+        </Box>
+      ) : (
+        <>
+          {/* Status indicator */}
+          <Box justifyContent="center" alignItems="center" marginBottom={1}>
+            {arkReady ? (
+              <Text color="green">✓ ARK is ready</Text>
+            ) : (
+              <Box flexDirection="column" alignItems="center">
+                <Text color="yellow">⚠ ARK is not ready</Text>
+                <Text color="gray">Run 'Install' to set up ARK or 'Status' for details</Text>
+              </Box>
+            )}
+          </Box>
+
+          <Box flexDirection="column" paddingX={4} marginTop={1}>
+            {choices.map((choice, index) => {
           const isSelected = index === selectedIndex;
           return (
             <Box key={choice.value} flexDirection="row" paddingY={0}>
@@ -292,7 +304,9 @@ const MainMenu: React.FC = () => {
             </Box>
           );
         })}
-      </Box>
+          </Box>
+        </>
+      )}
     </>
   );
 };
