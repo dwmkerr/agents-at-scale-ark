@@ -59,16 +59,26 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
   console.log(); // Add blank line after cluster info
 
   // Ask about installing dependencies
-  const shouldInstallDeps = options.yes || (
-    await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'shouldInstallDeps',
-        message: 'install required dependencies (cert-manager, gateway api)?',
-        default: true,
-      },
-    ])
-  ).shouldInstallDeps;
+  let shouldInstallDeps = false;
+  try {
+    shouldInstallDeps = options.yes || (
+      await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'shouldInstallDeps',
+          message: 'install required dependencies (cert-manager, gateway api)?',
+          default: true,
+        },
+      ])
+    ).shouldInstallDeps;
+  } catch (error) {
+    // Handle Ctrl-C gracefully
+    if (error && (error as any).name === 'ExitPromptError') {
+      console.log('\nInstallation cancelled');
+      process.exit(130); // Standard exit code for SIGINT
+    }
+    throw error;
+  }
 
   if (shouldInstallDeps) {
     for (const dep of Object.values(arkDependencies)) {
@@ -92,16 +102,26 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
 
   for (const service of Object.values(services)) {
     // Ask for confirmation
-    const shouldInstall = options.yes || (
-      await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'shouldInstall',
-          message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
-          default: true,
-        },
-      ])
-    ).shouldInstall;
+    let shouldInstall = false;
+    try {
+      shouldInstall = options.yes || (
+        await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'shouldInstall',
+            message: `install ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
+            default: true,
+          },
+        ])
+      ).shouldInstall;
+    } catch (error) {
+      // Handle Ctrl-C gracefully
+      if (error && (error as any).name === 'ExitPromptError') {
+        console.log('\nInstallation cancelled');
+        process.exit(130); // Standard exit code for SIGINT
+      }
+      throw error;
+    }
 
     if (!shouldInstall) {
       output.warning(`skipping ${service.name}`);
