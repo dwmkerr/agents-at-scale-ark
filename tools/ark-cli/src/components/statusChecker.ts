@@ -103,6 +103,51 @@ export class StatusChecker {
   }
 
   /**
+   * Check combined deployment and helm status
+   * Gets health from deployment, version/revision from Helm
+   */
+  private async checkCombinedStatus(
+    serviceName: string,
+    deploymentName: string,
+    helmReleaseName: string,
+    namespace: string,
+    devDeploymentName?: string
+  ): Promise<ServiceStatus> {
+    // Get deployment status for health
+    const deploymentStatus = await this.checkDeploymentStatus(
+      serviceName,
+      deploymentName,
+      namespace,
+      devDeploymentName
+    );
+
+    // Try to get version info from Helm if it's a healthy deployment
+    if (deploymentStatus.status === 'healthy' || deploymentStatus.status === 'warning') {
+      try {
+        const {stdout} = await execa('helm', [
+          'list', '-n', namespace,
+          '-o', 'json'
+        ], { timeout: 5000 });
+        const releases = JSON.parse(stdout);
+        const release = releases.find((r: any) => r.name === helmReleaseName);
+
+        if (release) {
+          // Merge Helm version info into deployment status
+          return {
+            ...deploymentStatus,
+            version: release.app_version,
+            revision: release.revision,
+          };
+        }
+      } catch {
+        // If Helm check fails, return deployment status as-is
+      }
+    }
+
+    return deploymentStatus;
+  }
+
+  /**
    * Check deployment status
    */
   private async checkDeploymentStatus(
@@ -172,16 +217,10 @@ export class StatusChecker {
               devStatus = 'warning';
             }
 
-            // Get version from labels if available
-            const devVersion = devDeployment.metadata?.labels?.['app.kubernetes.io/version'];
-            const devChart = devDeployment.metadata?.labels?.['helm.sh/chart'];
-
             return {
               name: serviceName,
               status: devStatus,
               details: `${devReadyReplicas}/${devReplicas} replicas ready`,
-              version: devVersion,
-              revision: devChart,
               isDev: true,
               namespace,
             };
@@ -191,16 +230,10 @@ export class StatusChecker {
         }
       }
 
-      // Get version from labels if available
-      const version = deployment.metadata?.labels?.['app.kubernetes.io/version'];
-      const chart = deployment.metadata?.labels?.['helm.sh/chart'];
-
       return {
         name: serviceName,
         status,
         details: `${readyReplicas}/${replicas} replicas ready`,
-        version,
-        revision: chart,
         namespace,
       };
     } catch (error) {
@@ -238,16 +271,10 @@ export class StatusChecker {
               status = 'warning';
             }
 
-            // Get version from labels if available
-            const version = devDeployment.metadata?.labels?.['app.kubernetes.io/version'];
-            const chart = devDeployment.metadata?.labels?.['helm.sh/chart'];
-
             return {
               name: serviceName,
               status,
               details: `${readyReplicas}/${replicas} replicas ready`,
-              version,
-              revision: chart,
               isDev: true,
               namespace,
             };
@@ -408,10 +435,12 @@ export class StatusChecker {
         const namespace = service.namespace || clusterInfo?.namespace || 'default';
 
         if (service.k8sDeploymentName) {
+          // For deployments, get health from deployment and version from Helm
           serviceChecks.push(
-            this.checkDeploymentStatus(
+            this.checkCombinedStatus(
               serviceName,
               service.k8sDeploymentName,
+              service.helmReleaseName,
               namespace,
               service.k8sDevDeploymentName
             )
