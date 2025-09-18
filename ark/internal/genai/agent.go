@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
 	arkv1prealpha1 "mckinsey.com/ark/api/v1prealpha1"
@@ -37,7 +36,7 @@ func (a *Agent) FullName() string {
 }
 
 // Execute executes the agent with optional event emission for tool calls
-func (a *Agent) Execute(ctx context.Context, userInput Message, history []Message, eventStream MemoryInterface, streamingEnabled bool) ([]Message, error) {
+func (a *Agent) Execute(ctx context.Context, userInput Message, history []Message) ([]Message, error) {
 	if a.Model == nil {
 		return nil, fmt.Errorf("agent %s has no model configured", a.FullName())
 	}
@@ -103,9 +102,6 @@ func (a *Agent) prepareMessages(ctx context.Context, userInput Message, history 
 	return agentMessages, nil
 }
 
-// executeModelCall executes a single model call with optional streaming support.
-// eventStream is currently implemented via MemoryInterface as a single backend,
-// but will be split into a dedicated EventStreamInterface in a future release.
 func (a *Agent) executeModelCall(ctx context.Context, agentMessages []Message, tools []openai.ChatCompletionToolParam) (*openai.ChatCompletion, error) {
 	llmTracker := NewOperationTracker(a.Recorder, ctx, "LLMCall", a.Model.Model, map[string]string{
 		"agent": a.FullName(),
@@ -231,32 +227,13 @@ func (a *Agent) executeLocally(ctx context.Context, userInput Message, history [
 		agentMessages = append(agentMessages, assistantMessage)
 		newMessages = append(newMessages, assistantMessage)
 
-		// Debug logging for streaming tool calls
-		logger := logf.FromContext(ctx)
-		logger.Info("Agent response",
-			"agent", a.FullName(),
-			"hasToolCalls", len(choice.Message.ToolCalls) > 0,
-			"toolCallCount", len(choice.Message.ToolCalls),
-			"finishReason", choice.FinishReason)
-
-		if len(choice.Message.ToolCalls) > 0 {
-			logger.Info("Tool calls detected",
-				"agent", a.FullName(),
-				"firstToolName", choice.Message.ToolCalls[0].Function.Name,
-				"firstToolID", choice.Message.ToolCalls[0].ID)
-		}
-
 		if len(choice.Message.ToolCalls) == 0 {
-			logger.Info("No tool calls, returning", "agent", a.FullName())
 			return newMessages, nil
 		}
 
-		logger.Info("Executing tool calls", "agent", a.FullName(), "count", len(choice.Message.ToolCalls))
 		if err := a.executeToolCalls(ctx, choice.Message.ToolCalls, &agentMessages, &newMessages); err != nil {
-			logger.Error(err, "Tool execution failed", "agent", a.FullName())
 			return newMessages, err
 		}
-		logger.Info("Tool calls executed, continuing loop", "agent", a.FullName())
 	}
 }
 

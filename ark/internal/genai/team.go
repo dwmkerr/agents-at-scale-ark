@@ -22,9 +22,6 @@ type Team struct {
 	Recorder    EventEmitter
 	Client      client.Client
 	Namespace   string
-	// Temporary storage for streaming context during execution
-	eventStream      MemoryInterface
-	streamingEnabled bool
 }
 
 // FullName returns the namespace/name format for the team
@@ -32,14 +29,10 @@ func (t *Team) FullName() string {
 	return t.Namespace + "/" + t.Name
 }
 
-func (t *Team) Execute(ctx context.Context, userInput Message, history []Message, eventStream MemoryInterface, streamingEnabled bool) ([]Message, error) {
+func (t *Team) Execute(ctx context.Context, userInput Message, history []Message) ([]Message, error) {
 	if len(t.Members) == 0 {
 		return nil, fmt.Errorf("team %s has no members configured", t.FullName())
 	}
-
-	// Store streaming parameters for member execution
-	t.eventStream = eventStream
-	t.streamingEnabled = streamingEnabled
 
 	teamTracker := NewOperationTracker(t.Recorder, ctx, "TeamExecution", t.FullName(), map[string]string{
 		"strategy":    t.Strategy,
@@ -128,7 +121,7 @@ func (t *Team) GetName() string {
 }
 
 func (t *Team) GetType() string {
-	return string(teamKey)
+	return "team"
 }
 
 func (t *Team) GetDescription() string {
@@ -213,12 +206,6 @@ func (t *Team) executeWithTracking(tracker *OperationTracker, execFunc func(cont
 
 // executeMemberAndAccumulate executes a member and accumulates new messages
 func (t *Team) executeMemberAndAccumulate(ctx context.Context, member TeamMember, userInput Message, messages, newMessages *[]Message, turn int) error {
-	// Add team and current member to execution metadata for streaming
-	ctx = WithExecutionMetadata(ctx, map[string]interface{}{
-		"team":  t.Name,
-		"agent": member.GetName(),
-	})
-
 	memberTracker := NewOperationTracker(t.Recorder, ctx, "TeamMember", member.GetName(), map[string]string{
 		"team":       t.FullName(),
 		"memberType": member.GetType(),
@@ -228,8 +215,7 @@ func (t *Team) executeMemberAndAccumulate(ctx context.Context, member TeamMember
 		"strategy":   t.Strategy,
 	})
 
-	// Pass through streaming parameters to enable team member streaming
-	memberNewMessages, err := member.Execute(ctx, userInput, *messages, t.eventStream, t.streamingEnabled)
+	memberNewMessages, err := member.Execute(ctx, userInput, *messages)
 	if err != nil {
 		if IsTerminateTeam(err) {
 			memberTracker.CompleteWithTermination(err.Error())
@@ -252,7 +238,7 @@ func loadTeamMember(ctx context.Context, k8sClient client.Client, memberSpec ark
 	key := types.NamespacedName{Name: memberSpec.Name, Namespace: namespace}
 
 	switch memberSpec.Type {
-	case string(agentKey):
+	case "agent":
 		var agentCRD arkv1alpha1.Agent
 		if err := k8sClient.Get(ctx, key, &agentCRD); err != nil {
 			return nil, fmt.Errorf("failed to get agent %s for team %s: %w", memberSpec.Name, teamName, err)

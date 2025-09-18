@@ -46,7 +46,7 @@ const (
 	LocalhostGatewayPort = ARKPrefix + "localhost-gateway-port"
 )
 
-// Streaming annotations
+// Streaming annotations which will be used in the upcoming streaming feature
 const (
 	StreamingEnabled = ARKPrefix + "streaming-enabled"
 	StreamingURL     = ARKPrefix + "streaming-url"
