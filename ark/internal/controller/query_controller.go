@@ -30,6 +30,11 @@ import (
 	"mckinsey.com/ark/internal/telemetry"
 )
 
+const (
+	// Environment variable values
+	envTrue = "true"
+)
+
 type targetResult struct {
 	messages []genai.Message
 	err      error
@@ -697,39 +702,28 @@ func (r *QueryReconciler) executeModel(ctx context.Context, query arkv1alpha1.Qu
 		"streaming": fmt.Sprintf("%t", streamingEnabled),
 	})
 
-	var responseMessages []genai.Message
-
-	if streamingEnabled {
-		// Execute with streaming
-		var err error
-		responseMessages, err = r.executeModelWithStreaming(ctx, model, allMessages, memory, modelTracker)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Execute without streaming (existing logic)
-		completion, err := model.ChatCompletion(ctx, allMessages, nil, false, 1)
-		if err != nil {
-			modelTracker.Fail(err)
-			return nil, fmt.Errorf("model chat completion failed: %w", err)
-		}
-
-		// Extract and track token usage
-		tokenUsage := genai.TokenUsage{
-			PromptTokens:     completion.Usage.PromptTokens,
-			CompletionTokens: completion.Usage.CompletionTokens,
-			TotalTokens:      completion.Usage.TotalTokens,
-		}
-		modelTracker.CompleteWithTokens("", tokenUsage)
-
-		if len(completion.Choices) == 0 {
-			return nil, fmt.Errorf("model returned no completion choices")
-		}
-
-		choice := completion.Choices[0]
-		assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
-		responseMessages = []genai.Message{assistantMessage}
+	// Execute model call
+	completion, err := model.ChatCompletion(ctx, allMessages, nil)
+	if err != nil {
+		modelTracker.Fail(err)
+		return nil, fmt.Errorf("model chat completion failed: %w", err)
 	}
+
+	// Extract and track token usage
+	tokenUsage := genai.TokenUsage{
+		PromptTokens:     completion.Usage.PromptTokens,
+		CompletionTokens: completion.Usage.CompletionTokens,
+		TotalTokens:      completion.Usage.TotalTokens,
+	}
+	modelTracker.CompleteWithTokens("", tokenUsage)
+
+	if len(completion.Choices) == 0 {
+		return nil, fmt.Errorf("model returned no completion choices")
+	}
+
+	choice := completion.Choices[0]
+	assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
+	responseMessages := []genai.Message{assistantMessage}
 
 	// Save new messages to memory (user message + response messages)
 	newMessages := append([]genai.Message{userMessage}, responseMessages...)
@@ -823,7 +817,7 @@ func (r *QueryReconciler) loadInitialMessages(ctx context.Context, memory genai.
 
 func (r *QueryReconciler) getClientForQuery(query arkv1alpha1.Query) (client.Client, error) {
 	// Skip impersonation in dev mode
-	if os.Getenv("SKIP_IMPERSONATION") == "true" {
+	if os.Getenv("SKIP_IMPERSONATION") == envTrue {
 		return r.Client, nil
 	}
 
@@ -986,36 +980,6 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 			log.Error(updateErr, "Failed to update status")
 		}
 	}
-}
-
-func (r *QueryReconciler) executeModelWithStreaming(ctx context.Context, model *genai.Model, messages []genai.Message, memory genai.MemoryInterface, modelTracker *genai.OperationTracker) ([]genai.Message, error) {
-	// Call model with streaming enabled
-	completion, err := model.ChatCompletion(ctx, messages, memory, true, 1)
-	if err != nil {
-		modelTracker.Fail(err)
-		return nil, fmt.Errorf("model streaming completion failed: %w", err)
-	}
-
-	// Extract and track token usage
-	tokenUsage := genai.TokenUsage{
-		PromptTokens:     completion.Usage.PromptTokens,
-		CompletionTokens: completion.Usage.CompletionTokens,
-		TotalTokens:      completion.Usage.TotalTokens,
-	}
-	modelTracker.CompleteWithTokens("streamed", tokenUsage)
-
-	if len(completion.Choices) == 0 {
-		return nil, fmt.Errorf("model returned no completion choices")
-	}
-
-	choice := completion.Choices[0]
-
-	// Create the assistant message with the full response (preserves tool calls if present)
-	// This matches the non-streaming path but uses the full message instead of just content
-	assistantMessage := genai.Message(choice.Message.ToParam())
-	responseMessages := []genai.Message{assistantMessage}
-
-	return responseMessages, nil
 }
 
 func (r *QueryReconciler) SetupWithManager(mgr ctrl.Manager) error {

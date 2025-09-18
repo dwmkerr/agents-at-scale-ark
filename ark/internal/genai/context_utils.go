@@ -44,21 +44,20 @@ func getSessionID(ctx context.Context) string {
 
 // WithExecutionMetadata adds execution metadata to context for streaming
 func WithExecutionMetadata(ctx context.Context, metadata map[string]interface{}) context.Context {
-	// Avoid nested context in loop by accumulating in temporary variable
-	tmpCtx := ctx
-	for key, value := range metadata {
-		switch key {
-		case "target":
-			tmpCtx = context.WithValue(tmpCtx, targetKey, value)
-		case "team":
-			tmpCtx = context.WithValue(tmpCtx, teamKey, value)
-		case "agent":
-			tmpCtx = context.WithValue(tmpCtx, agentKey, value)
-		case "model":
-			tmpCtx = context.WithValue(tmpCtx, modelKey, value)
-		}
+	// Check each metadata field explicitly to avoid fatcontext warning
+	if target, ok := metadata["target"]; ok {
+		ctx = context.WithValue(ctx, targetKey, target)
 	}
-	return tmpCtx
+	if team, ok := metadata["team"]; ok {
+		ctx = context.WithValue(ctx, teamKey, team)
+	}
+	if agent, ok := metadata["agent"]; ok {
+		ctx = context.WithValue(ctx, agentKey, agent)
+	}
+	if model, ok := metadata["model"]; ok {
+		ctx = context.WithValue(ctx, modelKey, model)
+	}
+	return ctx
 }
 
 // GetExecutionMetadata retrieves execution metadata from context

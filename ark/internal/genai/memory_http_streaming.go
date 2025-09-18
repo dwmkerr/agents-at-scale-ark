@@ -18,6 +18,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	// String constants
+	trueValue = "true"
+)
+
 // Simple message structure for fallback parsing
 type simpleMessage struct {
 	Role    string `json:"role"`
@@ -344,7 +349,7 @@ func (m *HTTPMemoryAndStreaming) isStreamingEnabled(ctx context.Context) (bool, 
 	}
 
 	enabled := annotations["ark.mckinsey.com/memory-event-stream-enabled"]
-	return enabled == "true", nil
+	return enabled == trueValue, nil
 }
 
 func (m *HTTPMemoryAndStreaming) StreamChunk(ctx context.Context, chunk interface{}) error {
