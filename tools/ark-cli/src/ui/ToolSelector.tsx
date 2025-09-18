@@ -1,32 +1,32 @@
 import React, {useState, useEffect} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {Agent, ArkApiClient} from '../../lib/arkApiClient.js';
+import {Tool, ArkApiClient} from '../lib/arkApiClient.js';
 
-interface AgentSelectorProps {
+interface ToolSelectorProps {
   arkApiClient: ArkApiClient;
-  onSelect: (agent: Agent) => void;
+  onSelect: (tool: Tool) => void;
   onExit: () => void;
 }
 
-export function AgentSelector({
+export function ToolSelector({
   arkApiClient,
   onSelect,
   onExit,
-}: AgentSelectorProps) {
+}: ToolSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     arkApiClient
-      .getAgents()
-      .then((fetchedAgents) => {
-        setAgents(fetchedAgents);
+      .getTools()
+      .then((fetchedTools) => {
+        setTools(fetchedTools);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch agents');
+        setError(err.message || 'Failed to fetch tools');
         setLoading(false);
       });
   }, [arkApiClient]);
@@ -35,16 +35,16 @@ export function AgentSelector({
     if (key.escape) {
       onExit();
     } else if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => (prev === 0 ? agents.length - 1 : prev - 1));
+      setSelectedIndex((prev) => (prev === 0 ? tools.length - 1 : prev - 1));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => (prev === agents.length - 1 ? 0 : prev + 1));
+      setSelectedIndex((prev) => (prev === tools.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
-      onSelect(agents[selectedIndex]);
+      onSelect(tools[selectedIndex]);
     } else {
       // Handle number keys for quick selection
       const num = parseInt(input, 10);
-      if (!isNaN(num) && num >= 1 && num <= agents.length) {
-        onSelect(agents[num - 1]);
+      if (!isNaN(num) && num >= 1 && num <= tools.length) {
+        onSelect(tools[num - 1]);
       }
     }
   });
@@ -52,7 +52,7 @@ export function AgentSelector({
   if (loading) {
     return (
       <Box>
-        <Text>Loading agents...</Text>
+        <Text>Loading tools...</Text>
       </Box>
     );
   }
@@ -65,15 +65,15 @@ export function AgentSelector({
     );
   }
 
-  if (agents.length === 0) {
+  if (tools.length === 0) {
     return (
       <Box>
-        <Text>No agents available</Text>
+        <Text>No tools available</Text>
       </Box>
     );
   }
 
-  const selectedAgent = agents[selectedIndex];
+  const selectedTool = tools[selectedIndex];
 
   return (
     <Box
@@ -84,27 +84,27 @@ export function AgentSelector({
       paddingY={1}
     >
       <Box marginBottom={1}>
-        <Text bold>Select Agent</Text>
+        <Text bold>Select Tool</Text>
       </Box>
       <Box marginBottom={1}>
-        <Text dimColor>Choose an agent to start a conversation with</Text>
+        <Text dimColor>Choose a tool to start a conversation with</Text>
       </Box>
 
       <Box flexDirection="column">
-        {agents.map((agent, index) => (
-          <Box key={agent.name} marginBottom={0}>
+        {tools.map((tool, index) => (
+          <Box key={tool.name} marginBottom={0}>
             <Text color={index === selectedIndex ? 'green' : undefined}>
               {index === selectedIndex ? '❯ ' : '  '}
-              {index + 1}. {agent.name}
+              {index + 1}. {tool.name}
             </Text>
           </Box>
         ))}
       </Box>
 
-      {selectedAgent.description && (
+      {selectedTool && selectedTool.description && (
         <Box marginTop={1} paddingLeft={2}>
           <Text dimColor wrap="wrap">
-            {selectedAgent.description}
+            {selectedTool.description}
           </Text>
         </Box>
       )}

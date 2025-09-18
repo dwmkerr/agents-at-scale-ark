@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {Model, ArkApiClient} from '../../lib/arkApiClient.js';
+import {Model, ArkApiClient} from '../lib/arkApiClient.js';
 
 interface ModelSelectorProps {
   arkApiClient: ArkApiClient;

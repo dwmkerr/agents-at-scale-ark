@@ -15,10 +15,10 @@ import {
 } from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
-import {AgentSelector} from '../commands/agents/selector.js';
-import {ModelSelector} from '../commands/models/selector.js';
-import {TeamSelector} from '../commands/teams/selector.js';
-import {ToolSelector} from '../commands/tools/selector.js';
+import {AgentSelector} from '../ui/AgentSelector.js';
+import {ModelSelector} from '../ui/ModelSelector.js';
+import {TeamSelector} from '../ui/TeamSelector.js';
+import {ToolSelector} from '../ui/ToolSelector.js';
 
 type SlashCommand =
   | '/output'

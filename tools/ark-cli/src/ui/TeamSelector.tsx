@@ -1,32 +1,32 @@
 import React, {useState, useEffect} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {Tool, ArkApiClient} from '../../lib/arkApiClient.js';
+import {Team, ArkApiClient} from '../lib/arkApiClient.js';
 
-interface ToolSelectorProps {
+interface TeamSelectorProps {
   arkApiClient: ArkApiClient;
-  onSelect: (tool: Tool) => void;
+  onSelect: (team: Team) => void;
   onExit: () => void;
 }
 
-export function ToolSelector({
+export function TeamSelector({
   arkApiClient,
   onSelect,
   onExit,
-}: ToolSelectorProps) {
+}: TeamSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [tools, setTools] = useState<Tool[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     arkApiClient
-      .getTools()
-      .then((fetchedTools) => {
-        setTools(fetchedTools);
+      .getTeams()
+      .then((fetchedTeams) => {
+        setTeams(fetchedTeams);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch tools');
+        setError(err.message || 'Failed to fetch teams');
         setLoading(false);
       });
   }, [arkApiClient]);
@@ -35,16 +35,16 @@ export function ToolSelector({
     if (key.escape) {
       onExit();
     } else if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => (prev === 0 ? tools.length - 1 : prev - 1));
+      setSelectedIndex((prev) => (prev === 0 ? teams.length - 1 : prev - 1));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => (prev === tools.length - 1 ? 0 : prev + 1));
+      setSelectedIndex((prev) => (prev === teams.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
-      onSelect(tools[selectedIndex]);
+      onSelect(teams[selectedIndex]);
     } else {
       // Handle number keys for quick selection
       const num = parseInt(input, 10);
-      if (!isNaN(num) && num >= 1 && num <= tools.length) {
-        onSelect(tools[num - 1]);
+      if (!isNaN(num) && num >= 1 && num <= teams.length) {
+        onSelect(teams[num - 1]);
       }
     }
   });
@@ -52,7 +52,7 @@ export function ToolSelector({
   if (loading) {
     return (
       <Box>
-        <Text>Loading tools...</Text>
+        <Text>Loading teams...</Text>
       </Box>
     );
   }
@@ -65,15 +65,15 @@ export function ToolSelector({
     );
   }
 
-  if (tools.length === 0) {
+  if (teams.length === 0) {
     return (
       <Box>
-        <Text>No tools available</Text>
+        <Text>No teams available</Text>
       </Box>
     );
   }
 
-  const selectedTool = tools[selectedIndex];
+  const selectedTeam = teams[selectedIndex];
 
   return (
     <Box
@@ -84,30 +84,33 @@ export function ToolSelector({
       paddingY={1}
     >
       <Box marginBottom={1}>
-        <Text bold>Select Tool</Text>
+        <Text bold>Select Team</Text>
       </Box>
       <Box marginBottom={1}>
-        <Text dimColor>Choose a tool to start a conversation with</Text>
+        <Text dimColor>Choose a team to start a conversation with</Text>
       </Box>
 
       <Box flexDirection="column">
-        {tools.map((tool, index) => (
-          <Box key={tool.name} marginBottom={0}>
+        {teams.map((team, index) => (
+          <Box key={team.name} marginBottom={0}>
             <Text color={index === selectedIndex ? 'green' : undefined}>
               {index === selectedIndex ? '❯ ' : '  '}
-              {index + 1}. {tool.name}
+              {index + 1}. {team.name}
+              {team.strategy ? ` (${team.strategy})` : ''}
             </Text>
           </Box>
         ))}
       </Box>
 
-      {selectedTool && selectedTool.description && (
-        <Box marginTop={1} paddingLeft={2}>
-          <Text dimColor wrap="wrap">
-            {selectedTool.description}
-          </Text>
-        </Box>
-      )}
+      {selectedTeam &&
+        (selectedTeam.description || selectedTeam.members_count) && (
+          <Box marginTop={1} paddingLeft={2}>
+            <Text dimColor wrap="wrap">
+              {selectedTeam.description ||
+                `Members: ${selectedTeam.members_count}`}
+            </Text>
+          </Box>
+        )}
 
       <Box marginTop={1}>
         <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>

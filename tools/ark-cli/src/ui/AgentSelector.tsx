@@ -1,32 +1,32 @@
 import React, {useState, useEffect} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {Team, ArkApiClient} from '../../lib/arkApiClient.js';
+import {Agent, ArkApiClient} from '../lib/arkApiClient.js';
 
-interface TeamSelectorProps {
+interface AgentSelectorProps {
   arkApiClient: ArkApiClient;
-  onSelect: (team: Team) => void;
+  onSelect: (agent: Agent) => void;
   onExit: () => void;
 }
 
-export function TeamSelector({
+export function AgentSelector({
   arkApiClient,
   onSelect,
   onExit,
-}: TeamSelectorProps) {
+}: AgentSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     arkApiClient
-      .getTeams()
-      .then((fetchedTeams) => {
-        setTeams(fetchedTeams);
+      .getAgents()
+      .then((fetchedAgents) => {
+        setAgents(fetchedAgents);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch teams');
+        setError(err.message || 'Failed to fetch agents');
         setLoading(false);
       });
   }, [arkApiClient]);
@@ -35,16 +35,16 @@ export function TeamSelector({
     if (key.escape) {
       onExit();
     } else if (key.upArrow || input === 'k') {
-      setSelectedIndex((prev) => (prev === 0 ? teams.length - 1 : prev - 1));
+      setSelectedIndex((prev) => (prev === 0 ? agents.length - 1 : prev - 1));
     } else if (key.downArrow || input === 'j') {
-      setSelectedIndex((prev) => (prev === teams.length - 1 ? 0 : prev + 1));
+      setSelectedIndex((prev) => (prev === agents.length - 1 ? 0 : prev + 1));
     } else if (key.return) {
-      onSelect(teams[selectedIndex]);
+      onSelect(agents[selectedIndex]);
     } else {
       // Handle number keys for quick selection
       const num = parseInt(input, 10);
-      if (!isNaN(num) && num >= 1 && num <= teams.length) {
-        onSelect(teams[num - 1]);
+      if (!isNaN(num) && num >= 1 && num <= agents.length) {
+        onSelect(agents[num - 1]);
       }
     }
   });
@@ -52,7 +52,7 @@ export function TeamSelector({
   if (loading) {
     return (
       <Box>
-        <Text>Loading teams...</Text>
+        <Text>Loading agents...</Text>
       </Box>
     );
   }
@@ -65,15 +65,15 @@ export function TeamSelector({
     );
   }
 
-  if (teams.length === 0) {
+  if (agents.length === 0) {
     return (
       <Box>
-        <Text>No teams available</Text>
+        <Text>No agents available</Text>
       </Box>
     );
   }
 
-  const selectedTeam = teams[selectedIndex];
+  const selectedAgent = agents[selectedIndex];
 
   return (
     <Box
@@ -84,33 +84,30 @@ export function TeamSelector({
       paddingY={1}
     >
       <Box marginBottom={1}>
-        <Text bold>Select Team</Text>
+        <Text bold>Select Agent</Text>
       </Box>
       <Box marginBottom={1}>
-        <Text dimColor>Choose a team to start a conversation with</Text>
+        <Text dimColor>Choose an agent to start a conversation with</Text>
       </Box>
 
       <Box flexDirection="column">
-        {teams.map((team, index) => (
-          <Box key={team.name} marginBottom={0}>
+        {agents.map((agent, index) => (
+          <Box key={agent.name} marginBottom={0}>
             <Text color={index === selectedIndex ? 'green' : undefined}>
               {index === selectedIndex ? '❯ ' : '  '}
-              {index + 1}. {team.name}
-              {team.strategy ? ` (${team.strategy})` : ''}
+              {index + 1}. {agent.name}
             </Text>
           </Box>
         ))}
       </Box>
 
-      {selectedTeam &&
-        (selectedTeam.description || selectedTeam.members_count) && (
-          <Box marginTop={1} paddingLeft={2}>
-            <Text dimColor wrap="wrap">
-              {selectedTeam.description ||
-                `Members: ${selectedTeam.members_count}`}
-            </Text>
-          </Box>
-        )}
+      {selectedAgent.description && (
+        <Box marginTop={1} paddingLeft={2}>
+          <Text dimColor wrap="wrap">
+            {selectedAgent.description}
+          </Text>
+        </Box>
+      )}
 
       <Box marginTop={1}>
         <Text dimColor>Enter to confirm · Number to select · Esc to exit</Text>
