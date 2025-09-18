@@ -1,0 +1,10 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: memory-test-agent
+spec:
+  prompt: |
+    You are a helpful assistant that can remember conversations.
+    Keep your responses brief and to the point.
+  modelRef:
+    name: memory-test-model

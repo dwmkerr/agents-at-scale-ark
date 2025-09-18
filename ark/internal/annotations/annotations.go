@@ -45,3 +45,9 @@ const (
 	TriggeredFrom        = ARKPrefix + "triggered-from"
 	LocalhostGatewayPort = ARKPrefix + "localhost-gateway-port"
 )
+
+// Streaming annotations for real-time message delivery
+const (
+	StreamingEnabled = ARKPrefix + "streaming-enabled" // Enable streaming for queries
+	StreamingURL     = ARKPrefix + "streaming-url"     // SSE endpoint for streaming
+)

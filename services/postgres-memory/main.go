@@ -89,25 +89,6 @@ func validateMessageSize(messageData interface{}, maxSize int) error {
 	return nil
 }
 
-func (s *Server) safeExec(ctx context.Context, executor DBExecutor, query string, sessionID string, messageData interface{}) (sql.Result, error) {
-	ctx, cancel := ensureContext(ctx)
-	defer cancel()
-
-	if err := validateSessionID(sessionID, s.maxSessionIDLength); err != nil {
-		return nil, fmt.Errorf("invalid session ID: %w", err)
-	}
-
-	if err := validateMessageSize(messageData, s.maxMessageSize); err != nil {
-		return nil, err
-	}
-
-	result, err := executor.ExecContext(ctx, query, sessionID, messageData)
-	if err != nil {
-		return nil, fmt.Errorf("database execution error: %w", err)
-	}
-
-	return result, nil
-}
 
 func (s *Server) safeExecWithQuery(ctx context.Context, executor DBExecutor, query string, sessionID, queryID string, messageData interface{}) (sql.Result, error) {
 	ctx, cancel := ensureContext(ctx)
@@ -216,15 +197,6 @@ func (s *Server) addMessage(ctx context.Context, sessionID, queryID string, mess
 	return nil
 }
 
-func (s *Server) addRawMessage(ctx context.Context, sessionID, queryID string, messageData json.RawMessage) error {
-	query := fmt.Sprintf(`INSERT INTO %s (session_id, query_id, message) VALUES ($1, $2, $3)`, quoteIdentifier(s.tableName))
-	_, err := s.safeExecWithQuery(ctx, s.db, query, sessionID, queryID, messageData)
-	if err != nil {
-		return fmt.Errorf("insert message: %w", err)
-	}
-
-	return nil
-}
 
 func (s *Server) addRawMessages(ctx context.Context, sessionID, queryID string, messages []json.RawMessage) error {
 	if len(messages) == 0 {
@@ -235,7 +207,9 @@ func (s *Server) addRawMessages(ctx context.Context, sessionID, queryID string, 
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	query := fmt.Sprintf(`INSERT INTO %s (session_id, query_id, message) VALUES ($1, $2, $3)`, quoteIdentifier(s.tableName))
 
@@ -341,7 +315,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {

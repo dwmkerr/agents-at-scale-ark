@@ -23,8 +23,10 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import type { components } from "@/lib/api/generated/types";
+import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import { useMarkdownProcessor } from "@/lib/hooks/use-markdown-processor";
 import {
   agentsService,
@@ -124,6 +126,7 @@ interface QueryStatus {
 
 interface TypedQueryDetailResponse extends Omit<QueryDetailResponse, 'status'> {
   status?: QueryStatus | null
+  metadata?: Record<string, string>
 }
 
 // Reusable styles for table field headings  
@@ -241,6 +244,52 @@ function QueryNameField({ mode, value, onChange, label, placeholder, inputRef, t
   )
 }
 
+interface QueryStreamingFieldProps {
+  mode: 'new' | 'view'
+  value: boolean
+  onChange?: (value: boolean) => void
+  label: string
+  tooltip?: string
+  metadata?: { annotations?: Record<string, string> }
+}
+
+function QueryStreamingField({ mode, value, onChange, label, tooltip, metadata }: QueryStreamingFieldProps) {
+  // For view mode, check if streaming annotation exists
+  const isStreamingEnabled = mode === 'view' 
+    ? metadata?.annotations?.[ARK_ANNOTATIONS.STREAMING_ENABLED] === "true"
+    : value
+
+  return (
+    <tr className="border-b border-gray-100 dark:border-gray-800">
+      <td className={FIELD_HEADING_STYLES}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger className="cursor-help text-left" tabIndex={-1}>
+              {label}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{tooltip || "Enable real-time streaming for live response updates"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </td>
+      <td className="px-3 py-2">
+        {mode === 'view' ? (
+          <span className="text-xs text-gray-700 dark:text-gray-300">
+            {isStreamingEnabled ? "Yes" : "No"}
+          </span>
+        ) : (
+          <Checkbox
+            id="streaming"
+            checked={isStreamingEnabled}
+            onCheckedChange={onChange}
+          />
+        )}
+      </td>
+    </tr>
+  )
+}
+
 function QueryDetailContent() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -262,6 +311,7 @@ function QueryDetailContent() {
   const [errorViewMode, setErrorViewMode] = useState<'events' | 'details'>('events')
   const nameFieldRef = useRef<HTMLInputElement>(null)
   const [toolSchema, setToolSchema] = useState<ToolDetail | null>(null)
+  const [streaming, setStreaming] = useState(false)
 
   // Copy schema to clipboard
   const copySchemaToClipboard = async () => {
@@ -363,7 +413,12 @@ function QueryDetailContent() {
         timeout: query.timeout,
         ttl: query.ttl,
         sessionId: query.sessionId,
-        memory: query.memory
+        memory: query.memory,
+        ...(streaming && {
+          metadata: {
+            [ARK_ANNOTATIONS.STREAMING_ENABLED]: "true"
+          }
+        })
       }
 
       const savedQuery = await queriesService.create(namespace, queryData)
@@ -457,6 +512,10 @@ function QueryDetailContent() {
       try {
         const queryData = await queriesService.get(namespace, queryId)
         setQuery(queryData as TypedQueryDetailResponse)
+        
+        // Set streaming state based on annotation
+        const isStreamingEnabled = (queryData as TypedQueryDetailResponse).metadata?.[ARK_ANNOTATIONS.STREAMING_ENABLED] === "true"
+        setStreaming(isStreamingEnabled)
       } catch (error) {
         toast({
           variant: "destructive",
@@ -654,6 +713,13 @@ function QueryDetailContent() {
                   label="Memory"
                   availableMemories={availableMemories}
                   loading={memoriesLoading}
+                />
+                <QueryStreamingField 
+                  mode={mode}
+                  value={streaming}
+                  onChange={setStreaming}
+                  label="Streaming"
+                  metadata={query.metadata}
                 />
                 <tr>
                   <td className={FIELD_HEADING_STYLES}>

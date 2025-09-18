@@ -1,0 +1,213 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ark-cluster-memory
+spec:
+  timeouts:
+    apply: 120s
+    assert: 300s
+    cleanup: 120s
+  steps:
+  - name: setup-azure-creds
+    try:
+    - script:
+        skipLogOutput: true
+        content: |
+          set -u
+          echo "{\"token\": \"$E2E_TEST_AZURE_OPENAI_KEY\", \"url\": \"$E2E_TEST_AZURE_OPENAI_BASE_URL\"}"
+        outputs:
+        - name: azure
+          value: (json_parse($stdout))
+
+  - name: deploy-memory-service
+    try:
+    - script:
+        content: |
+          helm install ark-cluster-memory ../chart \
+            --namespace $NAMESPACE \
+            --wait \
+            --timeout=60s \
+            --set image.repository=ark-cluster-memory \
+            --set image.tag=latest
+        env:
+        - name: NAMESPACE
+          value: ($namespace)
+
+  - name: wait-for-memory-service
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ark-cluster-memory
+    - script:
+        content: |
+          kubectl wait --for=condition=ready pod -l app=ark-cluster-memory \
+            -n $NAMESPACE --timeout=60s
+        env:
+        - name: NAMESPACE
+          value: ($namespace)
+
+  - name: apply-test-resources
+    try:
+    - apply:
+        file: manifests/a00-rbac.yaml
+    - apply:
+        file: manifests/a01-model-secret.yaml
+        bindings:
+        - name: azure
+          value: ($azure)
+    - apply:
+        file: manifests/a02-model.yaml
+        bindings:
+        - name: azure
+          value: ($azure)
+    - apply:
+        file: manifests/a03-memory.yaml
+    - apply:
+        file: manifests/a04-agent.yaml
+
+  - name: test-memory-conversation
+    try:
+    - apply:
+        file: manifests/a05-query-hello.yaml
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: memory-test-hello
+          status:
+            phase: done
+    catch:
+    - events: {}
+    - describe:
+        apiVersion: ark.mckinsey.com/v1alpha1
+        kind: Query
+        name: memory-test-hello
+
+  - name: test-memory-recall
+    try:
+    - apply:
+        file: manifests/a06-query-recall.yaml
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: memory-test-recall
+          status:
+            phase: done
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: memory-test-recall
+          status:
+            (contains(responses[0].content, 'hello') || contains(responses[0].content, 'Hello')): true
+    catch:
+    - events: {}
+    - describe:
+        apiVersion: ark.mckinsey.com/v1alpha1
+        kind: Query
+        name: memory-test-recall
+
+  - name: test-http-api
+    try:
+    - script:
+        skipLogOutput: true
+        content: cat test.hurl
+        outputs:
+        - name: test_script
+          value: ($stdout)
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: hurl-test-files
+          data:
+            test.hurl: ($test_script)
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ark-cluster-memory-test
+          spec:
+            containers:
+            - name: test-client
+              image: ghcr.io/orange-opensource/hurl:6.1.1
+              command: ["sleep", "300"]
+              volumeMounts:
+              - name: test-files
+                mountPath: /tests
+            volumes:
+            - name: test-files
+              configMap:
+                name: hurl-test-files
+            restartPolicy: Never
+            terminationGracePeriodSeconds: 0
+    - script:
+        content: |
+          kubectl wait --for=condition=ready pod ark-cluster-memory-test \
+            -n $NAMESPACE --timeout=60s
+        env:
+        - name: NAMESPACE
+          value: ($namespace)
+    - script:
+        content: |
+          kubectl exec ark-cluster-memory-test -n $NAMESPACE -- \
+            hurl --test /tests/test.hurl
+        env:
+        - name: NAMESPACE
+          value: ($namespace)
+        timeout: 120s
+
+  - name: test-session-isolation
+    try:
+    - apply:
+        file: manifests/a07-query-different-session.yaml
+    - assert:
+        resource:
+          apiVersion: ark.mckinsey.com/v1alpha1
+          kind: Query
+          metadata:
+            name: memory-test-different-session
+          status:
+            phase: done
+    - script:
+        content: |
+          RESPONSE=$(kubectl -n $NAMESPACE get query memory-test-different-session -o jsonpath='{.status.responses[0].content}')
+
+          echo "=== Different Session Response ==="
+          echo "$RESPONSE"
+          echo "=================================="
+
+          # Response should NOT contain references to the hello conversation
+          if echo "$RESPONSE" | grep -qi "hello"; then
+            echo "✗ Session isolation failed - found reference to other session"
+            exit 1
+          else
+            echo "✓ Session isolation working - no cross-session data leakage"
+          fi
+        env:
+        - name: NAMESPACE
+          value: ($namespace)
+    catch:
+    - events: {}
+    - describe:
+        apiVersion: ark.mckinsey.com/v1alpha1
+        kind: Query
+        name: memory-test-different-session
+
+  - name: cleanup
+    try:
+    - script:
+        content: |
+          helm uninstall ark-cluster-memory -n $NAMESPACE || true
+        env:
+        - name: NAMESPACE
+          value: ($namespace)

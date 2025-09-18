@@ -1,0 +1,12 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: memory-test-different-session
+spec:
+  input: "Tell me what we discussed previously."
+  targets:
+    - type: agent
+      name: memory-test-agent
+  memory:
+    name: cluster-memory-test
+  sessionId: "different-session-456"

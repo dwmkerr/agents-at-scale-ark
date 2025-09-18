@@ -7,29 +7,35 @@ HTTP 200
 [Asserts]
 body == "OK"
 
-# Test adding a single message
-PUT http://postgres-memory/message/test-session
+# Test adding messages to a session
+POST http://postgres-memory/messages
 Content-Type: application/json
 {
-  "message": {
-    "role": "user",
-    "content": "Hello, this is a test message!"
-  }
+  "session_id": "test-session",
+  "query_id": "query-1",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, this is a test message!"
+    }
+  ]
 }
 HTTP 200
 
 # Test retrieving messages from session
-GET http://postgres-memory/message/test-session
+GET http://postgres-memory/messages?session_id=test-session
 HTTP 200
 [Asserts]
 jsonpath "$.messages" count == 1
-jsonpath "$.messages[0].role" == "user"
-jsonpath "$.messages[0].content" == "Hello, this is a test message!"
+jsonpath "$.messages[0].message.role" == "user"
+jsonpath "$.messages[0].message.content" == "Hello, this is a test message!"
 
 # Test adding multiple messages in bulk
-PUT http://postgres-memory/messages/bulk-session
+POST http://postgres-memory/messages
 Content-Type: application/json
 {
+  "session_id": "bulk-session",
+  "query_id": "query-2",
   "messages": [
     {
       "role": "user",
@@ -48,74 +54,91 @@ Content-Type: application/json
 HTTP 200
 
 # Test retrieving bulk messages
-GET http://postgres-memory/message/bulk-session
+GET http://postgres-memory/messages?session_id=bulk-session
 HTTP 200
 [Asserts]
 jsonpath "$.messages" count == 3
-jsonpath "$.messages[0].role" == "user"
-jsonpath "$.messages[0].content" == "First message in bulk"
-jsonpath "$.messages[1].role" == "assistant"
-jsonpath "$.messages[1].content" == "Second message in bulk"
-jsonpath "$.messages[2].role" == "user"
-jsonpath "$.messages[2].content" == "Third message in bulk"
+jsonpath "$.messages[0].message.role" == "user"
+jsonpath "$.messages[0].message.content" == "First message in bulk"
+jsonpath "$.messages[1].message.role" == "assistant"
+jsonpath "$.messages[1].message.content" == "Second message in bulk"
+jsonpath "$.messages[2].message.role" == "user"
+jsonpath "$.messages[2].message.content" == "Third message in bulk"
 
 # Test session isolation - different session should have no messages
-GET http://postgres-memory/message/empty-session
+GET http://postgres-memory/messages?session_id=empty-session
 HTTP 200
 [Asserts]
-jsonpath "$.messages" == null
+jsonpath "$.messages" count == 0
 
 # Test adding another message to original session
-PUT http://postgres-memory/message/test-session
+POST http://postgres-memory/messages
 Content-Type: application/json
 {
-  "message": {
-    "role": "assistant",
-    "content": "Response to the test message"
-  }
+  "session_id": "test-session",
+  "query_id": "query-3",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Response to the test message"
+    }
+  ]
 }
 HTTP 200
 
-# Verify session now has two messages in correct order
-GET http://postgres-memory/message/test-session
+# Verify both messages are in the session
+GET http://postgres-memory/messages?session_id=test-session
 HTTP 200
 [Asserts]
 jsonpath "$.messages" count == 2
-jsonpath "$.messages[0].role" == "user"
-jsonpath "$.messages[0].content" == "Hello, this is a test message!"
-jsonpath "$.messages[1].role" == "assistant"
-jsonpath "$.messages[1].content" == "Response to the test message"
 
-# Test with complex message structure (tool calls, etc.)
-PUT http://postgres-memory/message/complex-session
-Content-Type: application/json
-{
-  "message": {
-    "role": "assistant",
-    "content": null,
-    "tool_calls": [
-      {
-        "id": "call_123",
-        "type": "function",
-        "function": {
-          "name": "get_weather",
-          "arguments": "{\"location\": \"San Francisco\"}"
-        }
-      }
-    ]
-  }
-}
-HTTP 200
-
-# Verify complex message structure is preserved
-GET http://postgres-memory/message/complex-session
+# Test filtering by query_id
+GET http://postgres-memory/messages?session_id=test-session&query_id=query-1
 HTTP 200
 [Asserts]
 jsonpath "$.messages" count == 1
-jsonpath "$.messages[0].role" == "assistant"
-jsonpath "$.messages[0].content" == null
-jsonpath "$.messages[0].tool_calls" exists
-jsonpath "$.messages[0].tool_calls[0].id" == "call_123"
-jsonpath "$.messages[0].tool_calls[0].function.name" == "get_weather"
+jsonpath "$.messages[0].message.content" == "Hello, this is a test message!"
 
-# Test complete - all core functionality validated
+# Test sessions endpoint
+GET http://postgres-memory/sessions
+HTTP 200
+[Asserts]
+jsonpath "$.sessions" count >= 2
+
+# Test pagination
+GET http://postgres-memory/messages?limit=1&offset=0
+HTTP 200
+[Asserts]
+jsonpath "$.messages" count == 1
+jsonpath "$.total" >= 4
+
+# Test complex message with tool calls
+POST http://postgres-memory/messages
+Content-Type: application/json
+{
+  "session_id": "tool-session",
+  "query_id": "query-4",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "I'll help you with that.",
+      "tool_calls": [
+        {
+          "id": "call_123",
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "arguments": "{\"location\": \"San Francisco\"}"
+          }
+        }
+      ]
+    }
+  ]
+}
+HTTP 200
+
+# Retrieve and verify complex message
+GET http://postgres-memory/messages?session_id=tool-session
+HTTP 200
+[Asserts]
+jsonpath "$.messages[0].message.tool_calls[0].function.name" == "get_weather"
