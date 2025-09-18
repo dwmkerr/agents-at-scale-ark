@@ -10,7 +10,20 @@ import {getInstallableServices, arkDependencies} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
 import ora from 'ora';
 
-export async function installArk(options: { yes?: boolean; waitForReady?: string } = {}) {
+async function installService(service: any) {
+  const helmArgs = [
+    'upgrade',
+    '--install',
+    service.helmReleaseName,
+    service.chartPath!,
+    '--namespace',
+    service.namespace,
+    ...(service.installArgs || []),
+  ];
+  await execa('helm', helmArgs);
+}
+
+export async function installArk(serviceName?: string, options: { yes?: boolean; waitForReady?: string } = {}) {
   // Validate that --wait-for-ready requires -y
   if (options.waitForReady && !options.yes) {
     output.error('--wait-for-ready requires -y flag for non-interactive mode');
@@ -58,6 +71,36 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
     output.info(`ip: ${clusterInfo.ip}`);
   }
   console.log(); // Add blank line after cluster info
+
+  // If a specific service is requested, install only that service
+  if (serviceName) {
+    const services = getInstallableServices();
+    const service = Object.values(services).find(s =>
+      s.name === serviceName ||
+      s.helmReleaseName === serviceName ||
+      s.name === `ark-${serviceName}`
+    );
+
+    if (!service) {
+      output.error(`service '${serviceName}' not found`);
+      output.info('available services:');
+      for (const s of Object.values(services)) {
+        output.info(`  ${s.name}`);
+      }
+      process.exit(1);
+    }
+
+    output.info(`installing ${service.name}...`);
+    try {
+      await installService(service);
+      output.success(`${service.name} installed successfully`);
+    } catch (error) {
+      output.error(`failed to install ${service.name}`);
+      console.error(error);
+      process.exit(1);
+    }
+    return;
+  }
 
   // If not using -y flag, show checklist interface
   if (!options.yes) {
@@ -200,25 +243,7 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
 
       output.info(`installing ${service.name}...`);
       try {
-        // Build helm arguments
-        const helmArgs = [
-          'upgrade',
-          '--install',
-          service.helmReleaseName,
-          service.chartPath!,
-          '--namespace',
-          service.namespace,
-        ];
-
-        // Add any additional args from the service definition
-        if (service.installArgs) {
-          helmArgs.push(...service.installArgs);
-        }
-
-        // Run helm upgrade --install with streaming output
-        await execa('helm', helmArgs, {
-          stdio: 'inherit',
-        });
+        await installService(service);
 
         console.log(); // Add blank line after command output
       } catch {
@@ -250,26 +275,7 @@ export async function installArk(options: { yes?: boolean; waitForReady?: string
       output.info(`installing ${service.name}...`);
 
       try {
-        // Build helm arguments
-        const helmArgs = [
-          'upgrade',
-          '--install',
-          service.helmReleaseName,
-          service.chartPath!,
-          '--namespace',
-          service.namespace,
-        ];
-
-        // Add any additional args from the service definition
-        if (service.installArgs) {
-          helmArgs.push(...service.installArgs);
-        }
-
-        // Run helm upgrade --install with streaming output
-        await execa('helm', helmArgs, {
-          stdio: 'inherit',
-        });
-
+        await installService(service);
         console.log(); // Add blank line after command output
       } catch {
         // Continue with remaining services on error
@@ -326,10 +332,11 @@ export function createInstallCommand(_: ArkConfig) {
 
   command
     .description('Install Ark components using Helm')
+    .argument('[service]', 'specific service to install (e.g., dashboard, api)')
     .option('-y, --yes', 'automatically confirm all installations')
     .option('--wait-for-ready <timeout>', 'wait for Ark to be ready after installation (e.g., 30s, 2m)')
-    .action(async (options) => {
-      await installArk(options);
+    .action(async (service, options) => {
+      await installArk(service, options);
     });
 
   return command;
