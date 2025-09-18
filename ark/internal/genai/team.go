@@ -128,7 +128,7 @@ func (t *Team) GetName() string {
 }
 
 func (t *Team) GetType() string {
-	return "team"
+	return string(teamKey)
 }
 
 func (t *Team) GetDescription() string {
@@ -252,7 +252,7 @@ func loadTeamMember(ctx context.Context, k8sClient client.Client, memberSpec ark
 	key := types.NamespacedName{Name: memberSpec.Name, Namespace: namespace}
 
 	switch memberSpec.Type {
-	case "agent":
+	case string(agentKey):
 		var agentCRD arkv1alpha1.Agent
 		if err := k8sClient.Get(ctx, key, &agentCRD); err != nil {
 			return nil, fmt.Errorf("failed to get agent %s for team %s: %w", memberSpec.Name, teamName, err)
