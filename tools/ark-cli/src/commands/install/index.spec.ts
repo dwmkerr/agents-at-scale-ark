@@ -6,11 +6,6 @@ jest.unstable_mockModule('execa', () => ({
   execa: mockExeca,
 }));
 
-const mockCheckCommandExists = jest.fn() as any;
-jest.unstable_mockModule('../../lib/commands.js', () => ({
-  checkCommandExists: mockCheckCommandExists,
-}));
-
 const mockGetClusterInfo = jest.fn() as any;
 jest.unstable_mockModule('../../lib/cluster.js', () => ({
   getClusterInfo: mockGetClusterInfo,
@@ -44,7 +39,6 @@ const {createInstallCommand} = await import('./index.js');
 describe('install command', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCheckCommandExists.mockResolvedValue(true);
     mockGetClusterInfo.mockResolvedValue({
       context: 'test-cluster',
       type: 'minikube',
@@ -131,28 +125,6 @@ describe('install command', () => {
         'default',
       ]
     );
-  });
-
-  it('exits when helm is not installed', async () => {
-    mockCheckCommandExists.mockResolvedValueOnce(false);
-
-    const command = createInstallCommand({});
-
-    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('helm is not installed. please install helm first:');
-    expect(mockExit).toHaveBeenCalledWith(1);
-  });
-
-  it('exits when kubectl is not installed', async () => {
-    mockCheckCommandExists
-      .mockResolvedValueOnce(true)  // helm check
-      .mockResolvedValueOnce(false); // kubectl check
-
-    const command = createInstallCommand({});
-
-    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('kubectl is not installed. please install kubectl first:');
-    expect(mockExit).toHaveBeenCalledWith(1);
   });
 
   it('exits when cluster not connected', async () => {

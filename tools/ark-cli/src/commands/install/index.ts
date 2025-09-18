@@ -3,7 +3,6 @@ import chalk from 'chalk';
 import {execa} from 'execa';
 import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
-import {checkCommandExists} from '../../lib/commands.js';
 import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
@@ -27,22 +26,6 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
   // Validate that --wait-for-ready requires -y
   if (options.waitForReady && !options.yes) {
     output.error('--wait-for-ready requires -y flag for non-interactive mode');
-    process.exit(1);
-  }
-
-  // Check if helm is installed
-  const helmInstalled = await checkCommandExists('helm', ['version', '--short']);
-  if (!helmInstalled) {
-    output.error('helm is not installed. please install helm first:');
-    output.info('https://helm.sh/docs/intro/install/');
-    process.exit(1);
-  }
-
-  // Check if kubectl is installed (needed for some dependencies)
-  const kubectlInstalled = await checkCommandExists('kubectl', ['version', '--client']);
-  if (!kubectlInstalled) {
-    output.error('kubectl is not installed. please install kubectl first:');
-    output.info('https://kubernetes.io/docs/tasks/tools/');
     process.exit(1);
   }
 
