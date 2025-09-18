@@ -27,13 +27,10 @@ async function listTools(options: {output?: string}) {
       });
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
-      output.error('MCPServer CRDs not installed. Is the ARK controller running?');
-    } else {
-      output.error(
-        `Failed to list tools: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+    output.error(
+      'fetching tools:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }

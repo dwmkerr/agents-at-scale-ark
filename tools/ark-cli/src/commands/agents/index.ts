@@ -28,14 +28,10 @@ async function listAgents(options: {output?: string}) {
       });
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
-      output.error('Agent CRDs not installed. Is the ARK controller running?');
-    } else {
-      output.error(
-        'fetching agents:',
-        error instanceof Error ? error.message : error
-      );
-    }
+    output.error(
+      'fetching agents:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }

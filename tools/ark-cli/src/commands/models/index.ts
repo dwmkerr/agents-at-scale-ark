@@ -29,13 +29,10 @@ async function listModels(options: {output?: string}) {
       });
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
-      output.error('Model CRDs not installed. Is the ARK controller running?');
-    } else {
-      output.error(
-        `Failed to list models: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+    output.error(
+      'fetching models:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }

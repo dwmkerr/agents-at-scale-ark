@@ -27,13 +27,10 @@ async function listTeams(options: {output?: string}) {
       });
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the server doesn\'t have a resource type')) {
-      output.error('Team CRDs not installed. Is the ARK controller running?');
-    } else {
-      output.error(
-        `Failed to list teams: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+    output.error(
+      'fetching teams:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }
