@@ -1,7 +1,7 @@
 import {jest} from '@jest/globals';
 import {Command} from 'commander';
 
-const mockExeca = jest.fn() as any;
+const mockExeca = jest.fn(() => Promise.resolve()) as any;
 jest.unstable_mockModule('execa', () => ({
   execa: mockExeca,
 }));
