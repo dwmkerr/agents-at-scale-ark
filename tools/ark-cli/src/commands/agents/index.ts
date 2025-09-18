@@ -1,5 +1,6 @@
 import {Command} from 'commander';
 import {execa} from 'execa';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 
 async function listAgents(options: {output?: string}) {
@@ -39,7 +40,7 @@ async function listAgents(options: {output?: string}) {
   }
 }
 
-export function createAgentsCommand(): Command {
+export function createAgentsCommand(_: ArkConfig): Command {
   const agentsCommand = new Command('agents');
 
   agentsCommand

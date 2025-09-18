@@ -1,4 +1,5 @@
 import {Command} from 'commander';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 import {ArkApiProxy} from '../../lib/arkApiProxy.js';
 
@@ -51,7 +52,7 @@ async function listTargets(options: {output?: string; type?: string}) {
   }
 }
 
-export function createTargetsCommand(): Command {
+export function createTargetsCommand(_: ArkConfig): Command {
   const targets = new Command('targets');
   targets
     .description('list available query targets (agents, teams, models, tools)')

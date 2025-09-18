@@ -1,9 +1,9 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
-import {loadConfig, getConfigPaths, formatConfig} from '../../lib/config.js';
+import {loadConfig, getConfigPaths, formatConfig, type ArkConfig} from '../../lib/config.js';
 import fs from 'fs';
 
-export function createConfigCommand(): Command {
+export function createConfigCommand(_: ArkConfig): Command {
   const configCommand = new Command('config');
   configCommand.description('Show current configuration').action(() => {
     const config = loadConfig();

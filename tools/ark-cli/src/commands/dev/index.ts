@@ -1,7 +1,8 @@
 import {Command} from 'commander';
+import type {ArkConfig} from '../../lib/config.js';
 import {createToolCommand} from './tool/index.js';
 
-export function createDevCommand(): Command {
+export function createDevCommand(_: ArkConfig): Command {
   const devCommand = new Command('dev');
   devCommand.description('Development tools for ARK');
 

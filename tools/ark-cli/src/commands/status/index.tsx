@@ -1,6 +1,7 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
+import type {ArkConfig} from '../../lib/config.js';
 import {StatusChecker} from '../../components/statusChecker.js';
 import {StatusFormatter, StatusSection, StatusColor} from '../../ui/statusFormatter.js';
 import {StatusData} from '../../lib/types.js';
@@ -180,7 +181,7 @@ export async function checkStatus() {
   }
 }
 
-export function createStatusCommand(): Command {
+export function createStatusCommand(_: ArkConfig): Command {
   const statusCommand = new Command('status');
   statusCommand.description('Check ARK system status').action(checkStatus);
 

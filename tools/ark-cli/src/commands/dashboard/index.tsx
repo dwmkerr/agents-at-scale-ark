@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import {Command} from 'commander';
 import open from 'open';
 import ora from 'ora';
+import type {ArkConfig} from '../../lib/config.js';
 import {ArkServiceProxy} from '../../lib/arkServiceProxy.js';
 import {arkServices} from '../../arkServices.js';
 
@@ -40,7 +41,7 @@ export async function openDashboard() {
   }
 }
 
-export function createDashboardCommand(): Command {
+export function createDashboardCommand(_: ArkConfig): Command {
   const dashboardCommand = new Command('dashboard');
   dashboardCommand
     .description('Open the ARK dashboard in your browser')

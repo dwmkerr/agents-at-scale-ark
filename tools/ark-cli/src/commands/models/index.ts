@@ -1,5 +1,6 @@
 import {Command} from 'commander';
 import {execa} from 'execa';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 import {createModel} from './create.js';
 
@@ -39,7 +40,7 @@ async function listModels(options: {output?: string}) {
   }
 }
 
-export function createModelsCommand(): Command {
+export function createModelsCommand(_: ArkConfig): Command {
   const modelsCommand = new Command('models');
 
   modelsCommand

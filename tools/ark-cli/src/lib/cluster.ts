@@ -1,4 +1,4 @@
-import {executeCommand} from './exec.js';
+import {execa} from 'execa';
 
 export interface ClusterInfo {
   type: 'minikube' | 'kind' | 'k3s' | 'docker-desktop' | 'cloud' | 'unknown';
@@ -10,7 +10,7 @@ export interface ClusterInfo {
 
 export async function detectClusterType(): Promise<ClusterInfo> {
   try {
-    const {stdout} = await executeCommand('kubectl', [
+    const {stdout} = await execa('kubectl', [
       'config',
       'current-context',
     ]);
@@ -47,7 +47,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
     const contextArgs = context ? ['--context', context] : [];
 
     // Get all config info in one command
-    const {stdout: configJson} = await executeCommand('kubectl', [
+    const {stdout: configJson} = await execa('kubectl', [
       'config',
       'view',
       '--minify',
@@ -83,11 +83,11 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
     switch (clusterInfo.type) {
       case 'minikube':
         try {
-          const {stdout} = await executeCommand('minikube', ['ip']);
+          const {stdout} = await execa('minikube', ['ip']);
           ip = stdout.trim();
         } catch {
           // Fallback to kubectl if minikube command fails
-          const {stdout} = await executeCommand('kubectl', [
+          const {stdout} = await execa('kubectl', [
             'get',
             'nodes',
             '-o',
@@ -98,7 +98,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       case 'kind': {
-        const {stdout: kindOutput} = await executeCommand('kubectl', [
+        const {stdout: kindOutput} = await execa('kubectl', [
           'get',
           'nodes',
           '-o',
@@ -113,7 +113,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       case 'k3s': {
-        const {stdout: k3sOutput} = await executeCommand('kubectl', [
+        const {stdout: k3sOutput} = await execa('kubectl', [
           'get',
           'nodes',
           '-o',
@@ -126,7 +126,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
       case 'cloud':
         // For cloud clusters, try to get the external IP or load balancer IP
         try {
-          const {stdout: lbOutput} = await executeCommand('kubectl', [
+          const {stdout: lbOutput} = await execa('kubectl', [
             'get',
             'svc',
             '-n',
@@ -137,7 +137,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
           ]);
           ip = lbOutput.trim();
           if (!ip) {
-            const {stdout: hostnameOutput} = await executeCommand('kubectl', [
+            const {stdout: hostnameOutput} = await execa('kubectl', [
               'get',
               'svc',
               '-n',
@@ -150,7 +150,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
           }
         } catch {
           // Fallback to node IP
-          const {stdout: nodeOutput} = await executeCommand('kubectl', [
+          const {stdout: nodeOutput} = await execa('kubectl', [
             'get',
             'nodes',
             '-o',
@@ -161,7 +161,7 @@ export async function getClusterInfo(context?: string): Promise<ClusterInfo> {
         break;
 
       default: {
-        const {stdout: defaultOutput} = await executeCommand('kubectl', [
+        const {stdout: defaultOutput} = await execa('kubectl', [
           'get',
           'nodes',
           '-o',

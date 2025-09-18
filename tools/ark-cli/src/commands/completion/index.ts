@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import {Command} from 'commander';
+import type {ArkConfig} from '../../lib/config.js';
 
-export function createCompletionCommand(): Command {
+export function createCompletionCommand(_: ArkConfig): Command {
   const completion = new Command('completion');
   completion.description('Generate shell completion scripts').action(() => {
     console.log(chalk.cyan('Shell completion for ARK CLI'));

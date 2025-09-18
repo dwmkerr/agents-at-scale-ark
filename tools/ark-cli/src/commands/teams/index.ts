@@ -1,5 +1,6 @@
 import {Command} from 'commander';
 import {execa} from 'execa';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 
 async function listTeams(options: {output?: string}) {
@@ -37,7 +38,7 @@ async function listTeams(options: {output?: string}) {
   }
 }
 
-export function createTeamsCommand(): Command {
+export function createTeamsCommand(_: ArkConfig): Command {
   const teamsCommand = new Command('teams');
 
   teamsCommand

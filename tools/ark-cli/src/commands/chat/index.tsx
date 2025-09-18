@@ -3,10 +3,10 @@ import {render} from 'ink';
 import * as React from 'react';
 import ChatUI from '../../components/ChatUI.js';
 import {ArkApiProxy} from '../../lib/arkApiProxy.js';
-import {loadConfig} from '../../lib/config.js';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 
-export function createChatCommand(): Command {
+export function createChatCommand(config: ArkConfig): Command {
   const chatCommand = new Command('chat');
   chatCommand
     .description('Start an interactive chat session with ARK agents or models')
@@ -31,8 +31,7 @@ export function createChatCommand(): Command {
         initialTargetId = `model/${options.model}`;
       }
 
-      // Load config
-      const config = loadConfig();
+      // Config is passed from main
 
       // Initialize proxy first - no spinner, just let ChatUI handle loading state
       try {

@@ -1,5 +1,6 @@
 import {Command} from 'commander';
 import {execa} from 'execa';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 
 async function listTools(options: {output?: string}) {
@@ -37,7 +38,7 @@ async function listTools(options: {output?: string}) {
   }
 }
 
-export function createToolsCommand(): Command {
+export function createToolsCommand(_: ArkConfig): Command {
   const toolsCommand = new Command('tools');
 
   toolsCommand

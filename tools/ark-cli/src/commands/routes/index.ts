@@ -1,12 +1,13 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import {execa} from 'execa';
+import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
-import {isCommandAvailable} from '../../lib/commandUtils.js';
+import {checkCommandExists} from '../../lib/commands.js';
 
 async function listRoutes() {
   // Check if kubectl is installed
-  const kubectlInstalled = await isCommandAvailable('kubectl');
+  const kubectlInstalled = await checkCommandExists('kubectl', ['version', '--client']);
   if (!kubectlInstalled) {
     output.error('kubectl is not installed. please install kubectl first:');
     output.info('https://kubernetes.io/docs/tasks/tools/');
@@ -131,7 +132,7 @@ async function listRoutes() {
   }
 }
 
-export function createRoutesCommand() {
+export function createRoutesCommand(_: ArkConfig) {
   const command = new Command('routes');
 
   command

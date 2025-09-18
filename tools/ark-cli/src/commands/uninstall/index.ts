@@ -2,14 +2,15 @@ import {Command} from 'commander';
 import chalk from 'chalk';
 import {execa} from 'execa';
 import inquirer from 'inquirer';
-import {isCommandAvailable} from '../../lib/commandUtils.js';
+import type {ArkConfig} from '../../lib/config.js';
+import {checkCommandExists} from '../../lib/commands.js';
 import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
 async function uninstallArk(options: { yes?: boolean } = {}) {
   // Check if helm is installed
-  const helmInstalled = await isCommandAvailable('helm');
+  const helmInstalled = await checkCommandExists('helm', ['version', '--short']);
   if (!helmInstalled) {
     output.error('helm is not installed. please install helm first:');
     output.info('https://helm.sh/docs/intro/install/');
@@ -17,7 +18,7 @@ async function uninstallArk(options: { yes?: boolean } = {}) {
   }
 
   // Check if kubectl is installed
-  const kubectlInstalled = await isCommandAvailable('kubectl');
+  const kubectlInstalled = await checkCommandExists('kubectl', ['version', '--client']);
   if (!kubectlInstalled) {
     output.error('kubectl is not installed. please install kubectl first:');
     output.info('https://kubernetes.io/docs/tasks/tools/');
@@ -101,7 +102,7 @@ async function uninstallArk(options: { yes?: boolean } = {}) {
   }
 }
 
-export function createUninstallCommand() {
+export function createUninstallCommand(_: ArkConfig) {
   const command = new Command('uninstall');
 
   command

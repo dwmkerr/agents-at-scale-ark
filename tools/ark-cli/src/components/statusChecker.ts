@@ -1,16 +1,13 @@
-import {exec} from 'child_process';
-import {promisify} from 'util';
+import {execa} from 'execa';
 import {
   DependencyStatus,
   ServiceStatus,
   StatusData,
   CommandVersionConfig,
 } from '../lib/types.js';
-import {isCommandAvailable} from '../lib/commandUtils.js';
+import {checkCommandExists} from '../lib/commands.js';
 import {arkServices} from '../arkServices.js';
 import {isArkReady} from '../lib/arkStatus.js';
-
-const execAsync = promisify(exec);
 
 export const getNodeVersion = (): CommandVersionConfig => ({
   command: 'node',
@@ -95,8 +92,8 @@ export class StatusChecker {
     config: CommandVersionConfig
   ): Promise<string> {
     try {
-      const cmd = `${config.command} ${config.versionArgs}`;
-      const {stdout} = await execAsync(cmd);
+      const args = config.versionArgs.split(' ');
+      const {stdout} = await execa(config.command, args);
       return config.versionExtract(stdout);
     } catch (error) {
       throw new Error(
@@ -114,8 +111,11 @@ export class StatusChecker {
     namespace: string
   ): Promise<ServiceStatus> {
     try {
-      const cmd = `kubectl get deployment ${deploymentName} --namespace ${namespace} -o json`;
-      const {stdout} = await execAsync(cmd);
+      const {stdout} = await execa('kubectl', [
+        'get', 'deployment', deploymentName,
+        '--namespace', namespace,
+        '-o', 'json'
+      ]);
       const deployment = JSON.parse(stdout);
 
       const replicas = deployment.spec?.replicas || 0;
@@ -176,8 +176,11 @@ export class StatusChecker {
     namespace: string
   ): Promise<ServiceStatus> {
     try {
-      const cmd = `helm list --filter ${helmReleaseName} --namespace ${namespace} --output json`;
-      const {stdout} = await execAsync(cmd);
+      const {stdout} = await execa('helm', [
+        'list', '--filter', helmReleaseName,
+        '--namespace', namespace,
+        '--output', 'json'
+      ]);
       const helmList = JSON.parse(stdout);
 
       if (helmList.length === 0) {
@@ -233,7 +236,8 @@ export class StatusChecker {
     const results: DependencyStatus[] = [];
 
     for (const dep of dependencies) {
-      const installed = await isCommandAvailable(dep.command);
+      const args = dep.versionArgs.split(' ');
+      const installed = await checkCommandExists(dep.command, args);
       const version = installed
         ? await this.getCommandVersion({
             command: dep.command,
@@ -265,7 +269,7 @@ export class StatusChecker {
     // Test cluster access
     let clusterAccess = false;
     try {
-      await execAsync('kubectl get namespaces -o name', { timeout: 5000 });
+      await execa('kubectl', ['get', 'namespaces', '-o', 'name'], { timeout: 5000 });
       clusterAccess = true;
     } catch {
       clusterAccess = false;
@@ -317,7 +321,7 @@ export class StatusChecker {
       // Check for default model
       if (arkReady) {
         try {
-          await execAsync('kubectl get model default -o name');
+          await execa('kubectl', ['get', 'model', 'default', '-o', 'name']);
           defaultModelExists = true;
         } catch {
           defaultModelExists = false;

@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
 
 import output from './lib/output.js';
+import {startup} from './lib/startup.js';
 import {createAgentsCommand} from './commands/agents/index.js';
 import {createChatCommand} from './commands/chat/index.js';
 import {createClusterCommand} from './commands/cluster/index.js';
@@ -36,28 +37,31 @@ function showMainMenu() {
 }
 
 async function main() {
+  // Initialize CLI - check requirements and load config
+  const config = await startup();
+
   const program = new Command();
   program
     .name(packageJson.name)
     .description(packageJson.description)
     .version(packageJson.version);
 
-  program.addCommand(createAgentsCommand());
-  program.addCommand(createChatCommand());
-  program.addCommand(createClusterCommand());
-  program.addCommand(createCompletionCommand());
-  program.addCommand(createDashboardCommand());
-  program.addCommand(createDevCommand());
-  program.addCommand(createGenerateCommand());
-  program.addCommand(createInstallCommand());
-  program.addCommand(createModelsCommand());
-  program.addCommand(createUninstallCommand());
-  program.addCommand(createStatusCommand());
-  program.addCommand(createConfigCommand());
-  program.addCommand(createTargetsCommand());
-  program.addCommand(createTeamsCommand());
-  program.addCommand(createToolsCommand());
-  program.addCommand(createRoutesCommand());
+  program.addCommand(createAgentsCommand(config));
+  program.addCommand(createChatCommand(config));
+  program.addCommand(createClusterCommand(config));
+  program.addCommand(createCompletionCommand(config));
+  program.addCommand(createDashboardCommand(config));
+  program.addCommand(createDevCommand(config));
+  program.addCommand(createGenerateCommand(config));
+  program.addCommand(createInstallCommand(config));
+  program.addCommand(createModelsCommand(config));
+  program.addCommand(createUninstallCommand(config));
+  program.addCommand(createStatusCommand(config));
+  program.addCommand(createConfigCommand(config));
+  program.addCommand(createTargetsCommand(config));
+  program.addCommand(createTeamsCommand(config));
+  program.addCommand(createToolsCommand(config));
+  program.addCommand(createRoutesCommand(config));
 
   // If no args provided, show interactive menu
   if (process.argv.length === 2) {
