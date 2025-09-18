@@ -4,7 +4,48 @@ import ora from 'ora';
 import type {ArkConfig} from '../../lib/config.js';
 import {StatusChecker} from '../../components/statusChecker.js';
 import {StatusFormatter, StatusSection, StatusColor} from '../../ui/statusFormatter.js';
-import {StatusData} from '../../lib/types.js';
+import {StatusData, ServiceStatus} from '../../lib/types.js';
+
+/**
+ * Enrich service with formatted details including version/revision
+ */
+function enrichServiceDetails(service: ServiceStatus): {
+  statusInfo: {icon: string; text: string; color: StatusColor};
+  displayName: string;
+  details: string;
+} {
+  const statusMap: Record<string, {icon: string; text: string; color: StatusColor}> = {
+    'healthy': { icon: '✓', text: 'healthy', color: 'green' },
+    'unhealthy': { icon: '✗', text: 'unhealthy', color: 'red' },
+    'warning': { icon: '⚠', text: 'warning', color: 'yellow' },
+    'not ready': { icon: '○', text: 'not ready', color: 'yellow' },
+    'not installed': { icon: '?', text: 'not installed', color: 'yellow' },
+  };
+  const statusInfo = statusMap[service.status] || { icon: '?', text: service.status, color: 'yellow' as StatusColor };
+
+  // Build details array
+  const details = [];
+  if (service.status === 'healthy') {
+    if (service.version) details.push(`v${service.version}`);
+    if (service.revision) details.push(`revision ${service.revision}`);
+  }
+  if (service.details) details.push(service.details);
+
+  // Build display name with formatting
+  let displayName = chalk.bold(service.name);
+  if (service.namespace) {
+    displayName += ` ${chalk.blue(service.namespace)}`;
+  }
+  if (service.isDev) {
+    displayName += ' (dev)';
+  }
+
+  return {
+    statusInfo,
+    displayName,
+    details: details.join(', ')
+  };
+}
 
 function buildStatusSections(data: StatusData & {clusterAccess?: boolean; clusterInfo?: any}): StatusSection[] {
   const sections: StatusSection[] = [];
@@ -62,38 +103,14 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
     const serviceLines = data.services
       .filter(s => s.name !== 'ark-controller')
       .map(service => {
-        const statusMap: Record<string, {icon: string; text: string; color: StatusColor}> = {
-          'healthy': { icon: '✓', text: 'healthy', color: 'green' },
-          'unhealthy': { icon: '✗', text: 'unhealthy', color: 'red' },
-          'warning': { icon: '⚠', text: 'warning', color: 'yellow' },
-          'not ready': { icon: '○', text: 'not ready', color: 'yellow' },
-          'not installed': { icon: '?', text: 'not installed', color: 'yellow' },
-        };
-        const status = statusMap[service.status] || { icon: '?', text: service.status, color: 'yellow' as StatusColor };
-
-        const details = [];
-        if (service.status === 'healthy') {
-          if (service.version) details.push(`v${service.version}`);
-          if (service.revision) details.push(`revision ${service.revision}`);
-        }
-        if (service.details) details.push(service.details);
-
-        // Build name with bold service name, blue namespace, and dev indicator
-        let displayName = chalk.bold(service.name);
-        if (service.namespace) {
-          displayName += ` ${chalk.blue(service.namespace)}`;
-        }
-        if (service.isDev) {
-          displayName += ' (dev)';
-        }
-
+        const {statusInfo, displayName, details} = enrichServiceDetails(service);
         return {
-          icon: status.icon,
-          iconColor: status.color,
-          status: status.text,
-          statusColor: status.color,
+          icon: statusInfo.icon,
+          iconColor: statusInfo.color,
+          status: statusInfo.text,
+          statusColor: statusInfo.color,
           name: displayName,
-          details: details.join(', '),
+          details: details,
         };
       });
     sections.push({ title: 'ark services:', lines: serviceLines });
@@ -128,44 +145,23 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         statusColor: 'yellow' as StatusColor,
         name: 'ark-controller'
       });
-    } else if (controller.status === 'not installed') {
-      arkStatusLines.push({
-        icon: '○',
-        iconColor: 'yellow' as StatusColor,
-        status: 'not ready',
-        statusColor: 'yellow' as StatusColor,
-        name: 'ark-controller',
-        details: controller.details || '',
-      });
-    } else if (controller.status === 'healthy') {
-      const details = [];
-      if (controller.version) details.push(`v${controller.version}`);
-      if (controller.revision) details.push(`revision ${controller.revision}`);
-      if (controller.details) details.push(controller.details);
+    } else {
+      const {statusInfo, displayName, details} = enrichServiceDetails(controller);
+
+      // Map service status to ark status display
+      const statusText = controller.status === 'healthy' ? 'ready' :
+                        controller.status === 'not installed' ? 'not ready' :
+                        controller.status;
 
       arkStatusLines.push({
-        icon: '✓',
-        iconColor: 'green' as StatusColor,
-        status: 'ready',
-        statusColor: 'green' as StatusColor,
-        name: chalk.bold('ark-controller') + (controller.namespace ? ` ${chalk.blue(controller.namespace)}` : '') + (controller.isDev ? ' (dev)' : ''),
-        details: details.join(', '),
-        subtext: !data.defaultModelExists ? '(no default model configured)' : undefined,
-      });
-    } else {
-      const statusMap: Record<string, {icon: string; color: StatusColor}> = {
-        'unhealthy': { icon: '✗', color: 'red' },
-        'warning': { icon: '⚠', color: 'yellow' },
-        'not ready': { icon: '○', color: 'yellow' },
-      };
-      const status = statusMap[controller.status] || { icon: '?', color: 'yellow' as StatusColor };
-      arkStatusLines.push({
-        icon: status.icon,
-        iconColor: status.color,
-        status: controller.status,
-        statusColor: status.color,
-        name: 'ark-controller',
-        details: controller.details || '',
+        icon: statusInfo.icon,
+        iconColor: statusInfo.color,
+        status: statusText,
+        statusColor: statusInfo.color,
+        name: displayName,
+        details: details,
+        subtext: (controller.status === 'healthy' && !data.defaultModelExists) ?
+                 '(no default model configured)' : undefined,
       });
     }
   }
