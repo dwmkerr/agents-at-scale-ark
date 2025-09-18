@@ -11,6 +11,8 @@ description: Required secrets and environment variables for ARK CI/CD pipelines
 
 The CI/CD pipeline builds and tests all ARK components, services, and documentation on every push. It includes library builds, single-platform container builds (AMD64) for testing, E2E testing, and release preparation.
 
+The pipeline begins with a `setup-container-cache-registry` job that determines the container registry used to cache images across CI/CD pipeline stages - fork PRs use their own GitHub Container Registry namespace (e.g., `ghcr.io/username/agents-at-scale-ark`) while internal PRs use the organization's registry.
+
 ![CI/CD Pipeline](./images/cicd-pipeline.png)
 
 ### Deploy

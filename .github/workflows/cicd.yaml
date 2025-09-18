@@ -32,6 +32,20 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Setup job to determine container cache registry
+  setup-container-cache-registry:
+    runs-on: ubuntu-24.04
+    outputs:
+      ci-cache-registry: ${{ steps.setup-registry.outputs.ci-cache-registry }}
+      ci-cache-registry-hostname: ${{ steps.setup-registry.outputs.ci-cache-registry-hostname }}
+      is-fork-pr: ${{ steps.setup-registry.outputs.is-fork-pr }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: setup-registry
+        uses: ./.github/actions/setup-container-cache-registry
+        with:
+          docker-cicd-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY }}
+
   # Security scan with JFrog Xray
   jfrog-xray-scan:
     runs-on: ubuntu-24.04
@@ -132,7 +146,7 @@ jobs:
           artifact-suffix: ark-api-a2a-unit
 
   build-containers:
-    needs: [build-libs]
+    needs: [setup-container-cache-registry, build-libs]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -177,7 +191,7 @@ jobs:
       - name: Login to Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry-hostname }}
           username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -186,7 +200,7 @@ jobs:
           path: ${{ matrix.path }}
           image: ${{ matrix.image }}
           tag: ${{ github.sha }}
-          registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           platforms: linux/amd64
           push: true
           prebuild: ${{ matrix.prebuild }}
@@ -211,7 +225,7 @@ jobs:
           retention-days: 30
 
   e2e-quickstart:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -321,7 +335,7 @@ jobs:
           fark agent sample-agent "confirm you have read this message"
 
   e2e-smoke-test:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -331,7 +345,7 @@ jobs:
           ark-image-tag: ${{ github.sha }}
           install-coverage: "false"
           install-evaluator: "false"
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -448,7 +462,7 @@ jobs:
 
 
   e2e-tests-standard:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -458,7 +472,7 @@ jobs:
           ark-image-tag: ${{ github.sha }}
           install-coverage: "true"
           install-evaluator: "false" # Standard tests don't need evaluator
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -486,7 +500,7 @@ jobs:
           artifact-name: coverage-reports-standard
 
   e2e-tests-evaluated:
-    needs: [build-containers]
+    needs: [setup-container-cache-registry, build-containers]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -498,7 +512,7 @@ jobs:
           install-evaluator: "true" # Evaluated tests need ark-evaluator service
           azure-openai-key: ${{ secrets.CICD_AZURE_OPENAI_KEY }}
           azure-openai-base-url: ${{ secrets.CICD_AZURE_OPENAI_BASE_URL }}
-          ci-cache-registry: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}
+          ci-cache-registry: ${{ needs.setup-container-cache-registry.outputs.ci-cache-registry }}
           ci-cache-registry-username: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_USERNAME || github.actor }}
           ci-cache-registry-password: ${{ secrets.DOCKER_CICD_CACHE_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -657,19 +671,19 @@ jobs:
         run: |
           echo "=== Coverage Report Summary ==="
           echo
-          
+
           # Enumerate through all coverage artifacts
           for artifact_dir in coverage-artifacts/*; do
             if [ -d "$artifact_dir" ]; then
               artifact_name=$(basename "$artifact_dir")
               echo "$artifact_name:"
-              
+
               # Check for Go coverage files
               if find "$artifact_dir" -name "*.out" | grep -q .; then
                 coverage_file=$(find "$artifact_dir" -name "*.out" | head -1)
                 echo "  Processing Go coverage file: $(basename "$coverage_file")"
                 go tool cover -func="$coverage_file" 2>/dev/null | tail -1 || echo "  Go coverage processing failed (best effort)"
-              # Check for Python coverage files  
+              # Check for Python coverage files
               elif find "$artifact_dir" -name ".coverage" | grep -q .; then
                 coverage_file=$(find "$artifact_dir" -name ".coverage" | head -1)
                 coverage_dir=$(dirname "$coverage_file")
@@ -680,6 +694,14 @@ jobs:
               echo
             fi
           done
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage-artifacts
+          fail_ci_if_error: false
+          verbose: true
 
   check-release:
     needs:

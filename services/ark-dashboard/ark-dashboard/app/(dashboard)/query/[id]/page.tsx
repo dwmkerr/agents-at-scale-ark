@@ -1,22 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense, useRef } from "react"
-import { useParams, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useRouter } from "next/navigation"
-import { toast } from "@/components/ui/use-toast"
-import { Copy } from "lucide-react"
-import { queriesService } from "@/lib/services/queries"
-import { agentsService, modelsService, teamsService, toolsService, memoriesService } from "@/lib/services"
-import type { ToolDetail } from "@/lib/services/tools"
-import type { components } from "@/lib/api/generated/types"
-import { QueryTargetsField } from "@/components/query-fields/query-targets-field"
-import { QueryMemoryField } from "@/components/query-fields/query-memory-field"
-import { QueryEvaluationActions } from "@/components/query-actions"
+import { QueryEvaluationActions } from "@/components/query-actions";
+import { QueryMemoryField } from "@/components/query-fields/query-memory-field";
+import { QueryTargetsField } from "@/components/query-fields/query-targets-field";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -36,10 +22,22 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
-} from "@/components/ui/tooltip"
-import { simplifyDuration } from "@/lib/utils/time"
-import { ARK_ANNOTATIONS } from "@/lib/constants/annotations"
+} from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/use-toast";
+import type { components } from "@/lib/api/generated/types";
+import { ARK_ANNOTATIONS } from "@/lib/constants/annotations";
 import { useMarkdownProcessor } from "@/lib/hooks/use-markdown-processor";
+import {
+  agentsService,
+  memoriesService,
+  modelsService,
+  teamsService,
+  toolsService
+} from "@/lib/services";
+import { queriesService } from "@/lib/services/queries";
+import type { ToolDetail } from "@/lib/services/tools";
+import { simplifyDuration } from "@/lib/utils/time";
 import JsonDisplay from "@/components/JsonDisplay"
 import { ErrorResponseContent } from '@/components/ErrorResponseContent';
 import { Copy } from "lucide-react";

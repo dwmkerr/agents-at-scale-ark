@@ -30,7 +30,7 @@ spec:
 
 ### Annotations
 
-- **`ark.mckinsey.com/memory-event-stream-enabled`** - When set to `"true"`, enables event streaming capabilities for this memory service. This annotation is used to configure the Memory resource as a streaming resource, allowing real-time message delivery during query execution. 
+- **`ark.mckinsey.com/memory-event-stream-enabled`** - When set to `"true"`, enables event streaming capabilities for this memory service. This annotation is used to configure the Memory resource as a streaming resource, allowing real-time message delivery during query execution. See the detailed [Streaming Developer Guide](../../developer-guide/queries/streaming.mdx).
 
   > **Note:** In a future release, streaming functionality will be extracted into a dedicated resource type. For detailed information about implementing and using streaming, see the [Streaming Developer Guide](/developer-guide/queries/streaming).
 
@@ -109,8 +109,13 @@ Request body includes session/query context and message array:
 
 **GET** `/messages?session_id={id}&query_id={id}&limit={n}&offset={n}`
 
-Returns timestamped message records. All parameters optional.
-Without session_id, returns all messages with pagination:
+Retrieves stored conversation messages:
+- `session_id` (optional) - Filter by session
+- `query_id` (optional) - Filter by query
+- `limit` (optional, default: 100) - Max messages to return
+- `offset` (optional, default: 0) - Skip messages for pagination
+
+Returns timestamped message records:
 
 ```json
 {

@@ -27,6 +27,13 @@ app:
   env:
     - name: CORS_ORIGINS
       value: "*"
+    # Authentication environment variables
+    - name: OIDC_ISSUER_URL
+      value: ""
+    - name: OIDC_APPLICATION_ID
+      value: ""
+    - name: AUTH_MODE
+      value: "open"
   # Optional: Import entire secrets/configmaps as env vars
   # envFrom:
   #   - secretRef:

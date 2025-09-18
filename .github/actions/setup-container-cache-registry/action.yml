@@ -1,0 +1,91 @@
+name: 'Setup Container Cache Registry'
+description: 'Determines which container registry to use for caching images across CI/CD pipeline stages'
+
+inputs:
+  docker-cicd-cache-registry:
+    description: 'Override registry URL from repository variables'
+    required: false
+
+outputs:
+  ci-cache-registry:
+    description: 'Container registry URL to use for this workflow run (includes namespace)'
+    value: ${{ steps.set-registry.outputs.ci-cache-registry }}
+  ci-cache-registry-hostname:
+    description: 'Container registry hostname for login (e.g., ghcr.io)'
+    value: ${{ steps.set-registry.outputs.ci-cache-registry-hostname }}
+  is-fork-pr:
+    description: 'Whether this is a PR from a forked repository'
+    value: ${{ steps.set-registry.outputs.is-fork-pr }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: set-registry
+      name: Determine Container Registry
+      shell: bash
+      run: |
+        # Container Registry Resolution
+        #
+        # This step determines which container registry to use for caching images,
+        # based on the PR source.
+        # 
+        # This is critical for supporting external contributors who cannot push to
+        # the main repository's GitHub Container Registry (ghcr.io).
+        # 1. External PR (from fork): Uses fork's registry (e.g., ghcr.io/username/repository-name)
+        # 2. Internal PR (branch in main repo): Uses organization registry (e.g., ghcr.io/mckinsey/agents-at-scale-ark)
+        # 3. Manual override: Respects DOCKER_CICD_CACHE_REGISTRY if set in repo variables
+        
+        # Show the current source repo.
+        echo "Event: ${{ github.event_name }}"
+        echo "Repository: ${{ github.repository }}"
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          echo "PR Head Repo: ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "PR Base Repo: ${{ github.event.pull_request.base.repo.full_name }}"
+          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+        fi
+        
+        # Check if this is a PR from a fork
+        if [[ "${{ github.event_name }}" == "pull_request" ]] && \
+           [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+          # EXTERNAL PR: Use the fork's registry
+          # The fork owner's GITHUB_TOKEN has write access to their own namespace
+          # Example: ghcr.io/forked-owner/forked-repo-name
+          REGISTRY="ghcr.io/${{ github.event.pull_request.head.repo.full_name }}"
+          IS_FORK_PR="true"
+          echo "External PR detected - using fork's registry: $REGISTRY"
+        else
+          # INTERNAL PR or PUSH: Use the organization's registry
+          # Default format: ghcr.io/organization/repository
+          REGISTRY="${{ inputs.docker-cicd-cache-registry || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}"
+          IS_FORK_PR="false"
+          echo "Internal event - using org registry: $REGISTRY"
+        fi
+        
+        # Extract registry hostname from full registry path
+        # Examples:
+        # - ghcr.io/owner/repo -> ghcr.io
+        # - docker.io/myorg/myrepo -> docker.io
+        # - myregistry.com:5000/path -> myregistry.com:5000
+        # - ghcr.io -> ghcr.io (no path)
+        REGISTRY_HOSTNAME=$(echo "$REGISTRY" | cut -d'/' -f1)
+        
+        # Output for use in other jobs
+        echo "ci-cache-registry=$REGISTRY" >> $GITHUB_OUTPUT
+        echo "ci-cache-registry-hostname=$REGISTRY_HOSTNAME" >> $GITHUB_OUTPUT
+        echo "is-fork-pr=$IS_FORK_PR" >> $GITHUB_OUTPUT
+        
+        # Brief summary for workflow run visibility
+        echo "### Container Registry Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Registry** | \`$REGISTRY\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Is Fork PR** | $IS_FORK_PR |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Event Type** | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Actor** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+        
+        # Validation
+        if [[ -z "$REGISTRY" ]]; then
+          echo "ERROR: Registry could not be determined"
+          exit 1
+        fi
