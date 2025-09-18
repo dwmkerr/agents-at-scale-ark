@@ -1,0 +1,167 @@
+import {jest} from '@jest/globals';
+import {Command} from 'commander';
+
+const mockExeca = jest.fn() as any;
+jest.unstable_mockModule('execa', () => ({
+  execa: mockExeca,
+}));
+
+const mockCheckCommandExists = jest.fn() as any;
+jest.unstable_mockModule('../../lib/commands.js', () => ({
+  checkCommandExists: mockCheckCommandExists,
+}));
+
+const mockGetClusterInfo = jest.fn() as any;
+jest.unstable_mockModule('../../lib/cluster.js', () => ({
+  getClusterInfo: mockGetClusterInfo,
+}));
+
+const mockGetInstallableServices = jest.fn() as any;
+const mockArkDependencies = {};
+jest.unstable_mockModule('../../arkServices.js', () => ({
+  getInstallableServices: mockGetInstallableServices,
+  arkDependencies: mockArkDependencies,
+}));
+
+const mockOutput = {
+  error: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
+  warning: jest.fn(),
+};
+jest.unstable_mockModule('../../lib/output.js', () => ({
+  default: mockOutput,
+}));
+
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
+  throw new Error('process.exit called');
+}) as any);
+
+const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+const {createInstallCommand} = await import('./index.js');
+
+describe('install command', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCheckCommandExists.mockResolvedValue(true);
+    mockGetClusterInfo.mockResolvedValue({
+      context: 'test-cluster',
+      type: 'minikube',
+      namespace: 'default',
+    });
+  });
+
+  it('creates command with correct structure', () => {
+    const command = createInstallCommand({});
+
+    expect(command).toBeInstanceOf(Command);
+    expect(command.name()).toBe('install');
+  });
+
+  it('installs single service with correct helm parameters', async () => {
+    const mockService = {
+      name: 'ark-api',
+      helmReleaseName: 'ark-api',
+      chartPath: './charts/ark-api',
+      namespace: 'ark-system',
+      installArgs: ['--set', 'image.tag=latest'],
+    };
+    mockGetInstallableServices.mockReturnValue({
+      'ark-api': mockService,
+    });
+
+    const command = createInstallCommand({});
+    await command.parseAsync(['node', 'test', 'ark-api']);
+
+    expect(mockExeca).toHaveBeenCalledWith(
+      'helm',
+      [
+        'upgrade',
+        '--install',
+        'ark-api',
+        './charts/ark-api',
+        '--namespace',
+        'ark-system',
+        '--set',
+        'image.tag=latest',
+      ]
+    );
+    expect(mockOutput.success).toHaveBeenCalledWith('ark-api installed successfully');
+  });
+
+  it('shows error when service not found', async () => {
+    mockGetInstallableServices.mockReturnValue({
+      'ark-api': {name: 'ark-api'},
+      'ark-controller': {name: 'ark-controller'},
+    });
+
+    const command = createInstallCommand({});
+
+    await expect(command.parseAsync(['node', 'test', 'invalid-service'])).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith("service 'invalid-service' not found");
+    expect(mockOutput.info).toHaveBeenCalledWith('available services:');
+    expect(mockOutput.info).toHaveBeenCalledWith('  ark-api');
+    expect(mockOutput.info).toHaveBeenCalledWith('  ark-controller');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('handles service without installArgs', async () => {
+    const mockService = {
+      name: 'simple-service',
+      helmReleaseName: 'simple-service',
+      chartPath: './charts/simple',
+      namespace: 'default',
+    };
+    mockGetInstallableServices.mockReturnValue({
+      'simple-service': mockService,
+    });
+
+    const command = createInstallCommand({});
+    await command.parseAsync(['node', 'test', 'simple-service']);
+
+    expect(mockExeca).toHaveBeenCalledWith(
+      'helm',
+      [
+        'upgrade',
+        '--install',
+        'simple-service',
+        './charts/simple',
+        '--namespace',
+        'default',
+      ]
+    );
+  });
+
+  it('exits when helm is not installed', async () => {
+    mockCheckCommandExists.mockResolvedValueOnce(false);
+
+    const command = createInstallCommand({});
+
+    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith('helm is not installed. please install helm first:');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('exits when kubectl is not installed', async () => {
+    mockCheckCommandExists
+      .mockResolvedValueOnce(true)  // helm check
+      .mockResolvedValueOnce(false); // kubectl check
+
+    const command = createInstallCommand({});
+
+    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith('kubectl is not installed. please install kubectl first:');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('exits when cluster not connected', async () => {
+    mockGetClusterInfo.mockResolvedValue({error: true});
+
+    const command = createInstallCommand({});
+
+    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith('no kubernetes cluster detected');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+});
