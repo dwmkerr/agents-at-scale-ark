@@ -65,6 +65,23 @@ const MainMenu: React.FC = () => {
     checkArkStatus();
   }, []);
 
+  // Handle Ctrl+C to properly unmount Ink and restore terminal
+  React.useEffect(() => {
+    const handleExit = () => {
+      const app = (globalThis as any).inkApp;
+      if (app) {
+        app.unmount();
+      }
+      process.exit(0);
+    };
+
+    process.on('SIGINT', handleExit);
+
+    return () => {
+      process.removeListener('SIGINT', handleExit);
+    };
+  }, []);
+
   const allChoices: MenuItem[] = [
     {
       label: 'Chat',
