@@ -25,11 +25,6 @@ export const ARK_ANNOTATIONS = {
   QUERY_GENERATION: `${ARK_PREFIX}query-generation`,
   QUERY_PHASE: `${ARK_PREFIX}query-phase`,
   
-  // General annotations
-  FINALIZER: `${ARK_PREFIX}finalizer`,
-  TRIGGERED_FROM: `${ARK_PREFIX}triggered-from`,
-  LOCALHOST_GATEWAY_PORT: `${ARK_PREFIX}localhost-gateway-port`,
-  
   // Streaming annotations
   STREAMING_ENABLED: `${ARK_PREFIX}streaming-enabled`
 } as const;
