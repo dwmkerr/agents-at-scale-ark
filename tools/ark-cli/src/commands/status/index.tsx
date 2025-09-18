@@ -2,8 +2,6 @@ import {Command} from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import {StatusChecker} from '../../components/statusChecker.js';
-import {ConfigManager} from '../../config.js';
-import {ArkClient} from '../../lib/arkClient.js';
 import {StatusFormatter, StatusSection, StatusColor} from '../../ui/statusFormatter.js';
 import {StatusData} from '../../lib/types.js';
 
@@ -162,12 +160,8 @@ export async function checkStatus() {
   const spinner = ora('Checking system status').start();
 
   try {
-    const configManager = new ConfigManager();
-
     spinner.text = 'Checking system dependencies';
-    const apiBaseUrl = await configManager.getApiBaseUrl();
-    const arkClient = new ArkClient(apiBaseUrl);
-    const statusChecker = new StatusChecker(arkClient);
+    const statusChecker = new StatusChecker();
 
     spinner.text = 'Testing cluster access';
 

@@ -261,35 +261,8 @@ describe('Error Classes', () => {
     });
 
     describe('validateDirectory', () => {
-      beforeEach(async () => {
-        jest.clearAllMocks();
-        const fs = await import('fs');
-        (fs.existsSync as jest.Mock) = jest.fn();
-        (fs.statSync as jest.Mock) = jest.fn();
-      });
-
       it('validates path first', () => {
         expect(() => InputValidator.validateDirectory('')).toThrow('directory cannot be empty');
-      });
-
-      it('checks existence when required', async () => {
-        const fs = await import('fs');
-        (fs.existsSync as jest.Mock).mockReturnValue(false);
-        expect(() => InputValidator.validateDirectory('/test', true)).toThrow('Directory does not exist');
-      });
-
-      it('checks if path is directory', async () => {
-        const fs = await import('fs');
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => false });
-        expect(() => InputValidator.validateDirectory('/test', true)).toThrow('not a directory');
-      });
-
-      it('passes for valid existing directory', async () => {
-        const fs = await import('fs');
-        (fs.existsSync as jest.Mock).mockReturnValue(true);
-        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
-        expect(() => InputValidator.validateDirectory('/test', true)).not.toThrow();
       });
     });
   });

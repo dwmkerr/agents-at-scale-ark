@@ -8,7 +8,6 @@ import {
 } from '../lib/types.js';
 import {KubernetesConfigManager} from '../lib/kubernetes.js';
 import * as k8s from '@kubernetes/client-node';
-import {ArkClient} from '../lib/arkClient.js';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {arkServices} from '../arkServices.js';
 import {isArkReady} from '../lib/arkStatus.js';
@@ -91,11 +90,9 @@ function createErrorServiceStatus(
 }
 
 export class StatusChecker {
-  private arkClient: ArkClient;
   private kubernetesManager: KubernetesConfigManager;
 
-  constructor(arkClient: ArkClient) {
-    this.arkClient = arkClient;
+  constructor() {
     this.kubernetesManager = new KubernetesConfigManager();
   }
 
