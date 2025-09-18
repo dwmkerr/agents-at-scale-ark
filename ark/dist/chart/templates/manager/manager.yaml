@@ -38,7 +38,7 @@ spec:
           env:
           - name: OTEL_SERVICE_NAME
             value: "ark-controller"
-          # HTTP timeout in seconds for memory operations (not streaming)
+          # HTTP timeout in seconds for connecting to memory services.
           - name: ARK_MEMORY_HTTP_TIMEOUT
             value: "30"
           {{- if .Values.controllerManager.container.env }}
