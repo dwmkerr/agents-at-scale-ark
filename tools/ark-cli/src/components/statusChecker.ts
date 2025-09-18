@@ -108,7 +108,8 @@ export class StatusChecker {
   private async checkDeploymentStatus(
     serviceName: string,
     deploymentName: string,
-    namespace: string
+    namespace: string,
+    devDeploymentName?: string
   ): Promise<ServiceStatus> {
     try {
       const {stdout} = await execa('kubectl', [
@@ -140,6 +141,49 @@ export class StatusChecker {
         status = 'warning';
       }
 
+      // If main deployment has 0 replicas and we have a dev deployment, check it
+      if (replicas === 0 && devDeploymentName) {
+        try {
+          const {stdout: devStdout} = await execa('kubectl', [
+            'get', 'deployment', devDeploymentName,
+            '--namespace', namespace,
+            '-o', 'json'
+          ]);
+          const devDeployment = JSON.parse(devStdout);
+
+          const devReplicas = devDeployment.spec?.replicas || 0;
+          const devReadyReplicas = devDeployment.status?.readyReplicas || 0;
+          const devAvailableReplicas = devDeployment.status?.availableReplicas || 0;
+
+          if (devReplicas > 0) {
+            const devAvailableCondition = devDeployment.status?.conditions?.find(
+              (condition: any) => condition.type === 'Available'
+            );
+            const devIsAvailable = devAvailableCondition?.status === 'True';
+            const devAllReplicasReady =
+              devReadyReplicas === devReplicas && devAvailableReplicas === devReplicas;
+
+            let devStatus: 'healthy' | 'warning' | 'not ready';
+            if (devReplicas === 0 || devReadyReplicas === 0) {
+              devStatus = 'not ready';
+            } else if (devIsAvailable && devAllReplicasReady) {
+              devStatus = 'healthy';
+            } else {
+              devStatus = 'warning';
+            }
+
+            return {
+              name: serviceName,
+              status: devStatus,
+              details: `${devReadyReplicas}/${devReplicas} replicas ready`,
+              isDev: true,
+            };
+          }
+        } catch {
+          // If dev deployment check fails, return the original status
+        }
+      }
+
       return {
         name: serviceName,
         status,
@@ -149,7 +193,53 @@ export class StatusChecker {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
 
-      if (errorMessage.includes('not found')) {
+      // If main deployment not found or not healthy, try dev deployment
+      if (errorMessage.includes('not found') || errorMessage.includes('NotFound')) {
+        if (devDeploymentName) {
+          try {
+            const {stdout} = await execa('kubectl', [
+              'get', 'deployment', devDeploymentName,
+              '--namespace', namespace,
+              '-o', 'json'
+            ]);
+            const devDeployment = JSON.parse(stdout);
+
+            const replicas = devDeployment.spec?.replicas || 0;
+            const readyReplicas = devDeployment.status?.readyReplicas || 0;
+            const availableReplicas = devDeployment.status?.availableReplicas || 0;
+
+            const availableCondition = devDeployment.status?.conditions?.find(
+              (condition: any) => condition.type === 'Available'
+            );
+            const isAvailable = availableCondition?.status === 'True';
+            const allReplicasReady =
+              readyReplicas === replicas && availableReplicas === replicas;
+
+            let status: 'healthy' | 'warning' | 'not ready';
+            if (replicas === 0 || readyReplicas === 0) {
+              status = 'not ready';
+            } else if (isAvailable && allReplicasReady) {
+              status = 'healthy';
+            } else {
+              status = 'warning';
+            }
+
+            return {
+              name: serviceName,
+              status,
+              details: `${readyReplicas}/${replicas} replicas ready`,
+              isDev: true,
+            };
+          } catch {
+            // If dev deployment also not found, return not installed
+            return {
+              name: serviceName,
+              status: 'not installed',
+              details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
+            };
+          }
+        }
+
         return {
           name: serviceName,
           status: 'not installed',
@@ -294,7 +384,8 @@ export class StatusChecker {
             this.checkDeploymentStatus(
               serviceName,
               service.k8sDeploymentName,
-              service.namespace
+              service.namespace,
+              service.k8sDevDeploymentName
             )
           );
         } else {

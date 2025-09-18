@@ -15,6 +15,7 @@ export interface ArkService {
   k8sServicePort?: number;
   k8sPortForwardLocalPort?: number;
   k8sDeploymentName?: string;
+  k8sDevDeploymentName?: string;
 }
 
 export interface ServiceCollection {
@@ -101,6 +102,7 @@ export const arkServices: ServiceCollection = {
     chartPath: `${REGISTRY_BASE}/ark-controller`,
     installArgs: ['--create-namespace', '--set', 'rbac.enable=true'],
     k8sDeploymentName: 'ark-controller',
+    k8sDevDeploymentName: 'ark-controller-devspace',
   },
 
   'ark-api': {
@@ -114,8 +116,9 @@ export const arkServices: ServiceCollection = {
     installArgs: [],
     k8sServiceName: 'ark-api',
     k8sServicePort: 80,
-    k8sPortForwardLocalPort: 34780,
     k8sDeploymentName: 'ark-api',
+    k8sDevDeploymentName: 'ark-api-devspace',
+    k8sPortForwardLocalPort: 34780,
   },
 
   'ark-dashboard': {
@@ -129,8 +132,9 @@ export const arkServices: ServiceCollection = {
     installArgs: [],
     k8sServiceName: 'ark-dashboard',
     k8sServicePort: 3000,
-    k8sPortForwardLocalPort: 3274,
     k8sDeploymentName: 'ark-dashboard',
+    k8sDevDeploymentName: 'ark-dashboard-devspace',
+    k8sPortForwardLocalPort: 3274,
   },
 
   'ark-api-a2a': {

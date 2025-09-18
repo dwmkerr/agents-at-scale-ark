@@ -80,7 +80,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
           iconColor: status.color,
           status: status.text,
           statusColor: status.color,
-          name: service.name,
+          name: service.name + (service.isDev ? ' (dev)' : ''),
           details: details.join(', '),
         };
       });
@@ -131,7 +131,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         iconColor: 'green' as StatusColor,
         status: 'ready',
         statusColor: 'green' as StatusColor,
-        name: 'ark-controller',
+        name: 'ark-controller' + (controller.isDev ? ' (dev)' : ''),
         details: controller.details || '',
         subtext: !data.defaultModelExists ? '(no default model configured)' : undefined,
       });
