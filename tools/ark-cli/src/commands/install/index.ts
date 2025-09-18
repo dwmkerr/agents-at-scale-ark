@@ -75,11 +75,7 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
   // If a specific service is requested, install only that service
   if (serviceName) {
     const services = getInstallableServices();
-    const service = Object.values(services).find(s =>
-      s.name === serviceName ||
-      s.helmReleaseName === serviceName ||
-      s.name === `ark-${serviceName}`
-    );
+    const service = Object.values(services).find(s => s.name === serviceName);
 
     if (!service) {
       output.error(`service '${serviceName}' not found`);
@@ -331,8 +327,8 @@ export function createInstallCommand(_: ArkConfig) {
   const command = new Command('install');
 
   command
-    .description('Install Ark components using Helm')
-    .argument('[service]', 'specific service to install (e.g., dashboard, api)')
+    .description('Install ARK components using Helm')
+    .argument('[service]', 'specific service to install, or all if omitted')
     .option('-y, --yes', 'automatically confirm all installations')
     .option('--wait-for-ready <timeout>', 'wait for Ark to be ready after installation (e.g., 30s, 2m)')
     .action(async (service, options) => {

@@ -8,7 +8,23 @@ import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
-async function uninstallArk(options: { yes?: boolean } = {}) {
+async function uninstallService(service: any) {
+  await execa(
+    'helm',
+    [
+      'uninstall',
+      service.helmReleaseName,
+      '--namespace',
+      service.namespace,
+      '--ignore-not-found',
+    ],
+    {
+      stdio: 'inherit',
+    }
+  );
+}
+
+async function uninstallArk(serviceName?: string, options: { yes?: boolean } = {}) {
   // Check if helm is installed
   const helmInstalled = await checkCommandExists('helm', ['version', '--short']);
   if (!helmInstalled) {
@@ -45,6 +61,32 @@ async function uninstallArk(options: { yes?: boolean } = {}) {
   }
   console.log(); // Add blank line after cluster info
 
+  // If a specific service is requested, uninstall only that service
+  if (serviceName) {
+    const services = getInstallableServices();
+    const service = Object.values(services).find(s => s.name === serviceName);
+
+    if (!service) {
+      output.error(`service '${serviceName}' not found`);
+      output.info('available services:');
+      for (const s of Object.values(services)) {
+        output.info(`  ${s.name}`);
+      }
+      process.exit(1);
+    }
+
+    output.info(`uninstalling ${service.name}...`);
+    try {
+      await uninstallService(service);
+      output.success(`${service.name} uninstalled successfully`);
+    } catch (error) {
+      output.error(`failed to uninstall ${service.name}`);
+      console.error(error);
+      process.exit(1);
+    }
+    return;
+  }
+
   // Get installable services and iterate through them in reverse order for clean uninstall
   const services = getInstallableServices();
   const serviceEntries = Object.entries(services).reverse();
@@ -79,21 +121,7 @@ async function uninstallArk(options: { yes?: boolean } = {}) {
     }
 
     try {
-      // Uninstall the release
-      await execa(
-        'helm',
-        [
-          'uninstall',
-          service.helmReleaseName,
-          '--namespace',
-          service.namespace,
-          '--ignore-not-found',
-        ],
-        {
-          stdio: 'inherit',
-        }
-      );
-
+      await uninstallService(service);
       console.log(); // Add blank line after command output
     } catch {
       // Continue with remaining charts on error
@@ -107,9 +135,10 @@ export function createUninstallCommand(_: ArkConfig) {
 
   command
     .description('Uninstall ARK components using Helm')
+    .argument('[service]', 'specific service to uninstall, or all if omitted')
     .option('-y, --yes', 'automatically confirm all uninstallations')
-    .action(async (options) => {
-      await uninstallArk(options);
+    .action(async (service, options) => {
+      await uninstallArk(service, options);
     });
 
   return command;
