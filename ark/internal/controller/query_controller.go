@@ -934,19 +934,13 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 
 	impersonatedClient, err := r.getClientForQuery(obj)
 	if err != nil {
-		log.Error(err, "Failed to create impersonated client for evaluation", "duration", time.Since(startTime))
-		if updateErr := r.updateStatus(ctx, &obj, statusError); updateErr != nil {
-			log.Error(updateErr, "Failed to update status")
-		}
+		r.handleEvaluationError(ctx, &obj, err, "Failed to create impersonated client for evaluation", time.Since(startTime))
 		return
 	}
 
 	evaluators, err := r.resolveEvaluators(ctx, obj, impersonatedClient)
 	if err != nil {
-		log.Error(err, "Failed to resolve evaluators", "duration", time.Since(startTime))
-		if updateErr := r.updateStatus(ctx, &obj, statusError); updateErr != nil {
-			log.Error(updateErr, "Failed to update status")
-		}
+		r.handleEvaluationError(ctx, &obj, err, "Failed to resolve evaluators", time.Since(startTime))
 		return
 	}
 
@@ -954,31 +948,48 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 	duration := time.Since(startTime)
 
 	if err != nil {
-		log.Error(err, "Evaluation failed", "duration", duration)
-		if updateErr := r.updateStatus(ctx, &obj, statusError); updateErr != nil {
-			log.Error(updateErr, "Failed to update status")
-		}
-	} else {
-		obj.Status.Evaluations = evaluationResults
+		r.handleEvaluationError(ctx, &obj, err, "Evaluation failed", duration)
+		return
+	}
 
-		// Get memory interface to notify completion
-		impersonatedClient, err := r.getClientForQuery(obj)
-		if err == nil {
-			sessionId := obj.Spec.SessionId
-			if sessionId == "" {
-				sessionId = string(obj.UID)
-			}
-			memory, err := genai.NewMemoryForQuery(ctx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
-			if err == nil && memory != nil {
-				if completionErr := memory.NotifyCompletion(ctx); completionErr != nil {
-					log.V(1).Info("Failed to notify query completion after evaluation", "error", completionErr)
-				}
-			}
-		}
+	obj.Status.Evaluations = evaluationResults
+	r.notifyMemoryCompletion(ctx, obj, tokenCollector)
 
-		if updateErr := r.updateStatus(ctx, &obj, statusDone); updateErr != nil {
-			log.Error(updateErr, "Failed to update status")
-		}
+	if updateErr := r.updateStatus(ctx, &obj, statusDone); updateErr != nil {
+		log.Error(updateErr, "Failed to update status")
+	}
+}
+
+// handleEvaluationError logs the error and updates the status to error state
+func (r *QueryReconciler) handleEvaluationError(ctx context.Context, obj *arkv1alpha1.Query, err error, message string, duration time.Duration) {
+	log := logf.FromContext(ctx)
+	log.Error(err, message, "duration", duration)
+	if updateErr := r.updateStatus(ctx, obj, statusError); updateErr != nil {
+		log.Error(updateErr, "Failed to update status")
+	}
+}
+
+// notifyMemoryCompletion notifies the memory interface of query completion after evaluation
+func (r *QueryReconciler) notifyMemoryCompletion(ctx context.Context, obj arkv1alpha1.Query, tokenCollector *genai.TokenUsageCollector) {
+	log := logf.FromContext(ctx)
+
+	impersonatedClient, err := r.getClientForQuery(obj)
+	if err != nil {
+		return
+	}
+
+	sessionId := obj.Spec.SessionId
+	if sessionId == "" {
+		sessionId = string(obj.UID)
+	}
+
+	memory, err := genai.NewMemoryForQuery(ctx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
+	if err != nil || memory == nil {
+		return
+	}
+
+	if completionErr := memory.NotifyCompletion(ctx); completionErr != nil {
+		log.V(1).Info("Failed to notify query completion after evaluation", "error", completionErr)
 	}
 }
 
