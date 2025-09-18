@@ -32,6 +32,7 @@ export type ServiceStatus = {
   revision?: string;
   details?: string;
   isDev?: boolean;
+  namespace?: string;
 };
 
 export interface DependencyStatus {

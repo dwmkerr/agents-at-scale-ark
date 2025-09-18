@@ -6,7 +6,7 @@ export interface ArkService {
   name: string;
   helmReleaseName: string;
   description: string;
-  namespace: string;
+  namespace?: string;  // Optional - if undefined, uses current namespace
   chartPath?: string;
   installArgs?: string[];
   k8sServiceName?: string;
@@ -106,7 +106,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-api',
     helmReleaseName: 'ark-api',
     description: 'ARK API service for interacting with ARK resources',
-    namespace: 'default',
+    // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-api`,
     installArgs: [],
     k8sServiceName: 'ark-api',
@@ -120,7 +120,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-dashboard',
     helmReleaseName: 'ark-dashboard',
     description: 'Web-based dashboard for ARK',
-    namespace: 'default',
+    // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-dashboard`,
     installArgs: [],
     k8sServiceName: 'ark-dashboard',
@@ -134,7 +134,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-api-a2a',
     helmReleaseName: 'ark-api-a2a',
     description: 'ARK API agent-to-agent communication service',
-    namespace: 'default',
+    // namespace: undefined - uses current context namespace
     // Note: This service might be installed as part of ark-api or separately
   },
 
@@ -142,7 +142,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-mcp',
     helmReleaseName: 'ark-mcp',
     description: 'MCP (Model Context Protocol) services for ARK',
-    namespace: 'default',
+    // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-mcp`,
     installArgs: [],
     k8sDeploymentName: 'ark-mcp',

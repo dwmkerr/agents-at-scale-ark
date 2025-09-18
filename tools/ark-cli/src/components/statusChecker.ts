@@ -177,6 +177,7 @@ export class StatusChecker {
               status: devStatus,
               details: `${devReadyReplicas}/${devReplicas} replicas ready`,
               isDev: true,
+              namespace,
             };
           }
         } catch {
@@ -188,6 +189,7 @@ export class StatusChecker {
         name: serviceName,
         status,
         details: `${readyReplicas}/${replicas} replicas ready`,
+        namespace,
       };
     } catch (error) {
       const errorMessage =
@@ -229,13 +231,15 @@ export class StatusChecker {
               status,
               details: `${readyReplicas}/${replicas} replicas ready`,
               isDev: true,
+              namespace,
             };
           } catch {
             // If dev deployment also not found, return not installed
             return {
               name: serviceName,
               status: 'not installed',
-              details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
+              details: `Deployment '${deploymentName}' not found`,
+              namespace,
             };
           }
         }
@@ -243,7 +247,8 @@ export class StatusChecker {
         return {
           name: serviceName,
           status: 'not installed',
-          details: `Deployment '${deploymentName}' not found in namespace '${namespace}'`,
+          details: `Deployment '${deploymentName}' not found`,
+          namespace,
         };
       }
 
@@ -277,7 +282,8 @@ export class StatusChecker {
         return {
           name: serviceName,
           status: 'not installed',
-          details: `Helm release '${helmReleaseName}' not found in namespace '${namespace}'`,
+          details: `Helm release '${helmReleaseName}' not found`,
+          namespace,
         };
       }
 
@@ -294,6 +300,7 @@ export class StatusChecker {
         version: appVersion,
         revision: revision,
         details: `Status: ${status}`,
+        namespace,
       };
     } catch (error) {
       const errorMessage =
@@ -379,12 +386,15 @@ export class StatusChecker {
       const serviceChecks: Promise<ServiceStatus>[] = [];
 
       for (const [serviceName, service] of Object.entries(arkServices)) {
+        // Use service namespace if defined, otherwise use current namespace from clusterInfo
+        const namespace = service.namespace || clusterInfo?.namespace || 'default';
+
         if (service.k8sDeploymentName) {
           serviceChecks.push(
             this.checkDeploymentStatus(
               serviceName,
               service.k8sDeploymentName,
-              service.namespace,
+              namespace,
               service.k8sDevDeploymentName
             )
           );
@@ -393,7 +403,7 @@ export class StatusChecker {
             this.checkHelmStatus(
               serviceName,
               service.helmReleaseName,
-              service.namespace
+              namespace
             )
           );
         }

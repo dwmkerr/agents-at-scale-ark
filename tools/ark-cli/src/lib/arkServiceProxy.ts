@@ -29,9 +29,12 @@ export class ArkServiceProxy {
         'port-forward',
         `service/${this.service.k8sServiceName}`,
         `${this.localPort}:${this.service.k8sServicePort}`,
-        '--namespace',
-        this.service.namespace,
       ];
+
+      // Add namespace flag only if namespace is defined
+      if (this.service.namespace) {
+        args.push('--namespace', this.service.namespace);
+      }
 
       this.kubectlProcess = spawn('kubectl', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
