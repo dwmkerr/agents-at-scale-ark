@@ -1,0 +1,12 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Memory
+metadata:
+  name: cluster-memory-test
+  annotations:
+    ark.mckinsey.com/memory-event-stream-enabled: "true"
+spec:
+  address:
+    valueFrom:
+      serviceRef:
+        name: ark-cluster-memory
+        port: 3000

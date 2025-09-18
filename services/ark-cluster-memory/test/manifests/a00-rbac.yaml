@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: streaming-test-role
+  name: ark-cluster-memory-test-role
 rules:
 - apiGroups: ["ark.mckinsey.com"]
   resources: ["*"]
@@ -13,12 +13,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: streaming-test-rolebinding
+  name: ark-cluster-memory-test-rolebinding
 subjects:
 - kind: ServiceAccount
   name: default
   namespace: ($namespace)
 roleRef:
   kind: Role
-  name: streaming-test-role
+  name: ark-cluster-memory-test-role
   apiGroup: rbac.authorization.k8s.io

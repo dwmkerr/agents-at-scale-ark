@@ -1,0 +1,12 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: memory-test-hello
+spec:
+  input: "Hello! My name is TestUser and I like pizza."
+  targets:
+    - type: agent
+      name: memory-test-agent
+  memory:
+    name: cluster-memory-test
+  sessionId: "test-session-123"
