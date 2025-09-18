@@ -6,8 +6,6 @@ import {
   StatusData,
   CommandVersionConfig,
 } from '../lib/types.js';
-import {KubernetesConfigManager} from '../lib/kubernetes.js';
-import * as k8s from '@kubernetes/client-node';
 import {isCommandAvailable} from '../lib/commandUtils.js';
 import {arkServices} from '../arkServices.js';
 import {isArkReady} from '../lib/arkStatus.js';
@@ -90,12 +88,6 @@ function createErrorServiceStatus(
 }
 
 export class StatusChecker {
-  private kubernetesManager: KubernetesConfigManager;
-
-  constructor() {
-    this.kubernetesManager = new KubernetesConfigManager();
-  }
-
   /**
    * Get version of a command
    */
@@ -225,82 +217,6 @@ export class StatusChecker {
   }
 
   /**
-   * Return a "not installed" status for a service
-   */
-  private createNotInstalledStatus(serviceName: string): ServiceStatus {
-    return {
-      name: serviceName,
-      status: 'not installed',
-      details: `${serviceName} is not configured or not part of this deployment`,
-    };
-  }
-
-  /**
-   * Check Kubernetes service health via pods and endpoints
-   */
-  private async checkKubernetesService(
-    serviceName: string,
-    kubernetesServiceName: string,
-    namespace: string = 'default'
-  ): Promise<ServiceStatus> {
-    try {
-      await this.kubernetesManager.initializeConfig();
-      const kc = this.kubernetesManager.getKubeConfig();
-      const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-
-      // Check if service exists and has endpoints
-      const service = await k8sApi.readNamespacedService({
-        name: kubernetesServiceName,
-        namespace,
-      });
-
-      const endpoints = await k8sApi.readNamespacedEndpoints({
-        name: kubernetesServiceName,
-        namespace,
-      });
-
-      // Check if service has ready endpoints
-      const readyAddresses =
-        endpoints.subsets?.reduce((total, subset) => {
-          return total + (subset.addresses?.length || 0);
-        }, 0) || 0;
-
-      if (readyAddresses > 0) {
-        const serviceIP = service.spec?.clusterIP;
-        const servicePort = service.spec?.ports?.[0]?.port;
-
-        return {
-          name: serviceName,
-          status: 'healthy',
-          url: `cluster://${serviceIP}:${servicePort}`,
-          details: `${serviceName} running in cluster (${readyAddresses} ready endpoints)`,
-        };
-      } else {
-        return {
-          name: serviceName,
-          status: 'unhealthy',
-          details: `${serviceName} service exists but has no ready endpoints`,
-        };
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-
-      // If service not found, it's not installed
-      if (errorMessage.includes('not found')) {
-        return this.createNotInstalledStatus(serviceName);
-      }
-
-      // Other errors indicate unhealthy
-      return {
-        name: serviceName,
-        status: 'unhealthy',
-        details: `Failed to check ${serviceName}: ${errorMessage}`,
-      };
-    }
-  }
-
-  /**
    * Check system dependencies
    */
   private async checkDependencies(): Promise<DependencyStatus[]> {
@@ -347,8 +263,13 @@ export class StatusChecker {
     const dependencies = await this.checkDependencies();
 
     // Test cluster access
-    const configManager = new (await import('../config.js')).ConfigManager();
-    const clusterAccess = await configManager.testClusterAccess();
+    let clusterAccess = false;
+    try {
+      await execAsync('kubectl get namespaces -o name', { timeout: 5000 });
+      clusterAccess = true;
+    } catch {
+      clusterAccess = false;
+    }
 
     // Get cluster info if accessible
     let clusterInfo;
