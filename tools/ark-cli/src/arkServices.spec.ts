@@ -14,7 +14,12 @@ describe('arkServices', () => {
   it('exports arkServices with expected structure', () => {
     expect(arkServices).toBeDefined();
     expect(arkServices['ark-controller']).toBeDefined();
-    expect(arkServices['ark-api'].namespace).toBe('default');
+    expect(arkServices['ark-controller'].namespace).toBe('ark-system');
+    // User services should have undefined namespace (use current context)
+    expect(arkServices['ark-api'].namespace).toBeUndefined();
+    expect(arkServices['ark-dashboard'].namespace).toBeUndefined();
+    // System services should have explicit namespace
+    expect(arkServices['localhost-gateway'].namespace).toBe('ark-system');
   });
 
   it('getInstallableServices returns services with chartPath', () => {

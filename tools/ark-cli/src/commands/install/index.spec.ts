@@ -101,6 +101,35 @@ describe('install command', () => {
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
+  it('handles service without namespace (uses current context)', async () => {
+    const mockService = {
+      name: 'ark-dashboard',
+      helmReleaseName: 'ark-dashboard',
+      chartPath: './charts/ark-dashboard',
+      // namespace is undefined - should use current context
+      installArgs: ['--set', 'replicas=2'],
+    };
+    mockGetInstallableServices.mockReturnValue({
+      'ark-dashboard': mockService,
+    });
+
+    const command = createInstallCommand({});
+    await command.parseAsync(['node', 'test', 'ark-dashboard']);
+
+    // Should NOT include --namespace flag
+    expect(mockExeca).toHaveBeenCalledWith(
+      'helm',
+      [
+        'upgrade',
+        '--install',
+        'ark-dashboard',
+        './charts/ark-dashboard',
+        '--set',
+        'replicas=2',
+      ]
+    );
+  });
+
   it('handles service without installArgs', async () => {
     const mockService = {
       name: 'simple-service',

@@ -8,19 +8,18 @@ import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
 async function uninstallService(service: any) {
-  await execa(
-    'helm',
-    [
-      'uninstall',
-      service.helmReleaseName,
-      '--namespace',
-      service.namespace,
-      '--ignore-not-found',
-    ],
-    {
-      stdio: 'inherit',
-    }
-  );
+  const helmArgs = [
+    'uninstall',
+    service.helmReleaseName,
+    '--ignore-not-found',
+  ];
+
+  // Only add namespace flag if service has explicit namespace
+  if (service.namespace) {
+    helmArgs.push('--namespace', service.namespace);
+  }
+
+  await execa('helm', helmArgs, { stdio: 'inherit' });
 }
 
 async function uninstallArk(serviceName?: string, options: { yes?: boolean } = {}) {

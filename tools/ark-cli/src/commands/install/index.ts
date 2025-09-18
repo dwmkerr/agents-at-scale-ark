@@ -15,10 +15,16 @@ async function installService(service: any) {
     '--install',
     service.helmReleaseName,
     service.chartPath!,
-    '--namespace',
-    service.namespace,
-    ...(service.installArgs || []),
   ];
+
+  // Only add namespace flag if service has explicit namespace
+  if (service.namespace) {
+    helmArgs.push('--namespace', service.namespace);
+  }
+
+  // Add any additional install args
+  helmArgs.push(...(service.installArgs || []));
+
   await execa('helm', helmArgs);
 }
 

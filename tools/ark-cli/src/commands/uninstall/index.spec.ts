@@ -70,9 +70,9 @@ describe('uninstall command', () => {
       [
         'uninstall',
         'ark-api',
+        '--ignore-not-found',
         '--namespace',
         'ark-system',
-        '--ignore-not-found',
       ],
       {
         stdio: 'inherit',
@@ -95,6 +95,33 @@ describe('uninstall command', () => {
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-api');
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-controller');
     expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('handles service without namespace (uses current context)', async () => {
+    const mockService = {
+      name: 'ark-dashboard',
+      helmReleaseName: 'ark-dashboard',
+      // namespace is undefined - should use current context
+    };
+    mockGetInstallableServices.mockReturnValue({
+      'ark-dashboard': mockService,
+    });
+
+    const command = createUninstallCommand({});
+    await command.parseAsync(['node', 'test', 'ark-dashboard']);
+
+    // Should NOT include --namespace flag
+    expect(mockExeca).toHaveBeenCalledWith(
+      'helm',
+      [
+        'uninstall',
+        'ark-dashboard',
+        '--ignore-not-found',
+      ],
+      {
+        stdio: 'inherit',
+      }
+    );
   });
 
   it('handles helm uninstall error gracefully', async () => {
