@@ -5,7 +5,7 @@ const mockArkApiClient = {
   getQueryTargets: jest.fn() as any,
 };
 
-const mockStart = jest.fn();
+const mockStart = jest.fn() as any;
 mockStart.mockResolvedValue(mockArkApiClient);
 
 const mockArkApiProxy = jest.fn() as any;
