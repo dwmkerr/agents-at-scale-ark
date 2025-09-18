@@ -28,8 +28,8 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
   if (data.clusterAccess) {
     const contextName = data.clusterInfo?.context || 'kubernetes cluster';
     const namespace = data.clusterInfo?.namespace || 'default';
-    // Add namespace in blue after context name
-    const name = `${contextName} ${chalk.blue(namespace)}`;
+    // Add bold context name with blue namespace
+    const name = `${chalk.bold(contextName)} ${chalk.blue(namespace)}`;
     const details = [];
     if (data.clusterInfo?.type && data.clusterInfo.type !== 'unknown') {
       details.push(data.clusterInfo.type);
@@ -78,8 +78,8 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         }
         if (service.details) details.push(service.details);
 
-        // Build name with namespace in blue and dev indicator
-        let displayName = service.name;
+        // Build name with bold service name, blue namespace, and dev indicator
+        let displayName = chalk.bold(service.name);
         if (service.namespace) {
           displayName += ` ${chalk.blue(service.namespace)}`;
         }
@@ -143,7 +143,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         iconColor: 'green' as StatusColor,
         status: 'ready',
         statusColor: 'green' as StatusColor,
-        name: 'ark-controller' + (controller.namespace ? ` ${chalk.blue(controller.namespace)}` : '') + (controller.isDev ? ' (dev)' : ''),
+        name: chalk.bold('ark-controller') + (controller.namespace ? ` ${chalk.blue(controller.namespace)}` : '') + (controller.isDev ? ' (dev)' : ''),
         details: controller.details || '',
         subtext: !data.defaultModelExists ? '(no default model configured)' : undefined,
       });

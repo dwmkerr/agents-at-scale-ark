@@ -57,7 +57,8 @@ export class StatusFormatter {
   private static printLine(line: StatusLine): void {
     const icon = this.applyColor(line.icon, line.iconColor);
     const status = this.applyColor(line.status, line.statusColor);
-    const name = chalk.bold(this.applyColor(line.name, line.nameColor || 'white'));
+    // Name formatting is now handled where the name is assembled
+    const name = this.applyColor(line.name, line.nameColor || 'white');
 
     const parts = [
       `  ${icon} ${status}`,
