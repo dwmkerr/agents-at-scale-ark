@@ -138,13 +138,18 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         details: controller.details || '',
       });
     } else if (controller.status === 'healthy') {
+      const details = [];
+      if (controller.version) details.push(`v${controller.version}`);
+      if (controller.revision) details.push(`revision ${controller.revision}`);
+      if (controller.details) details.push(controller.details);
+
       arkStatusLines.push({
         icon: '✓',
         iconColor: 'green' as StatusColor,
         status: 'ready',
         statusColor: 'green' as StatusColor,
         name: chalk.bold('ark-controller') + (controller.namespace ? ` ${chalk.blue(controller.namespace)}` : '') + (controller.isDev ? ' (dev)' : ''),
-        details: controller.details || '',
+        details: details.join(', '),
         subtext: !data.defaultModelExists ? '(no default model configured)' : undefined,
       });
     } else {

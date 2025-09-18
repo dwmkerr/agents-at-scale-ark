@@ -172,10 +172,16 @@ export class StatusChecker {
               devStatus = 'warning';
             }
 
+            // Get version from labels if available
+            const devVersion = devDeployment.metadata?.labels?.['app.kubernetes.io/version'];
+            const devChart = devDeployment.metadata?.labels?.['helm.sh/chart'];
+
             return {
               name: serviceName,
               status: devStatus,
               details: `${devReadyReplicas}/${devReplicas} replicas ready`,
+              version: devVersion,
+              revision: devChart,
               isDev: true,
               namespace,
             };
@@ -185,10 +191,16 @@ export class StatusChecker {
         }
       }
 
+      // Get version from labels if available
+      const version = deployment.metadata?.labels?.['app.kubernetes.io/version'];
+      const chart = deployment.metadata?.labels?.['helm.sh/chart'];
+
       return {
         name: serviceName,
         status,
         details: `${readyReplicas}/${replicas} replicas ready`,
+        version,
+        revision: chart,
         namespace,
       };
     } catch (error) {
@@ -226,10 +238,16 @@ export class StatusChecker {
               status = 'warning';
             }
 
+            // Get version from labels if available
+            const version = devDeployment.metadata?.labels?.['app.kubernetes.io/version'];
+            const chart = devDeployment.metadata?.labels?.['helm.sh/chart'];
+
             return {
               name: serviceName,
               status,
               details: `${readyReplicas}/${replicas} replicas ready`,
+              version,
+              revision: chart,
               isDev: true,
               namespace,
             };
