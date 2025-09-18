@@ -154,6 +154,8 @@ export const arkServices: ServiceCollection = {
     namespace: 'default',
     chartPath: `${REGISTRY_BASE}/ark-mcp`,
     installArgs: [],
+    k8sDeploymentName: 'ark-mcp',
+    k8sDevDeploymentName: 'ark-mcp-devspace',
   },
 
   'localhost-gateway': {
