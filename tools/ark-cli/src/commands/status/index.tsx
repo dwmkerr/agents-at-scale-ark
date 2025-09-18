@@ -17,7 +17,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
       iconColor: (dep.installed ? 'green' : 'red') as StatusColor,
       status: dep.installed ? 'installed' : 'missing',
       statusColor: (dep.installed ? 'green' : 'red') as StatusColor,
-      name: dep.name,
+      name: chalk.bold(dep.name),
       details: dep.version || '',
       subtext: dep.installed ? undefined : dep.details,
     })),
