@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
-	"mckinsey.com/ark/internal/annotations"
 	"mckinsey.com/ark/internal/genai"
 	"mckinsey.com/ark/internal/telemetry"
 )
@@ -127,12 +125,6 @@ func (r *QueryReconciler) handleQueryExecution(ctx context.Context, req ctrl.Req
 	case statusRunning:
 		return r.handleRunningPhase(ctx, req, obj)
 	default:
-		// Check if streaming is supported before transitioning to running
-		if err := r.checkAndSetupStreaming(ctx, &obj); err != nil {
-			// Log error but don't fail the query - streaming is optional
-			logf.FromContext(ctx).Info("Failed to setup streaming", "error", err)
-		}
-
 		if err := r.updateStatus(ctx, &obj, statusRunning); err != nil {
 			return ctrl.Result{
 				RequeueAfter: time.Until(expiry),
@@ -235,13 +227,6 @@ func (r *QueryReconciler) executeQueryAsync(opCtx context.Context, obj arkv1alph
 		_ = r.updateStatusWithDuration(opCtx, &obj, statusEvaluating, duration)
 		cleanupCache = false
 	} else {
-		// Notify memory service that streaming is complete (if streaming was enabled)
-		if memory != nil {
-			if completionErr := memory.NotifyCompletion(opCtx); completionErr != nil {
-				// Log error but don't fail the query
-				log.V(1).Info("Failed to notify query completion to memory service", "error", completionErr)
-			}
-		}
 		_ = r.updateStatusWithDuration(opCtx, &obj, statusDone, duration)
 	}
 }
@@ -254,8 +239,6 @@ func (r *QueryReconciler) setupQueryExecution(opCtx context.Context, obj arkv1al
 		return nil, nil, err
 	}
 
-	// Streaming support has already been determined in checkAndSetupStreaming
-	// If StreamingURL annotation exists, streaming is both requested and supported
 	memory, err := genai.NewMemoryForQuery(opCtx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
 	if err != nil {
 		queryTracker.Fail(fmt.Errorf("failed to create memory client: %w", err))
@@ -503,17 +486,6 @@ func (r *QueryReconciler) executeTarget(ctx context.Context, query arkv1alpha1.Q
 	)
 	defer span.End()
 
-	// Add query and session context for streaming metadata
-	queryID := string(query.UID)
-	sessionID := "" // Could be extracted from annotations or labels if available
-	ctx = genai.WithQueryContext(ctx, queryID, sessionID, query.Name)
-
-	// Add execution metadata for streaming
-	targetString := fmt.Sprintf("%s/%s", target.Type, target.Name)
-	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
-		"target": targetString,
-	})
-
 	timeout := 5 * time.Minute
 	if query.Spec.Timeout != nil {
 		timeout = query.Spec.Timeout.Duration
@@ -574,11 +546,6 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 	log := logf.FromContext(ctx)
 	log.Info("executing agent", "agent", agentCRD.Name)
 
-	// Add agent to execution metadata
-	ctx = genai.WithExecutionMetadata(ctx, map[string]interface{}{
-		"agent": agentName,
-	})
-
 	// Regular agent execution
 	agent, err := genai.MakeAgent(ctx, impersonatedClient, &agentCRD, tokenCollector)
 	if err != nil {
@@ -597,10 +564,7 @@ func (r *QueryReconciler) executeAgent(ctx context.Context, query arkv1alpha1.Qu
 
 	userMessage := genai.NewUserMessage(resolvedInput)
 
-	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
-	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
-
-	responseMessages, err := agent.Execute(ctx, userMessage, messages, memory, streamingEnabled)
+	responseMessages, err := agent.Execute(ctx, userMessage, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -640,10 +604,7 @@ func (r *QueryReconciler) executeTeam(ctx context.Context, query arkv1alpha1.Que
 
 	userMessage := genai.NewUserMessage(resolvedInput)
 
-	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
-	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
-
-	responseMessages, err := team.Execute(ctx, userMessage, messages, memory, streamingEnabled)
+	responseMessages, err := team.Execute(ctx, userMessage, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -687,49 +648,35 @@ func (r *QueryReconciler) executeModel(ctx context.Context, query arkv1alpha1.Qu
 	messages = append(messages, userMessage)
 	allMessages := messages
 
-	// Check if streaming is enabled (streaming URL annotation means streaming is both requested and supported)
-	streamingEnabled := query.GetAnnotations() != nil && query.GetAnnotations()[annotations.StreamingURL] != ""
-
 	// Create operation tracker for the model call
 	modelTracker := genai.NewOperationTracker(tokenCollector, ctx, "ModelCall", modelName, map[string]string{
-		"model":     modelName,
-		"type":      "direct",
-		"streaming": fmt.Sprintf("%t", streamingEnabled),
+		"model": modelName,
+		"type":  "direct",
 	})
 
-	var responseMessages []genai.Message
-
-	if streamingEnabled {
-		// Execute with streaming
-		var err error
-		responseMessages, err = r.executeModelWithStreaming(ctx, model, allMessages, memory, modelTracker)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Execute without streaming (existing logic)
-		completion, err := model.ChatCompletion(ctx, allMessages, nil, false, 1)
-		if err != nil {
-			modelTracker.Fail(err)
-			return nil, fmt.Errorf("model chat completion failed: %w", err)
-		}
-
-		// Extract and track token usage
-		tokenUsage := genai.TokenUsage{
-			PromptTokens:     completion.Usage.PromptTokens,
-			CompletionTokens: completion.Usage.CompletionTokens,
-			TotalTokens:      completion.Usage.TotalTokens,
-		}
-		modelTracker.CompleteWithTokens("", tokenUsage)
-
-		if len(completion.Choices) == 0 {
-			return nil, fmt.Errorf("model returned no completion choices")
-		}
-
-		choice := completion.Choices[0]
-		assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
-		responseMessages = []genai.Message{assistantMessage}
+	// Call model directly with chat completion
+	completion, err := model.ChatCompletion(ctx, allMessages, nil)
+	if err != nil {
+		modelTracker.Fail(err)
+		return nil, fmt.Errorf("model chat completion failed: %w", err)
 	}
+
+	// Extract and track token usage
+	tokenUsage := genai.TokenUsage{
+		PromptTokens:     completion.Usage.PromptTokens,
+		CompletionTokens: completion.Usage.CompletionTokens,
+		TotalTokens:      completion.Usage.TotalTokens,
+	}
+	modelTracker.CompleteWithTokens("", tokenUsage)
+
+	if len(completion.Choices) == 0 {
+		return nil, fmt.Errorf("model returned no completion choices")
+	}
+
+	choice := completion.Choices[0]
+	assistantMessage := genai.NewAssistantMessage(choice.Message.Content)
+
+	responseMessages := []genai.Message{assistantMessage}
 
 	// Save new messages to memory (user message + response messages)
 	newMessages := append([]genai.Message{userMessage}, responseMessages...)
@@ -852,69 +799,6 @@ func (r *QueryReconciler) getClientForQuery(query arkv1alpha1.Query) (client.Cli
 	return impersonatedClient, nil
 }
 
-func (r *QueryReconciler) checkAndSetupStreaming(ctx context.Context, query *arkv1alpha1.Query) error {
-	// Check if streaming is requested
-	if query.GetAnnotations() == nil || query.GetAnnotations()[annotations.StreamingEnabled] != "true" {
-		return nil // Streaming not requested
-	}
-
-	// NOTE: Current implementation uses Memory resource with streaming annotation.
-	// In a future release, this will be replaced with a dedicated EventStream CRD
-	// that will provide more robust event streaming capabilities independent of memory storage.
-
-	// Determine memory name and namespace
-	var memoryName, memoryNamespace string
-	if query.Spec.Memory == nil {
-		memoryName = "default"
-		memoryNamespace = query.Namespace
-	} else {
-		memoryName = query.Spec.Memory.Name
-		if query.Spec.Memory.Namespace != "" {
-			memoryNamespace = query.Spec.Memory.Namespace
-		} else {
-			memoryNamespace = query.Namespace
-		}
-	}
-
-	// Get the Memory resource
-	var memory arkv1alpha1.Memory
-	key := client.ObjectKey{Name: memoryName, Namespace: memoryNamespace}
-	if err := r.Get(ctx, key, &memory); err != nil {
-		return fmt.Errorf("failed to get memory resource: %w", err)
-	}
-
-	// Check if memory supports streaming via annotation
-	// NOTE: Replace with EventStream resource check in future release
-	memAnnotations := memory.GetAnnotations()
-	if memAnnotations == nil || memAnnotations["ark.mckinsey.com/memory-event-stream-enabled"] != "true" {
-		return nil // Memory doesn't support streaming
-	}
-
-	// Check if memory has a resolved address
-	if memory.Status.LastResolvedAddress == nil || *memory.Status.LastResolvedAddress == "" {
-		return fmt.Errorf("memory has no resolved address")
-	}
-
-	// Construct the streaming URL from memory's address
-	// NOTE: In future, this will come from EventStream resource
-	baseURL := strings.TrimSuffix(*memory.Status.LastResolvedAddress, "/")
-	streamingURL := fmt.Sprintf("%s/stream/%s", baseURL, query.Name)
-
-	// Set the streaming URL annotation
-	if query.Annotations == nil {
-		query.Annotations = make(map[string]string)
-	}
-	query.Annotations[annotations.StreamingURL] = streamingURL
-
-	// Update the query with the new annotation
-	if err := r.Update(ctx, query); err != nil {
-		return fmt.Errorf("failed to update query with streaming URL: %w", err)
-	}
-
-	logf.FromContext(ctx).Info("Streaming URL configured", "query", query.Name, "url", streamingURL)
-	return nil
-}
-
 func (r *QueryReconciler) cleanupExistingOperation(namespacedName types.NamespacedName) {
 	if existingOp, exists := r.operations.Load(namespacedName); exists {
 		logf.Log.Info("Found existing operation, clearing due to cancel", "query", namespacedName.String())
@@ -966,56 +850,10 @@ func (r *QueryReconciler) executeEvaluation(ctx context.Context, obj arkv1alpha1
 		}
 	} else {
 		obj.Status.Evaluations = evaluationResults
-
-		// Get memory interface to notify completion
-		impersonatedClient, err := r.getClientForQuery(obj)
-		if err == nil {
-			sessionId := obj.Spec.SessionId
-			if sessionId == "" {
-				sessionId = string(obj.UID)
-			}
-			memory, err := genai.NewMemoryForQuery(ctx, impersonatedClient, obj.Spec.Memory, obj.Namespace, tokenCollector, sessionId, obj.Name)
-			if err == nil && memory != nil {
-				if completionErr := memory.NotifyCompletion(ctx); completionErr != nil {
-					log.V(1).Info("Failed to notify query completion after evaluation", "error", completionErr)
-				}
-			}
-		}
-
 		if updateErr := r.updateStatus(ctx, &obj, statusDone); updateErr != nil {
 			log.Error(updateErr, "Failed to update status")
 		}
 	}
-}
-
-func (r *QueryReconciler) executeModelWithStreaming(ctx context.Context, model *genai.Model, messages []genai.Message, memory genai.MemoryInterface, modelTracker *genai.OperationTracker) ([]genai.Message, error) {
-	// Call model with streaming enabled
-	completion, err := model.ChatCompletion(ctx, messages, memory, true, 1)
-	if err != nil {
-		modelTracker.Fail(err)
-		return nil, fmt.Errorf("model streaming completion failed: %w", err)
-	}
-
-	// Extract and track token usage
-	tokenUsage := genai.TokenUsage{
-		PromptTokens:     completion.Usage.PromptTokens,
-		CompletionTokens: completion.Usage.CompletionTokens,
-		TotalTokens:      completion.Usage.TotalTokens,
-	}
-	modelTracker.CompleteWithTokens("streamed", tokenUsage)
-
-	if len(completion.Choices) == 0 {
-		return nil, fmt.Errorf("model returned no completion choices")
-	}
-
-	choice := completion.Choices[0]
-
-	// Create the assistant message with the full response (preserves tool calls if present)
-	// This matches the non-streaming path but uses the full message instead of just content
-	assistantMessage := genai.Message(choice.Message.ToParam())
-	responseMessages := []genai.Message{assistantMessage}
-
-	return responseMessages, nil
 }
 
 func (r *QueryReconciler) SetupWithManager(mgr ctrl.Manager) error {
