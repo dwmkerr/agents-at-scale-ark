@@ -21,7 +21,9 @@ describe('completion command', () => {
     const command = createCompletionCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith('Shell completion for ARK CLI');
+    // Check first call contains the title
+    expect(mockConsoleLog.mock.calls[0][0]).toBe('Shell completion for ARK CLI');
+    // Check that bash completion instructions are shown
     expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('ark completion bash'));
   });
 
