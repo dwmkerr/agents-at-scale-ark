@@ -2,11 +2,11 @@ import {jest} from '@jest/globals';
 import {Command} from 'commander';
 
 const mockArkApiClient = {
-  getQueryTargets: jest.fn(),
+  getQueryTargets: jest.fn() as any,
 };
 
 const mockArkApiProxy = jest.fn() as any;
-mockArkApiProxy.prototype.start = jest.fn().mockResolvedValue(mockArkApiClient) as any;
+mockArkApiProxy.prototype.start = jest.fn().mockResolvedValue(mockArkApiClient);
 mockArkApiProxy.prototype.stop = jest.fn();
 
 jest.unstable_mockModule('../../lib/arkApiProxy.js', () => ({
