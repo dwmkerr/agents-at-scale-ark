@@ -6,7 +6,7 @@ import type {ArkConfig} from '../../lib/config.js';
 import {ArkServiceProxy} from '../../lib/arkServiceProxy.js';
 import {arkServices} from '../../arkServices.js';
 
-export async function openDashboard(options: {open: boolean} = {open: true}) {
+export async function openDashboard() {
   const spinner = ora('Connecting to dashboard').start();
 
   try {
@@ -19,13 +19,11 @@ export async function openDashboard(options: {open: boolean} = {open: true}) {
     console.log(`ARK dashboard running on: ${chalk.green(url)}`);
     console.log(chalk.gray('Press Ctrl+C to stop'));
 
-    if (options.open) {
-      // Brief pause before opening browser
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Brief pause before opening browser
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Open browser
-      await open(url);
-    }
+    // Open browser
+    await open(url);
 
     // Handle Ctrl+C gracefully
     process.on('SIGINT', () => {
@@ -47,8 +45,7 @@ export function createDashboardCommand(_: ArkConfig): Command {
   const dashboardCommand = new Command('dashboard');
   dashboardCommand
     .description('Open the ARK dashboard in your browser')
-    .option('--no-open', 'Do not open browser automatically')
-    .action((options) => openDashboard(options));
+    .action(openDashboard);
 
   return dashboardCommand;
 }
