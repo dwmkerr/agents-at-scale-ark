@@ -3,17 +3,8 @@ import chalk from 'chalk';
 import {execa} from 'execa';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
-import {checkCommandExists} from '../../lib/commands.js';
 
 async function listRoutes() {
-  // Check if kubectl is installed
-  const kubectlInstalled = await checkCommandExists('kubectl', ['version', '--client']);
-  if (!kubectlInstalled) {
-    output.error('kubectl is not installed. please install kubectl first:');
-    output.info('https://kubernetes.io/docs/tasks/tools/');
-    process.exit(1);
-  }
-
   const namespace = 'ark-system';
   const port = 8080;
   const portSuffix = `:${port}`;
