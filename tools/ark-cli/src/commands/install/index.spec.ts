@@ -33,6 +33,7 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
 }) as any);
 
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
 const {createInstallCommand} = await import('./index.js');
 
