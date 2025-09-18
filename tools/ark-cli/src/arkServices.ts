@@ -7,8 +7,6 @@ export interface ArkService {
   helmReleaseName: string;
   description: string;
   namespace: string;
-  healthPath?: string;
-  gatewayUrl?: string;
   chartPath?: string;
   installArgs?: string[];
   k8sServiceName?: string;
@@ -33,7 +31,6 @@ export interface DependencyCollection {
   [key: string]: ArkDependency;
 }
 
-const LOCALHOST_GATEWAY_PORT = 8080;
 const REGISTRY_BASE = 'oci://ghcr.io/mckinsey/agents-at-scale-ark/charts';
 
 /**
@@ -110,8 +107,6 @@ export const arkServices: ServiceCollection = {
     helmReleaseName: 'ark-api',
     description: 'ARK API service for interacting with ARK resources',
     namespace: 'default',
-    healthPath: '/health',
-    gatewayUrl: `http://ark-api.127.0.0.1.nip.io:${LOCALHOST_GATEWAY_PORT}`,
     chartPath: `${REGISTRY_BASE}/ark-api`,
     installArgs: [],
     k8sServiceName: 'ark-api',
@@ -126,8 +121,6 @@ export const arkServices: ServiceCollection = {
     helmReleaseName: 'ark-dashboard',
     description: 'Web-based dashboard for ARK',
     namespace: 'default',
-    healthPath: '',
-    gatewayUrl: `http://dashboard.127.0.0.1.nip.io:${LOCALHOST_GATEWAY_PORT}`,
     chartPath: `${REGISTRY_BASE}/ark-dashboard`,
     installArgs: [],
     k8sServiceName: 'ark-dashboard',
@@ -142,8 +135,6 @@ export const arkServices: ServiceCollection = {
     helmReleaseName: 'ark-api-a2a',
     description: 'ARK API agent-to-agent communication service',
     namespace: 'default',
-    healthPath: '/health',
-    gatewayUrl: `http://ark-api-a2a.127.0.0.1.nip.io:${LOCALHOST_GATEWAY_PORT}`,
     // Note: This service might be installed as part of ark-api or separately
   },
 
@@ -181,27 +172,4 @@ export function getInstallableServices(): ServiceCollection {
   }
 
   return installable;
-}
-
-/**
- * Get services that can be checked for status
- */
-export function getStatusCheckableServices(): Record<string, string> {
-  const statusServices: Record<string, string> = {};
-
-  for (const [key, service] of Object.entries(arkServices)) {
-    if (service.gatewayUrl) {
-      statusServices[key] = service.gatewayUrl;
-    }
-  }
-
-  return statusServices;
-}
-
-/**
- * Get health check path for a specific service
- */
-export function getHealthPath(serviceName: string): string {
-  const service = arkServices[serviceName];
-  return service?.healthPath || '';
 }
