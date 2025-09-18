@@ -34,8 +34,9 @@ export function loadConfig(): ArkConfig {
     try {
       const userConfig = yaml.parse(fs.readFileSync(userConfigPath, 'utf-8'));
       mergeConfig(config, userConfig);
-    } catch (_e) {
-      // Silently ignore invalid config files
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      throw new Error(`Invalid YAML in ${userConfigPath}: ${message}`);
     }
   }
 
@@ -47,8 +48,9 @@ export function loadConfig(): ArkConfig {
         fs.readFileSync(projectConfigPath, 'utf-8')
       );
       mergeConfig(config, projectConfig);
-    } catch (_e) {
-      // Silently ignore invalid config files
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      throw new Error(`Invalid YAML in ${projectConfigPath}: ${message}`);
     }
   }
 
