@@ -5,9 +5,14 @@ const mockArkApiClient = {
   getQueryTargets: jest.fn() as any,
 };
 
+const mockStart = jest.fn();
+mockStart.mockResolvedValue(mockArkApiClient);
+
 const mockArkApiProxy = jest.fn() as any;
-mockArkApiProxy.prototype.start = jest.fn().mockResolvedValue(mockArkApiClient) as any;
-mockArkApiProxy.prototype.stop = jest.fn();
+mockArkApiProxy.prototype = {
+  start: mockStart,
+  stop: jest.fn(),
+};
 
 jest.unstable_mockModule('../../lib/arkApiProxy.js', () => ({
   ArkApiProxy: mockArkApiProxy,
