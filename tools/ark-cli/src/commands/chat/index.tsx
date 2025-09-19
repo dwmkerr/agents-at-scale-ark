@@ -1,6 +1,5 @@
 import {Command} from 'commander';
 import {render} from 'ink';
-import * as React from 'react';
 import ChatUI from '../../components/ChatUI.js';
 import {ArkApiProxy} from '../../lib/arkApiProxy.js';
 import type {ArkConfig} from '../../lib/config.js';
@@ -14,22 +13,9 @@ export function createChatCommand(config: ArkConfig): Command {
       '[target]',
       'Target to connect to (e.g., agent/sample-agent, model/default)'
     )
-    .option('-a, --agent <name>', 'Connect directly to a specific agent')
-    .option('-m, --model <name>', 'Connect directly to a specific model')
-    .action(async (targetArg, options) => {
-      // Determine initial target from argument or options
-      let initialTargetId: string | undefined;
-
-      if (targetArg) {
-        // Direct target argument (e.g., "agent/sample-agent")
-        initialTargetId = targetArg;
-      } else if (options.agent) {
-        // Agent option
-        initialTargetId = `agent/${options.agent}`;
-      } else if (options.model) {
-        // Model option
-        initialTargetId = `model/${options.model}`;
-      }
+    .action(async (targetArg) => {
+      // Direct target argument (e.g., "agent/sample-agent")
+      const initialTargetId: string | undefined = targetArg;
 
       // Config is passed from main
 
