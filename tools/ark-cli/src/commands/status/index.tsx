@@ -166,23 +166,37 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
 
       // Add version update status as separate line
       if (controller.status === 'healthy' && controller.version && config) {
-        let updateStatus = '';
         if (config.latestVersion === undefined) {
-          updateStatus = 'unable to check for updates';
+          arkStatusLines.push({
+            icon: '?',
+            iconColor: 'yellow' as StatusColor,
+            status: 'version check',
+            statusColor: 'yellow' as StatusColor,
+            name: '',
+            details: 'unable to check for updates',
+          });
         } else {
           const currentVersion = `v${controller.version}`;
           if (currentVersion === config.latestVersion) {
-            updateStatus = 'up to date';
+            arkStatusLines.push({
+              icon: '✓',
+              iconColor: 'green' as StatusColor,
+              status: 'up to date',
+              statusColor: 'green' as StatusColor,
+              name: '',
+              details: config.latestVersion,
+            });
           } else {
-            updateStatus = `update available: ${config.latestVersion}`;
+            arkStatusLines.push({
+              icon: '↑',
+              iconColor: 'yellow' as StatusColor,
+              status: 'update available',
+              statusColor: 'yellow' as StatusColor,
+              name: '',
+              details: config.latestVersion,
+            });
           }
         }
-
-        arkStatusLines.push({
-          icon: '',
-          status: '',
-          name: `  ${updateStatus}`,
-        });
       }
     }
   }
