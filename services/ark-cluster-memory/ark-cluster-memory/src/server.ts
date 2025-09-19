@@ -130,48 +130,50 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Start server
-const PORT = process.env.PORT || '8080';
-const HOST = process.env.HOST || '0.0.0.0';
-const server = app.listen(parseInt(PORT), HOST, () => {
-  console.log(`ARK Cluster Memory service running on http://${HOST}:${PORT}`);
-  if (process.env.MEMORY_FILE_PATH) {
-    console.log(`Memory persistence enabled at: ${process.env.MEMORY_FILE_PATH}`);
-  }
-  if (process.env.STREAM_FILE_PATH) {
-    console.log(`Stream persistence enabled at: ${process.env.STREAM_FILE_PATH}`);
-  }
-});
-
-// Memory will be saved on graceful shutdown only
-let saveInterval: NodeJS.Timeout | undefined;
-
-// Graceful shutdown
-const gracefulShutdown = () => {
-  console.log('Shutting down gracefully');
-  
-  if (saveInterval) {
-    clearInterval(saveInterval);
-  }
-  
-  // Save memory and streams before exit
-  memory.saveMemory();
-  stream.saveStreams();
-  
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
+// Only start server if this is the main module (not when imported by tests)
+if (require.main === module) {
+  const PORT = process.env.PORT || '8080';
+  const HOST = process.env.HOST || '0.0.0.0';
+  const server = app.listen(parseInt(PORT), HOST, () => {
+    console.log(`ARK Cluster Memory service running on http://${HOST}:${PORT}`);
+    if (process.env.MEMORY_FILE_PATH) {
+      console.log(`Memory persistence enabled at: ${process.env.MEMORY_FILE_PATH}`);
+    }
+    if (process.env.STREAM_FILE_PATH) {
+      console.log(`Stream persistence enabled at: ${process.env.STREAM_FILE_PATH}`);
+    }
   });
-};
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received');
-  gracefulShutdown();
-});
+  // Memory will be saved on graceful shutdown only
+  let saveInterval: NodeJS.Timeout | undefined;
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received');
-  gracefulShutdown();
-});
+  // Graceful shutdown
+  const gracefulShutdown = () => {
+    console.log('Shutting down gracefully');
+
+    if (saveInterval) {
+      clearInterval(saveInterval);
+    }
+
+    // Save memory and streams before exit
+    memory.saveMemory();
+    stream.saveStreams();
+
+    server.close(() => {
+      console.log('Process terminated');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received');
+    gracefulShutdown();
+  });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT received');
+    gracefulShutdown();
+  });
+}
 
 export default app;
