@@ -490,6 +490,8 @@ jobs:
           FILESYS_IMAGE_TAG: ${{ github.sha }}
           HOSTED_LANGCHAIN_AGENTS_IMAGE_REPOSITORY: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}/hosted-langchain-agents
           HOSTED_LANGCHAIN_AGENTS_IMAGE_TAG: ${{ github.sha }}
+          ARK_CLUSTER_MEMORY_IMAGE: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}/ark-cluster-memory
+          ARK_CLUSTER_MEMORY_IMAGE_TAG: ${{ github.sha }}
         run: |
           cd tests
           mkdir -p /tmp/chainsaw-report
@@ -529,6 +531,8 @@ jobs:
           FILESYS_IMAGE_TAG: ${{ github.sha }}
           HOSTED_LANGCHAIN_AGENTS_IMAGE_REPOSITORY: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}/hosted-langchain-agents
           HOSTED_LANGCHAIN_AGENTS_IMAGE_TAG: ${{ github.sha }}
+          ARK_CLUSTER_MEMORY_IMAGE: ${{ vars.DOCKER_CICD_CACHE_REGISTRY || format('ghcr.io/{0}/{1}', github.repository_owner, github.event.repository.name) }}/ark-cluster-memory
+          ARK_CLUSTER_MEMORY_IMAGE_TAG: ${{ github.sha }}
         run: |
           cd tests
           mkdir -p /tmp/chainsaw-report
