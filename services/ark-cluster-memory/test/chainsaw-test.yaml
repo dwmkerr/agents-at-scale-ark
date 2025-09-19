@@ -64,8 +64,8 @@ spec:
         content: |
           helm install ark-cluster-memory ../chart --wait --timeout=90s \
             --namespace $NAMESPACE \
-            --set image.repository=${ARK_CLUSTER_MEMORY_IMAGE:-ark-cluster-memory} \
-            --set image.tag=${ARK_CLUSTER_MEMORY_IMAGE_TAG:-latest}
+            --set app.image.repository=${ARK_CLUSTER_MEMORY_IMAGE:-ark-cluster-memory} \
+            --set app.image.tag=${ARK_CLUSTER_MEMORY_IMAGE_TAG:-latest}
         env:
         - name: NAMESPACE
           value: ($namespace)
