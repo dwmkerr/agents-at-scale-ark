@@ -22,7 +22,7 @@ async function listTeams(options: {output?: string}) {
         return;
       }
 
-      teams.forEach((team: any) => {
+      teams.forEach((team: {metadata: {name: string}}) => {
         console.log(team.metadata.name);
       });
     }

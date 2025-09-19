@@ -23,7 +23,7 @@ async function listAgents(options: {output?: string}) {
       }
 
       // Simple list output - just agent names
-      agents.forEach((agent: any) => {
+      agents.forEach((agent: {metadata: {name: string}}) => {
         console.log(agent.metadata.name);
       });
     }

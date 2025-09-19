@@ -24,7 +24,7 @@ async function listModels(options: {output?: string}) {
       }
 
       // Just output the model names
-      models.forEach((model: any) => {
+      models.forEach((model: {metadata: {name: string}}) => {
         console.log(model.metadata.name);
       });
     }

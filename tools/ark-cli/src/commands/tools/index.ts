@@ -22,7 +22,7 @@ async function listTools(options: {output?: string}) {
         return;
       }
 
-      tools.forEach((tool: any) => {
+      tools.forEach((tool: {metadata: {name: string}}) => {
         console.log(tool.metadata.name);
       });
     }
