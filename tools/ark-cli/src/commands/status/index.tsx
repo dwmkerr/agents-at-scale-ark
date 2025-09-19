@@ -9,7 +9,7 @@ import {StatusData, ServiceStatus} from '../../lib/types.js';
 /**
  * Enrich service with formatted details including version/revision
  */
-function enrichServiceDetails(service: ServiceStatus): {
+function enrichServiceDetails(service: ServiceStatus, config?: ArkConfig): {
   statusInfo: {icon: string; text: string; color: StatusColor};
   displayName: string;
   details: string;
@@ -28,6 +28,21 @@ function enrichServiceDetails(service: ServiceStatus): {
   if (service.status === 'healthy') {
     if (service.version) details.push(`v${service.version}`);
     if (service.revision) details.push(`revision ${service.revision}`);
+
+    // Add version update status for ark-controller
+    if (service.name === 'ark-controller' && config) {
+      if (config.latestVersion === undefined) {
+        details.push('(unable to check for updates)');
+      } else {
+        // Compare versions (simple string comparison for now)
+        const currentVersion = `v${service.version}`;
+        if (currentVersion === config.latestVersion) {
+          details.push('(up to date)');
+        } else {
+          details.push(`(update available: ${config.latestVersion})`);
+        }
+      }
+    }
   }
   if (service.details) details.push(service.details);
 
@@ -47,7 +62,7 @@ function enrichServiceDetails(service: ServiceStatus): {
   };
 }
 
-function buildStatusSections(data: StatusData & {clusterAccess?: boolean; clusterInfo?: any}): StatusSection[] {
+function buildStatusSections(data: StatusData & {clusterAccess?: boolean; clusterInfo?: any}, config?: ArkConfig): StatusSection[] {
   const sections: StatusSection[] = [];
 
   // Dependencies section
@@ -103,7 +118,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
     const serviceLines = data.services
       .filter(s => s.name !== 'ark-controller')
       .map(service => {
-        const {statusInfo, displayName, details} = enrichServiceDetails(service);
+        const {statusInfo, displayName, details} = enrichServiceDetails(service, config);
         return {
           icon: statusInfo.icon,
           iconColor: statusInfo.color,
@@ -146,7 +161,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         name: 'ark-controller'
       });
     } else {
-      const {statusInfo, displayName, details} = enrichServiceDetails(controller);
+      const {statusInfo, displayName, details} = enrichServiceDetails(controller, config);
 
       // Map service status to ark status display
       const statusText = controller.status === 'healthy' ? 'ready' :
@@ -170,7 +185,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
   return sections;
 }
 
-export async function checkStatus() {
+export async function checkStatus(config: ArkConfig) {
   const spinner = ora('Checking system status').start();
 
   try {
@@ -184,7 +199,7 @@ export async function checkStatus() {
 
     spinner.stop();
 
-    const sections = buildStatusSections(statusData);
+    const sections = buildStatusSections(statusData, config);
     StatusFormatter.printSections(sections);
     process.exit(0);
   } catch (error) {
@@ -194,9 +209,9 @@ export async function checkStatus() {
   }
 }
 
-export function createStatusCommand(_: ArkConfig): Command {
+export function createStatusCommand(config: ArkConfig): Command {
   const statusCommand = new Command('status');
-  statusCommand.description('Check ARK system status').action(checkStatus);
+  statusCommand.description('Check ARK system status').action(() => checkStatus(config));
 
   return statusCommand;
 }

@@ -9,6 +9,7 @@ const packageJson = require('../package.json');
 
 import output from './lib/output.js';
 import {startup} from './lib/startup.js';
+import type {ArkConfig} from './lib/config.js';
 import {createAgentsCommand} from './commands/agents/index.js';
 import {createChatCommand} from './commands/chat/index.js';
 import {createClusterCommand} from './commands/cluster/index.js';
@@ -27,8 +28,8 @@ import {createToolsCommand} from './commands/tools/index.js';
 import {createRoutesCommand} from './commands/routes/index.js';
 import MainMenu from './ui/MainMenu.js';
 
-function showMainMenu() {
-  const app = render(<MainMenu />);
+function showMainMenu(config: ArkConfig) {
+  const app = render(<MainMenu config={config} />);
   // Store app instance globally so MainMenu can access it
   interface GlobalWithInkApp {
     inkApp?: ReturnType<typeof render>;
@@ -65,7 +66,7 @@ async function main() {
 
   // If no args provided, show interactive menu
   if (process.argv.length === 2) {
-    showMainMenu();
+    showMainMenu(config);
     return;
   }
 

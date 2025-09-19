@@ -45,6 +45,23 @@ async function checkRequirements(): Promise<void> {
 }
 
 /**
+ * Fetch latest version from GitHub releases (non-blocking)
+ */
+async function fetchLatestVersion(config: ArkConfig): Promise<void> {
+  try {
+    const response = await fetch(
+      'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
+    );
+    if (response.ok) {
+      const data = await response.json() as {tag_name: string};
+      config.latestVersion = data.tag_name;
+    }
+  } catch {
+    // Silently fail - latestVersion will remain undefined
+  }
+}
+
+/**
  * Initialize the CLI by checking requirements and loading config
  */
 export async function startup(): Promise<ArkConfig> {
@@ -53,6 +70,9 @@ export async function startup(): Promise<ArkConfig> {
 
   // Load config
   const config = loadConfig();
+
+  // Fetch latest version asynchronously (don't await)
+  fetchLatestVersion(config);
 
   return config;
 }

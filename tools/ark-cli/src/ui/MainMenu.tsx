@@ -2,6 +2,7 @@ import {Text, Box, render, useInput} from 'ink';
 import Spinner from 'ink-spinner';
 import * as React from 'react';
 import {isArkReady} from '../lib/arkStatus.js';
+import type {ArkConfig} from '../lib/config.js';
 
 type MenuChoice =
   | 'dashboard'
@@ -48,7 +49,11 @@ async function unmountInkApp() {
   }
 }
 
-const MainMenu: React.FC = () => {
+interface MainMenuProps {
+  config: ArkConfig;
+}
+
+const MainMenu: React.FC<MainMenuProps> = ({config}) => {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [arkReady, setArkReady] = React.useState<boolean | null>(null);
   const [isChecking, setIsChecking] = React.useState(true);
@@ -216,7 +221,7 @@ const MainMenu: React.FC = () => {
         await unmountInkApp();
 
         const {checkStatus} = await import('../commands/status/index.js');
-        await checkStatus();
+        await checkStatus(config);
         process.exit(0);
       }
 
