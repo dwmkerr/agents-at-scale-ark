@@ -1,7 +1,7 @@
 {
   "name": "ark-cluster-memory",
   "version": "0.1.31",
-  "description": "In-memory Kafka-like message broker for ARK cluster",
+  "description": "Ark in-cluster memory for memory and streaming data",
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
