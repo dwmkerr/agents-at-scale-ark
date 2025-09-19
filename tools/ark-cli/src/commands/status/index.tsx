@@ -28,21 +28,6 @@ function enrichServiceDetails(service: ServiceStatus, config?: ArkConfig): {
   if (service.status === 'healthy') {
     if (service.version) details.push(`v${service.version}`);
     if (service.revision) details.push(`revision ${service.revision}`);
-
-    // Add version update status for ark-controller
-    if (service.name === 'ark-controller' && config) {
-      if (config.latestVersion === undefined) {
-        details.push('(unable to check for updates)');
-      } else {
-        // Compare versions (simple string comparison for now)
-        const currentVersion = `v${service.version}`;
-        if (currentVersion === config.latestVersion) {
-          details.push('(up to date)');
-        } else {
-          details.push(`(update available: ${config.latestVersion})`);
-        }
-      }
-    }
   }
   if (service.details) details.push(service.details);
 
@@ -178,6 +163,27 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         subtext: (controller.status === 'healthy' && !data.defaultModelExists) ?
                  '(no default model configured)' : undefined,
       });
+
+      // Add version update status as separate line
+      if (controller.status === 'healthy' && controller.version && config) {
+        let updateStatus = '';
+        if (config.latestVersion === undefined) {
+          updateStatus = 'unable to check for updates';
+        } else {
+          const currentVersion = `v${controller.version}`;
+          if (currentVersion === config.latestVersion) {
+            updateStatus = 'up to date';
+          } else {
+            updateStatus = `update available: ${config.latestVersion}`;
+          }
+        }
+
+        arkStatusLines.push({
+          icon: '',
+          status: '',
+          name: `  ${updateStatus}`,
+        });
+      }
     }
   }
   sections.push({ title: 'ark status:', lines: arkStatusLines });
