@@ -15,6 +15,7 @@ import httpx
 from ark_sdk.client import with_ark_client
 from ...utils.query_targets import parse_model_to_query_target
 from ...utils.query_polling import poll_query_completion
+from ...utils.streaming import create_single_chunk_sse_response
 from ...constants.annotations import STREAMING_ENABLED_ANNOTATION, MEMORY_EVENT_STREAM_ENABLED_ANNOTATION
 
 router = APIRouter(prefix="/openai/v1", tags=["OpenAI"])
@@ -169,35 +170,46 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
             await ark_client.queries.a_create(query_resource)
             logger.info(f"Created query: {query_name}")
 
-            # OpenAI spec: if stream=true, client expects SSE format regardless of downstream support
-            if request.stream:
-                has_streaming, streaming_url = await check_streaming_availability(ark_client, query_name, "default")
+            # If the caller didn't reuquest streaming, we can simply poll for
+            # the response.
+            if not request.stream:
+                return await poll_query_completion(
+                    ark_client, query_name, model, input_text
+                )
 
-                if has_streaming and not streaming_url:
-                    # Streaming backend is misconfigured - fail the request
-                    raise HTTPException(
-                        status_code=502,
-                        detail="Streaming backend is misconfigured: memory has streaming enabled but no resolved address"
-                    )
+            # Streaming was requested - we'll check to see if the backend is
+            # configured to support streaming, and if so its streaming endpoint.
+            has_streaming, streaming_url = await check_streaming_availability(ark_client, query_name, "default")
 
-                if streaming_url:
-                    # Streaming is properly configured and available
-                    logger.info(f"Streaming available for query: {query_name}")
-                    return StreamingResponse(
-                        proxy_streaming_response(streaming_url),
-                        media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "Connection": "keep-alive",
-                        }
-                    )
-                else:
-                    # No streaming backend configured - fall back to polling
-                    logger.info(f"No streaming backend configured, falling back to polling")
+            # Regardless of what we return, i'll be a streaming response with
+            # SSE headers.
+            sse_headers = {
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
 
-            # Standard complete response for stream=false or streaming fallback
-            return await poll_query_completion(
+            # If the backend has streaming and we have an endpoint, proxy the
+            # endpoint to the caller, this gives true real-time streaming.
+            if has_streaming and streaming_url:
+                logger.info(f"Streaming available for query: {query_name}")
+                return StreamingResponse(
+                    proxy_streaming_response(streaming_url),
+                    media_type="text/event-stream",
+                    headers=sse_headers
+                )
+
+            # If there is no backend streaming enabled, follow the OpenAI spec
+            # and simply return a single chunk with the complete response. Get
+            # the complete response - turn it into a chunk - return it.
+            logger.info("No streaming backend configured, falling back to polling")
+            completion = await poll_query_completion(
                 ark_client, query_name, model, input_text
+            )
+            sse_lines = create_single_chunk_sse_response(completion)
+            return StreamingResponse(
+                iter(sse_lines),
+                media_type="text/event-stream",
+                headers=sse_headers
             )
 
     except Exception as e:

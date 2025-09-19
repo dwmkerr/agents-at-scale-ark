@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { StreamStore } from '../stream-store.js';
 import { Message, StreamResponse } from '../types.js';
 
@@ -22,67 +22,6 @@ const chunkContent = (content: string, maxChunkSize: number): string[] => {
   return chunks;
 };
 
-// Helper function to create OpenAI-compatible stream responses (with chunking support)
-const createStreamResponses = (sessionID: string, message: Message, index: number, maxChunkSize: number = 50): StreamResponse[] => {
-  // Handle completion messages specially
-  if (typeof message === 'object' && message !== null) {
-    const msgObj = message as any;
-    // Check for OpenAI-compatible completion format
-    if (msgObj.choices && Array.isArray(msgObj.choices) && 
-        msgObj.choices.length > 0 && msgObj.choices[0].finish_reason === 'stop') {
-      return [{
-        id: sessionID,
-        object: 'chat.completion.chunk',
-        created: Math.floor(Date.now() / 1000),
-        model: 'ark-cluster-memory',
-        choices: [{
-          index: 0,
-          delta: {},
-          finish_reason: 'stop'
-        }]
-      }];
-    }
-  }
-
-  let content: string;
-  try {
-    if (typeof message === 'string') {
-      content = message;
-    } else if (typeof message === 'object' && message !== null) {
-      const msgObj = message as any;
-      content = msgObj.content || JSON.stringify(message);
-    } else {
-      content = String(message);
-    }
-  } catch (error) {
-    content = '[Unable to parse message content]';
-  }
-
-  // Chunk the content and create multiple responses
-  const chunks = chunkContent(content, maxChunkSize);
-  
-  // Log chunking activity
-  if (chunks.length > 1) {
-    console.log(`[STREAM] Session ${sessionID}: Split content (${content.length} chars) into ${chunks.length} chunks of max ${maxChunkSize} chars`);
-  }
-  
-  return chunks.map((chunk, idx) => {
-    if (chunks.length > 1) {
-      console.log(`[STREAM] Session ${sessionID}: Chunk ${idx + 1}/${chunks.length}: "${chunk.substring(0, 20)}${chunk.length > 20 ? '...' : ''}" (${chunk.length} chars)`);
-    }
-    
-    return {
-      id: sessionID,
-      object: 'chat.completion.chunk',
-      created: Math.floor(Date.now() / 1000),
-      model: 'ark-cluster-memory',
-      choices: [{
-        index: 0,
-        delta: { content: chunk }
-      }]
-    };
-  });
-};
 
 // Helper function to write SSE event
 const writeSSEEvent = (res: Response, data: StreamResponse): boolean => {
@@ -262,7 +201,7 @@ export function createStreamRouter(stream: StreamStore): Router {
       });
       
       // Subscribe to completion event - this signals the entire query is done
-      const completeHandler = () => {
+      const completeHandler = (): void => {
         const typeStr = Object.entries(chunkTypeCounts)
           .filter(([_, count]) => count > 0)
           .map(([type, count]) => `${count} ${type}`)
@@ -273,7 +212,7 @@ export function createStreamRouter(stream: StreamStore): Router {
         unsubscribeChunks();
         stream.eventEmitter.off(`complete:${query_name}`, completeHandler);
       };
-      const unsubscribeComplete = () => stream.eventEmitter.off(`complete:${query_name}`, completeHandler);
+      const unsubscribeComplete = (): void => { stream.eventEmitter.off(`complete:${query_name}`, completeHandler); };
       stream.eventEmitter.on(`complete:${query_name}`, completeHandler);
       
       // Set up timeout if wait-for-query is specified
