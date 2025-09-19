@@ -29,12 +29,16 @@ const {startup} = await import('./startup.js');
 const mockCheckCommandExists = checkCommandExists as any;
 const mockLoadConfig = loadConfig as any;
 
+// Mock fetch globally
+global.fetch = jest.fn() as any;
+
 describe('startup', () => {
   let mockExit: jest.SpiedFunction<typeof process.exit>;
   let mockConsoleError: jest.SpiedFunction<typeof console.error>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (global.fetch as any).mockClear();
     mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
@@ -129,5 +133,69 @@ describe('startup', () => {
     const loadCallOrder = mockLoadConfig.mock.invocationCallOrder[0];
     expect(checkCallOrder).toBeLessThan(loadCallOrder);
     expect(config).toEqual(expectedConfig);
+  });
+
+  describe('version fetching', () => {
+    beforeEach(() => {
+      // Setup successful requirements check and config
+      mockCheckCommandExists.mockResolvedValue(true);
+      mockLoadConfig.mockReturnValue({ chat: { streaming: true } });
+    });
+
+    it('fetches latest version from GitHub API', async () => {
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ tag_name: 'v0.1.35' })
+      });
+
+      const config = await startup();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
+      );
+
+      // Wait for async fetch to complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(config.latestVersion).toBe('v0.1.35');
+    });
+
+    it('handles GitHub API failure gracefully', async () => {
+      (global.fetch as any).mockRejectedValue(new Error('Network error'));
+
+      const config = await startup();
+
+      // Wait for async fetch attempt
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Should not have latestVersion set
+      expect(config.latestVersion).toBeUndefined();
+    });
+
+    it('handles non-OK response from GitHub API', async () => {
+      (global.fetch as any).mockResolvedValue({
+        ok: false,
+        status: 403
+      });
+
+      const config = await startup();
+
+      // Wait for async fetch to complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Should not have latestVersion set
+      expect(config.latestVersion).toBeUndefined();
+    });
+
+    it('continues startup even if version fetch fails', async () => {
+      (global.fetch as any).mockRejectedValue(new Error('API Error'));
+
+      const config = await startup();
+
+      // Startup should complete successfully
+      expect(config).toBeDefined();
+      expect(config.chat).toBeDefined();
+      expect(mockExit).not.toHaveBeenCalled();
+    });
   });
 });
