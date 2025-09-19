@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { StreamStore } from '../stream-store.js';
-import { Message, StreamResponse } from '../types.js';
+import { StreamResponse } from '../types.js';
 
 // Helper function to parse timeout parameter
 const parseTimeout = (timeoutStr: string | undefined, defaultTimeout: number): number => {
@@ -9,18 +9,6 @@ const parseTimeout = (timeoutStr: string | undefined, defaultTimeout: number): n
   return isNaN(timeout) ? defaultTimeout : Math.max(1000, Math.min(timeout * 1000, 300000));
 };
 
-// Helper function to chunk content into smaller pieces
-const chunkContent = (content: string, maxChunkSize: number): string[] => {
-  if (content.length <= maxChunkSize) {
-    return [content];
-  }
-  
-  const chunks: string[] = [];
-  for (let i = 0; i < content.length; i += maxChunkSize) {
-    chunks.push(content.slice(i, i + maxChunkSize));
-  }
-  return chunks;
-};
 
 
 // Helper function to write SSE event
@@ -473,10 +461,25 @@ export function createStreamRouter(stream: StreamStore): Router {
       }
       
       console.log(`[STREAM] POST /stream/${query_id}/complete - marking query as complete`);
-      
+
+      // Check if stream exists
+      if (!stream.hasStream(query_id)) {
+        res.status(404).json({ error: 'Stream not found' });
+        return;
+      }
+
+      // Check if already completed (for idempotency)
+      if (stream.isStreamComplete(query_id)) {
+        res.json({
+          status: 'already_completed',
+          query: query_id
+        });
+        return;
+      }
+
       // Mark query stream as complete
       stream.completeQueryStream(query_id);
-      
+
       res.json({
         status: 'completed',
         query: query_id

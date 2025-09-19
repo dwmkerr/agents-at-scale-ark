@@ -9,7 +9,7 @@ help: # show help for each of the Makefile recipes
 	@grep -E '^[a-zA-Z0-9 -]+:.*#'  Makefile | sort | while read -r l; do printf "\033[1;32m$$(echo $$l | cut -f 1 -d':')\033[00m:$$(echo $$l | cut -f 2- -d'#')\n"; done
 
 build: # build Docker image
-	docker build -t ark-cluster-memory:latest .
+	cd ark-cluster-memory && docker build -t ark-cluster-memory:latest .
 
 dev: # run service in development mode
 	npm run dev
