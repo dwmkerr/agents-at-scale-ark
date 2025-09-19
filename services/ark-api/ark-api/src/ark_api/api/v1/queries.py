@@ -3,13 +3,12 @@
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-import httpx
 from ark_sdk.models.query_v1alpha1 import QueryV1alpha1
 from ark_sdk.models.query_v1alpha1_spec import QueryV1alpha1Spec
 
 from ark_sdk.client import with_ark_client
 
+from ...constants.annotations import STREAMING_ENABLED_ANNOTATION
 from ...models.queries import (
     QueryResponse,
     QueryListResponse,
@@ -122,14 +121,14 @@ async def create_query(
         if query.evaluatorSelector:
             spec["evaluatorSelector"] = query.evaluatorSelector.model_dump()
         
-        # Handle streaming annotation
+        # If the query is being created with streaming requested, set the streaming annotation
         metadata = {
             "name": query.name,
             "namespace": namespace
         }
         if query.streaming:
             metadata["annotations"] = {
-                "ark.mckinsey.com/streaming-enabled": "true"
+                STREAMING_ENABLED_ANNOTATION: "true"
             }
         
         # Create the QueryV1alpha1 object
@@ -219,78 +218,3 @@ async def delete_query(namespace: str, query_name: str) -> None:
     """Delete a specific query."""
     async with with_ark_client(namespace, VERSION) as ark_client:
         await ark_client.queries.a_delete(query_name)
-
-
-@router.get("/{query_name}/stream")
-@handle_k8s_errors(operation="stream", resource_type="query")
-async def stream_query(namespace: str, query_name: str) -> StreamingResponse:
-    """Stream query responses in real-time."""
-    async with with_ark_client(namespace, VERSION) as ark_client:
-        # Get query to check if streaming is enabled
-        query = await ark_client.queries.a_get(query_name)
-        query_dict = query.to_dict()
-        
-        # Check streaming annotation
-        annotations = query_dict.get("metadata", {}).get("annotations", {})
-        streaming_enabled = annotations.get("ark.mckinsey.com/streaming-enabled") == "true"
-        
-        if not streaming_enabled:
-            raise HTTPException(status_code=400, detail="Streaming not enabled for this query")
-        
-        # Resolve memory name (following ARK controller logic)
-        memory_spec = query_dict.get("spec", {}).get("memory")
-        if memory_spec and memory_spec.get("name"):
-            memory_name = memory_spec["name"]
-        else:
-            # No memory specified, use "default" memory from same namespace
-            memory_name = "default"
-            
-        # Get memory resource to resolve service address
-        memory = await ark_client.memories.a_get(memory_name)
-        memory_dict = memory.to_dict()
-        
-        # Get resolved address from memory status
-        status = memory_dict.get("status", {})
-        base_url = status.get("lastResolvedAddress")
-        
-        if not base_url:
-            raise HTTPException(status_code=502, detail="Memory service address not resolved")
-        
-        # Get session ID from query
-        session_id = query_dict.get("spec", {}).get("sessionId") or str(query_dict.get("metadata", {}).get("uid", ""))
-        
-        # Construct memory service streaming URL
-        memory_stream_url = f"{base_url}/stream/{session_id}"
-        
-        async def stream_proxy():
-            """Proxy streaming chunks from memory service to client."""
-            try:
-                async with httpx.AsyncClient() as client:
-                    async with client.stream("GET", memory_stream_url) as response:
-                        if response.status_code != 200:
-                            yield f"data: {{\"error\": \"Memory service returned {response.status_code}\"}}\n\n"
-                            return
-                        
-                        buffer = ""
-                        async for chunk in response.aiter_text():
-                            buffer += chunk
-                            
-                            # Process complete lines only (proper SSE formatting)
-                            while "\n" in buffer:
-                                line, buffer = buffer.split("\n", 1)
-                                if line.strip():  # Skip empty lines
-                                    yield f"{line}\n"
-                                    
-            except Exception as e:
-                yield f"data: {{\"error\": \"Streaming failed: {str(e)}\"}}\n\n"
-        
-        return StreamingResponse(
-            stream_proxy(),
-            media_type="text/plain; charset=utf-8",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
-        )

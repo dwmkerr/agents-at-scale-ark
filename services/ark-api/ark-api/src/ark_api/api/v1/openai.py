@@ -15,7 +15,7 @@ import httpx
 from ark_sdk.client import with_ark_client
 from ...utils.query_targets import parse_model_to_query_target
 from ...utils.query_polling import poll_query_completion
-from ...constants.annotations import STREAMING_ENABLED_ANNOTATION
+from ...constants.annotations import STREAMING_ENABLED_ANNOTATION, MEMORY_EVENT_STREAM_ENABLED_ANNOTATION
 
 router = APIRouter(prefix="/openai/v1", tags=["OpenAI"])
 logger = logging.getLogger(__name__)
@@ -57,45 +57,68 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
-async def try_get_streaming_url(ark_client, query_name: str, namespace: str = "default") -> Optional[str]:
-    """Try to get streaming URL, return None if memory doesn't support streaming."""
+async def check_streaming_availability(ark_client, query_name: str, namespace: str) -> tuple[bool, Optional[str]]:
+    """Check if streaming is available for a query.
+
+    Returns:
+        (has_streaming_backend, streaming_url)
+        - (False, None): No streaming backend configured - fall back to polling
+        - (True, None): Has streaming backend but it's misconfigured - this is an error
+        - (True, url): Streaming is available and properly configured
+
+    The streaming endpoint can be connected to:
+    - Before a query starts (will wait for query to begin)
+    - During query execution (will stream from current position)
+    - After query completion (will replay all events)
+    """
     try:
         # Get query to find memory reference
         query = await ark_client.queries.a_get(query_name)
         query_dict = query.to_dict()
-        
+
         # Resolve memory name
         memory_spec = query_dict.get("spec", {}).get("memory")
         if memory_spec and memory_spec.get("name"):
             memory_name = memory_spec["name"]
         else:
             memory_name = "default"
-            
+
         # Try to get memory resource
-        memory = await ark_client.memories.a_get(memory_name)
+        try:
+            memory = await ark_client.memories.a_get(memory_name)
+        except Exception:
+            # No memory configured - streaming not available
+            return (False, None)
+
         memory_dict = memory.to_dict()
-        
+
         # Check if memory supports streaming via annotation
         annotations = memory_dict.get("metadata", {}).get("annotations", {})
-        streaming_enabled = annotations.get("ark.mckinsey.com/memory-event-stream-enabled") == "true"
-        
+        streaming_enabled = annotations.get(MEMORY_EVENT_STREAM_ENABLED_ANNOTATION) == "true"
+
         if not streaming_enabled:
-            return None
-        
-        # Check if memory has resolved address
+            # Memory exists but doesn't support streaming
+            return (False, None)
+
+        # Memory claims to support streaming - check if it's properly configured
         status = memory_dict.get("status", {})
         base_url = status.get("lastResolvedAddress")
-        
+
         if not base_url:
-            return None
-        
-        # Use query name for streaming endpoint (query-based streaming)
-        # Return streaming URL with wait-for-query to handle query execution timing
-        return f"{base_url}/stream/{query_name}?from-beginning=true&wait-for-query=30s"
-        
-    except Exception:
-        # Any error means streaming not available
-        return None
+            # Streaming backend is misconfigured - no resolved address
+            logger.error(f"Memory {memory_name} has streaming enabled but no resolved address")
+            return (True, None)
+
+        # Construct streaming URL with query parameters:
+        # - from-beginning=true: Start streaming from the first event (not just new events)
+        # - wait-for-query=30s: If query hasn't started yet, wait up to 30s for it to begin
+        streaming_url = f"{base_url}/stream/{query_name}?from-beginning=true&wait-for-query=30s"
+        return (True, streaming_url)
+
+    except Exception as e:
+        # Unexpected error checking streaming availability
+        logger.error(f"Error checking streaming availability: {str(e)}")
+        return (False, None)
 
 
 async def proxy_streaming_response(streaming_url: str):
@@ -124,7 +147,8 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
     input_text = "\n".join([f"{msg.role}: {msg.content}" for msg in messages])
     query_name = f"openai-query-{uuid.uuid4().hex[:8]}"
 
-    # Handle streaming annotation
+    # If the user has requested a streaming response as per the OpenAI completions spec,
+    # enable streaming on the query by adding the streaming annotation
     metadata = {"name": query_name, "namespace": "default"}
     if request.stream:
         metadata["annotations"] = {
@@ -147,8 +171,17 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
 
             # OpenAI spec: if stream=true, client expects SSE format regardless of downstream support
             if request.stream:
-                streaming_url = await try_get_streaming_url(ark_client, query_name)
+                has_streaming, streaming_url = await check_streaming_availability(ark_client, query_name, "default")
+
+                if has_streaming and not streaming_url:
+                    # Streaming backend is misconfigured - fail the request
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Streaming backend is misconfigured: memory has streaming enabled but no resolved address"
+                    )
+
                 if streaming_url:
+                    # Streaming is properly configured and available
                     logger.info(f"Streaming available for query: {query_name}")
                     return StreamingResponse(
                         proxy_streaming_response(streaming_url),
@@ -159,9 +192,8 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletion:
                         }
                     )
                 else:
-                    # OpenAI spec: if downstream doesn't support streaming, return complete response
-                    # but still in SSE format since client expects it
-                    logger.info(f"Streaming not available, falling back to complete response")
+                    # No streaming backend configured - fall back to polling
+                    logger.info(f"No streaming backend configured, falling back to polling")
 
             # Standard complete response for stream=false or streaming fallback
             return await poll_query_completion(
