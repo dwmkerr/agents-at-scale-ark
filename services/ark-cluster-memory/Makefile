@@ -25,3 +25,6 @@ install: # deploy service to cluster (same as make ark-cluster-memory-install)
 
 uninstall: # remove service from cluster (same as make ark-cluster-memory-uninstall)
 	cd ../.. && make ark-cluster-memory-uninstall
+
+chainsaw: # Run chainsaw tests
+	chainsaw test
