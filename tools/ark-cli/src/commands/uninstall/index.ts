@@ -1,13 +1,13 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
-import {execa} from 'execa';
+import {execute} from '../../lib/commands.js';
 import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
 import {getClusterInfo} from '../../lib/cluster.js';
 import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
-async function uninstallService(service: any) {
+async function uninstallService(service: any, verbose: boolean = false) {
   const helmArgs = [
     'uninstall',
     service.helmReleaseName,
@@ -19,10 +19,10 @@ async function uninstallService(service: any) {
     helmArgs.push('--namespace', service.namespace);
   }
 
-  await execa('helm', helmArgs, { stdio: 'inherit' });
+  await execute('helm', helmArgs, { stdio: 'inherit' }, {verbose});
 }
 
-async function uninstallArk(serviceName?: string, options: { yes?: boolean } = {}) {
+async function uninstallArk(serviceName?: string, options: { yes?: boolean; verbose?: boolean } = {}) {
   // Check cluster connectivity
   const clusterInfo = await getClusterInfo();
 
@@ -59,7 +59,7 @@ async function uninstallArk(serviceName?: string, options: { yes?: boolean } = {
 
     output.info(`uninstalling ${service.name}...`);
     try {
-      await uninstallService(service);
+      await uninstallService(service, options.verbose);
       output.success(`${service.name} uninstalled successfully`);
     } catch (error) {
       output.error(`failed to uninstall ${service.name}`);
@@ -103,7 +103,7 @@ async function uninstallArk(serviceName?: string, options: { yes?: boolean } = {
     }
 
     try {
-      await uninstallService(service);
+      await uninstallService(service, options.verbose);
       console.log(); // Add blank line after command output
     } catch {
       // Continue with remaining charts on error
@@ -119,6 +119,7 @@ export function createUninstallCommand(_: ArkConfig) {
     .description('Uninstall ARK components using Helm')
     .argument('[service]', 'specific service to uninstall, or all if omitted')
     .option('-y, --yes', 'automatically confirm all uninstallations')
+    .option('-v, --verbose', 'show commands being executed')
     .action(async (service, options) => {
       await uninstallArk(service, options);
     });

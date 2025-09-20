@@ -1,6 +1,6 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
-import {execa} from 'execa';
+import {execute} from '../../lib/commands.js';
 import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
 import {getClusterInfo} from '../../lib/cluster.js';
@@ -9,7 +9,7 @@ import {getInstallableServices, arkDependencies} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
 import ora from 'ora';
 
-async function installService(service: any) {
+async function installService(service: any, verbose: boolean = false) {
   const helmArgs = [
     'upgrade',
     '--install',
@@ -25,13 +25,10 @@ async function installService(service: any) {
   // Add any additional install args
   helmArgs.push(...(service.installArgs || []));
 
-  // Print the command being executed
-  console.log(chalk.gray(`$ helm ${helmArgs.join(' ')}`));
-
-  await execa('helm', helmArgs, {stdio: 'inherit'});
+  await execute('helm', helmArgs, {stdio: 'inherit'}, {verbose});
 }
 
-export async function installArk(serviceName?: string, options: { yes?: boolean; waitForReady?: string } = {}) {
+export async function installArk(serviceName?: string, options: { yes?: boolean; waitForReady?: string; verbose?: boolean } = {}) {
   // Validate that --wait-for-ready requires -y
   if (options.waitForReady && !options.yes) {
     output.error('--wait-for-ready requires -y flag for non-interactive mode');
@@ -80,7 +77,7 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
 
     output.info(`installing ${service.name}...`);
     try {
-      await installService(service);
+      await installService(service, options.verbose);
       output.success(`${service.name} installed successfully`);
     } catch (error) {
       output.error(`failed to install ${service.name}`);
@@ -175,9 +172,9 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
           const dep = arkDependencies[depKey];
           output.info(`installing ${dep.description || dep.name}...`);
           try {
-            await execa(dep.command, dep.args, {
+            await execute(dep.command, dep.args, {
               stdio: 'inherit',
-            });
+            }, {verbose: options.verbose});
             output.success(`${dep.name} completed`);
             console.log();
           } catch {
@@ -192,9 +189,9 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
         const dep = arkDependencies['cert-manager'];
         output.info(`installing ${dep.description || dep.name}...`);
         try {
-          await execa(dep.command, dep.args, {
+          await execute(dep.command, dep.args, {
             stdio: 'inherit',
-          });
+          }, {verbose: options.verbose});
           output.success(`${dep.name} completed`);
           console.log();
         } catch {
@@ -208,9 +205,9 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
         const dep = arkDependencies['gateway-api-crds'];
         output.info(`installing ${dep.description || dep.name}...`);
         try {
-          await execa(dep.command, dep.args, {
+          await execute(dep.command, dep.args, {
             stdio: 'inherit',
-          });
+          }, {verbose: options.verbose});
           output.success(`${dep.name} completed`);
           console.log();
         } catch {
@@ -231,7 +228,7 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
 
       output.info(`installing ${service.name}...`);
       try {
-        await installService(service);
+        await installService(service, options.verbose);
 
         console.log(); // Add blank line after command output
       } catch {
@@ -246,9 +243,9 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
       output.info(`installing ${dep.description || dep.name}...`);
 
       try {
-        await execa(dep.command, dep.args, {
+        await execute(dep.command, dep.args, {
           stdio: 'inherit',
-        });
+        }, {verbose: options.verbose});
         output.success(`${dep.name} completed`);
         console.log(); // Add blank line after dependency
       } catch {
@@ -263,7 +260,7 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
       output.info(`installing ${service.name}...`);
 
       try {
-        await installService(service);
+        await installService(service, options.verbose);
         console.log(); // Add blank line after command output
       } catch {
         // Continue with remaining services on error
@@ -323,6 +320,7 @@ export function createInstallCommand(_: ArkConfig) {
     .argument('[service]', 'specific service to install, or all if omitted')
     .option('-y, --yes', 'automatically confirm all installations')
     .option('--wait-for-ready <timeout>', 'wait for Ark to be ready after installation (e.g., 30s, 2m)')
+    .option('-v, --verbose', 'show commands being executed')
     .action(async (service, options) => {
       await installArk(service, options);
     });
