@@ -415,7 +415,6 @@ function QueryDetailContent() {
         ttl: query.ttl,
         sessionId: query.sessionId,
         memory: query.memory,
-        streaming: streaming,
         ...(streaming && {
           metadata: {
             [ARK_ANNOTATIONS.STREAMING_ENABLED]: "true"
