@@ -25,7 +25,10 @@ async function installService(service: any) {
   // Add any additional install args
   helmArgs.push(...(service.installArgs || []));
 
-  await execa('helm', helmArgs);
+  // Print the command being executed
+  console.log(chalk.gray(`$ helm ${helmArgs.join(' ')}`));
+
+  await execa('helm', helmArgs, {stdio: 'inherit'});
 }
 
 export async function installArk(serviceName?: string, options: { yes?: boolean; waitForReady?: string } = {}) {
