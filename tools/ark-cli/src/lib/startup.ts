@@ -53,7 +53,7 @@ async function fetchLatestVersion(config: ArkConfig): Promise<void> {
       'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
     );
     if (response.ok) {
-      const data = await response.json() as {tag_name: string};
+      const data = (await response.json()) as {tag_name: string};
       config.latestVersion = data.tag_name;
     }
   } catch {

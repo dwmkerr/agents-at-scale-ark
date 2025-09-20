@@ -3,25 +3,39 @@ import chalk from 'chalk';
 import ora from 'ora';
 import type {ArkConfig} from '../../lib/config.js';
 import {StatusChecker} from '../../components/statusChecker.js';
-import {StatusFormatter, StatusSection, StatusColor} from '../../ui/statusFormatter.js';
+import {
+  StatusFormatter,
+  StatusSection,
+  StatusColor,
+} from '../../ui/statusFormatter.js';
 import {StatusData, ServiceStatus} from '../../lib/types.js';
 
 /**
  * Enrich service with formatted details including version/revision
  */
-function enrichServiceDetails(service: ServiceStatus, config?: ArkConfig): {
+function enrichServiceDetails(
+  service: ServiceStatus,
+  _?: ArkConfig
+): {
   statusInfo: {icon: string; text: string; color: StatusColor};
   displayName: string;
   details: string;
 } {
-  const statusMap: Record<string, {icon: string; text: string; color: StatusColor}> = {
-    'healthy': { icon: '✓', text: 'healthy', color: 'green' },
-    'unhealthy': { icon: '✗', text: 'unhealthy', color: 'red' },
-    'warning': { icon: '⚠', text: 'warning', color: 'yellow' },
-    'not ready': { icon: '○', text: 'not ready', color: 'yellow' },
-    'not installed': { icon: '?', text: 'not installed', color: 'yellow' },
+  const statusMap: Record<
+    string,
+    {icon: string; text: string; color: StatusColor}
+  > = {
+    healthy: {icon: '✓', text: 'healthy', color: 'green'},
+    unhealthy: {icon: '✗', text: 'unhealthy', color: 'red'},
+    warning: {icon: '⚠', text: 'warning', color: 'yellow'},
+    'not ready': {icon: '○', text: 'not ready', color: 'yellow'},
+    'not installed': {icon: '?', text: 'not installed', color: 'yellow'},
   };
-  const statusInfo = statusMap[service.status] || { icon: '?', text: service.status, color: 'yellow' as StatusColor };
+  const statusInfo = statusMap[service.status] || {
+    icon: '?',
+    text: service.status,
+    color: 'yellow' as StatusColor,
+  };
 
   // Build details array
   const details = [];
@@ -43,17 +57,20 @@ function enrichServiceDetails(service: ServiceStatus, config?: ArkConfig): {
   return {
     statusInfo,
     displayName,
-    details: details.join(', ')
+    details: details.join(', '),
   };
 }
 
-function buildStatusSections(data: StatusData & {clusterAccess?: boolean; clusterInfo?: any}, config?: ArkConfig): StatusSection[] {
+function buildStatusSections(
+  data: StatusData & {clusterAccess?: boolean; clusterInfo?: any},
+  config?: ArkConfig
+): StatusSection[] {
   const sections: StatusSection[] = [];
 
   // Dependencies section
   sections.push({
     title: 'system dependencies:',
-    lines: data.dependencies.map(dep => ({
+    lines: data.dependencies.map((dep) => ({
       icon: dep.installed ? '✓' : '✗',
       iconColor: (dep.installed ? 'green' : 'red') as StatusColor,
       status: dep.installed ? 'installed' : 'missing',
@@ -96,14 +113,17 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
       subtext: 'Install minikube: https://minikube.sigs.k8s.io/docs/start',
     });
   }
-  sections.push({ title: 'cluster access:', lines: clusterLines });
+  sections.push({title: 'cluster access:', lines: clusterLines});
 
   // Ark services section
   if (data.clusterAccess) {
     const serviceLines = data.services
-      .filter(s => s.name !== 'ark-controller')
-      .map(service => {
-        const {statusInfo, displayName, details} = enrichServiceDetails(service, config);
+      .filter((s) => s.name !== 'ark-controller')
+      .map((service) => {
+        const {statusInfo, displayName, details} = enrichServiceDetails(
+          service,
+          config
+        );
         return {
           icon: statusInfo.icon,
           iconColor: statusInfo.color,
@@ -113,15 +133,17 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
           details: details,
         };
       });
-    sections.push({ title: 'ark services:', lines: serviceLines });
+    sections.push({title: 'ark services:', lines: serviceLines});
   } else {
     sections.push({
       title: 'ark services:',
-      lines: [{
-        icon: '',
-        status: '',
-        name: 'Cannot check ARK services - cluster not accessible',
-      }],
+      lines: [
+        {
+          icon: '',
+          status: '',
+          name: 'Cannot check ARK services - cluster not accessible',
+        },
+      ],
     });
   }
 
@@ -133,25 +155,31 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
       iconColor: 'red' as StatusColor,
       status: 'no cluster access',
       statusColor: 'red' as StatusColor,
-      name: ''
+      name: '',
     });
   } else {
-    const controller = data.services?.find(s => s.name === 'ark-controller');
+    const controller = data.services?.find((s) => s.name === 'ark-controller');
     if (!controller) {
       arkStatusLines.push({
         icon: '○',
         iconColor: 'yellow' as StatusColor,
         status: 'not ready',
         statusColor: 'yellow' as StatusColor,
-        name: 'ark-controller'
+        name: 'ark-controller',
       });
     } else {
-      const {statusInfo, displayName, details} = enrichServiceDetails(controller, config);
+      const {statusInfo, displayName, details} = enrichServiceDetails(
+        controller,
+        config
+      );
 
       // Map service status to ark status display
-      const statusText = controller.status === 'healthy' ? 'ready' :
-                        controller.status === 'not installed' ? 'not ready' :
-                        controller.status;
+      const statusText =
+        controller.status === 'healthy'
+          ? 'ready'
+          : controller.status === 'not installed'
+            ? 'not ready'
+            : controller.status;
 
       arkStatusLines.push({
         icon: statusInfo.icon,
@@ -160,8 +188,10 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
         statusColor: statusInfo.color,
         name: displayName,
         details: details,
-        subtext: (controller.status === 'healthy' && !data.defaultModelExists) ?
-                 '(no default model configured)' : undefined,
+        subtext:
+          controller.status === 'healthy' && !data.defaultModelExists
+            ? '(no default model configured)'
+            : undefined,
       });
 
       // Add version update status as separate line
@@ -200,7 +230,7 @@ function buildStatusSections(data: StatusData & {clusterAccess?: boolean; cluste
       }
     }
   }
-  sections.push({ title: 'ark status:', lines: arkStatusLines });
+  sections.push({title: 'ark status:', lines: arkStatusLines});
 
   return sections;
 }
@@ -231,7 +261,9 @@ export async function checkStatus(config: ArkConfig) {
 
 export function createStatusCommand(config: ArkConfig): Command {
   const statusCommand = new Command('status');
-  statusCommand.description('Check ARK system status').action(() => checkStatus(config));
+  statusCommand
+    .description('Check ARK system status')
+    .action(() => checkStatus(config));
 
   return statusCommand;
 }

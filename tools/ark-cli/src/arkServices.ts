@@ -6,7 +6,7 @@ export interface ArkService {
   name: string;
   helmReleaseName: string;
   description: string;
-  namespace?: string;  // Optional - if undefined, uses current namespace
+  namespace?: string; // Optional - if undefined, uses current namespace
   chartPath?: string;
   installArgs?: string[];
   k8sServiceName?: string;

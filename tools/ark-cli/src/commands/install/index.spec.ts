@@ -32,8 +32,8 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
   throw new Error('process.exit called');
 }) as any);
 
-const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+jest.spyOn(console, 'log').mockImplementation(() => {});
+jest.spyOn(console, 'error').mockImplementation(() => {});
 
 const {createInstallCommand} = await import('./index.js');
 
@@ -80,9 +80,12 @@ describe('install command', () => {
         'ark-system',
         '--set',
         'image.tag=latest',
-      ]
+      ],
+      {stdio: 'inherit'}
     );
-    expect(mockOutput.success).toHaveBeenCalledWith('ark-api installed successfully');
+    expect(mockOutput.success).toHaveBeenCalledWith(
+      'ark-api installed successfully'
+    );
   });
 
   it('shows error when service not found', async () => {
@@ -93,8 +96,12 @@ describe('install command', () => {
 
     const command = createInstallCommand({});
 
-    await expect(command.parseAsync(['node', 'test', 'invalid-service'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith("service 'invalid-service' not found");
+    await expect(
+      command.parseAsync(['node', 'test', 'invalid-service'])
+    ).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      "service 'invalid-service' not found"
+    );
     expect(mockOutput.info).toHaveBeenCalledWith('available services:');
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-api');
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-controller');
@@ -126,7 +133,8 @@ describe('install command', () => {
         './charts/ark-dashboard',
         '--set',
         'replicas=2',
-      ]
+      ],
+      {stdio: 'inherit'}
     );
   });
 
@@ -153,7 +161,8 @@ describe('install command', () => {
         './charts/simple',
         '--namespace',
         'default',
-      ]
+      ],
+      {stdio: 'inherit'}
     );
   });
 
@@ -162,8 +171,12 @@ describe('install command', () => {
 
     const command = createInstallCommand({});
 
-    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('no kubernetes cluster detected');
+    await expect(
+      command.parseAsync(['node', 'test', 'ark-api'])
+    ).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'no kubernetes cluster detected'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

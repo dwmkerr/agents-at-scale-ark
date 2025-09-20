@@ -4,12 +4,12 @@ import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 jest.unstable_mockModule('chalk', () => ({
   default: {
     gray: (str: string) => str,
-  }
+  },
 }));
 
 // Mock execa using unstable_mockModule
 jest.unstable_mockModule('execa', () => ({
-  execa: jest.fn()
+  execa: jest.fn(),
 }));
 
 // Dynamic imports after mock
@@ -67,10 +67,16 @@ describe('commands', () => {
         exitCode: 0,
       });
 
-      const result = await checkCommandExists('kubectl', ['version', '--client']);
+      const result = await checkCommandExists('kubectl', [
+        'version',
+        '--client',
+      ]);
 
       expect(result).toBe(true);
-      expect(mockExeca).toHaveBeenCalledWith('kubectl', ['version', '--client']);
+      expect(mockExeca).toHaveBeenCalledWith('kubectl', [
+        'version',
+        '--client',
+      ]);
     });
 
     it('handles empty args array', async () => {
@@ -109,7 +115,9 @@ describe('commands', () => {
       await execute('helm', ['install', 'test'], {stdio: 'inherit' as const});
 
       expect(mockConsoleLog).not.toHaveBeenCalled();
-      expect(mockExeca).toHaveBeenCalledWith('helm', ['install', 'test'], {stdio: 'inherit'});
+      expect(mockExeca).toHaveBeenCalledWith('helm', ['install', 'test'], {
+        stdio: 'inherit',
+      });
     });
 
     it('prints command when verbose is true', async () => {
@@ -119,10 +127,17 @@ describe('commands', () => {
         exitCode: 0,
       });
 
-      await execute('helm', ['install', 'test'], {stdio: 'inherit' as const}, {verbose: true});
+      await execute(
+        'helm',
+        ['install', 'test'],
+        {stdio: 'inherit' as const},
+        {verbose: true}
+      );
 
       expect(mockConsoleLog).toHaveBeenCalledWith('$ helm install test');
-      expect(mockExeca).toHaveBeenCalledWith('helm', ['install', 'test'], {stdio: 'inherit'});
+      expect(mockExeca).toHaveBeenCalledWith('helm', ['install', 'test'], {
+        stdio: 'inherit',
+      });
     });
 
     it('works with empty args array', async () => {
@@ -149,7 +164,11 @@ describe('commands', () => {
       await execute('kubectl', ['get', 'pods'], execaOpts);
 
       expect(mockConsoleLog).not.toHaveBeenCalled();
-      expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'pods'], execaOpts);
+      expect(mockExeca).toHaveBeenCalledWith(
+        'kubectl',
+        ['get', 'pods'],
+        execaOpts
+      );
     });
 
     it('handles command failure', async () => {

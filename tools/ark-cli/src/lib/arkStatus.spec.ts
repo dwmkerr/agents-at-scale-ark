@@ -2,7 +2,7 @@ import {describe, it, expect, jest, beforeEach} from '@jest/globals';
 
 // Mock execa using unstable_mockModule
 jest.unstable_mockModule('execa', () => ({
-  execa: jest.fn()
+  execa: jest.fn(),
 }));
 
 // Dynamic imports after mock
@@ -18,12 +18,12 @@ describe('arkStatus with __mocks__', () => {
     it('should return true when ark-controller is deployed and ready', async () => {
       // Mock successful kubectl response with ready deployment
       const mockDeployment = {
-        metadata: { name: 'ark-controller' },
-        spec: { replicas: 3 },
+        metadata: {name: 'ark-controller'},
+        spec: {replicas: 3},
         status: {
           readyReplicas: 3,
-          availableReplicas: 3
-        }
+          availableReplicas: 3,
+        },
       };
 
       (execa as any).mockResolvedValue({
@@ -38,16 +38,22 @@ describe('arkStatus with __mocks__', () => {
       expect(result).toBe(true);
       expect(execa).toHaveBeenCalledWith(
         'kubectl',
-        ['get', 'deployment', 'ark-controller', '-n', 'ark-system', '-o', 'json'],
+        [
+          'get',
+          'deployment',
+          'ark-controller',
+          '-n',
+          'ark-system',
+          '-o',
+          'json',
+        ],
         {stdio: 'pipe'}
       );
     });
 
     it('should return false when kubectl fails', async () => {
       // Mock kubectl failure
-      (execa as any).mockRejectedValue(
-        new Error('kubectl not found')
-      );
+      (execa as any).mockRejectedValue(new Error('kubectl not found'));
 
       const result = await isArkReady();
 

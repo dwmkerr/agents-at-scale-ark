@@ -10,10 +10,7 @@ export interface ClusterInfo {
 
 export async function detectClusterType(): Promise<ClusterInfo> {
   try {
-    const {stdout} = await execa('kubectl', [
-      'config',
-      'current-context',
-    ]);
+    const {stdout} = await execa('kubectl', ['config', 'current-context']);
     const context = stdout.trim();
 
     if (context.includes('minikube')) {

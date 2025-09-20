@@ -30,8 +30,8 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
   throw new Error('process.exit called');
 }) as any);
 
-const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+jest.spyOn(console, 'log').mockImplementation(() => {});
+jest.spyOn(console, 'error').mockImplementation(() => {});
 
 const {createUninstallCommand} = await import('./index.js');
 
@@ -78,7 +78,9 @@ describe('uninstall command', () => {
         stdio: 'inherit',
       }
     );
-    expect(mockOutput.success).toHaveBeenCalledWith('ark-api uninstalled successfully');
+    expect(mockOutput.success).toHaveBeenCalledWith(
+      'ark-api uninstalled successfully'
+    );
   });
 
   it('shows error when service not found', async () => {
@@ -89,8 +91,12 @@ describe('uninstall command', () => {
 
     const command = createUninstallCommand({});
 
-    await expect(command.parseAsync(['node', 'test', 'invalid-service'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith("service 'invalid-service' not found");
+    await expect(
+      command.parseAsync(['node', 'test', 'invalid-service'])
+    ).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      "service 'invalid-service' not found"
+    );
     expect(mockOutput.info).toHaveBeenCalledWith('available services:');
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-api');
     expect(mockOutput.info).toHaveBeenCalledWith('  ark-controller');
@@ -113,11 +119,7 @@ describe('uninstall command', () => {
     // Should NOT include --namespace flag
     expect(mockExeca).toHaveBeenCalledWith(
       'helm',
-      [
-        'uninstall',
-        'ark-dashboard',
-        '--ignore-not-found',
-      ],
+      ['uninstall', 'ark-dashboard', '--ignore-not-found'],
       {
         stdio: 'inherit',
       }
@@ -137,8 +139,12 @@ describe('uninstall command', () => {
 
     const command = createUninstallCommand({});
 
-    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('failed to uninstall ark-api');
+    await expect(
+      command.parseAsync(['node', 'test', 'ark-api'])
+    ).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'failed to uninstall ark-api'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
@@ -147,8 +153,12 @@ describe('uninstall command', () => {
 
     const command = createUninstallCommand({});
 
-    await expect(command.parseAsync(['node', 'test', 'ark-api'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('no kubernetes cluster detected');
+    await expect(
+      command.parseAsync(['node', 'test', 'ark-api'])
+    ).rejects.toThrow('process.exit called');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'no kubernetes cluster detected'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

@@ -28,7 +28,10 @@ async function installService(service: any, verbose: boolean = false) {
   await execute('helm', helmArgs, {stdio: 'inherit'}, {verbose});
 }
 
-export async function installArk(serviceName?: string, options: { yes?: boolean; waitForReady?: string; verbose?: boolean } = {}) {
+export async function installArk(
+  serviceName?: string,
+  options: {yes?: boolean; waitForReady?: string; verbose?: boolean} = {}
+) {
   // Validate that --wait-for-ready requires -y
   if (options.waitForReady && !options.yes) {
     output.error('--wait-for-ready requires -y flag for non-interactive mode');
@@ -64,7 +67,7 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
   // If a specific service is requested, install only that service
   if (serviceName) {
     const services = getInstallableServices();
-    const service = Object.values(services).find(s => s.name === serviceName);
+    const service = Object.values(services).find((s) => s.name === serviceName);
 
     if (!service) {
       output.error(`service '${serviceName}' not found`);
@@ -90,7 +93,11 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
   // If not using -y flag, show checklist interface
   if (!options.yes) {
     console.log(chalk.cyan.bold('\nSelect components to install:'));
-    console.log(chalk.gray('Use arrow keys to navigate, space to toggle, enter to confirm\n'));
+    console.log(
+      chalk.gray(
+        'Use arrow keys to navigate, space to toggle, enter to confirm\n'
+      )
+    );
 
     // Build choices for the checkbox prompt
     const allChoices = [
@@ -161,20 +168,29 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
     }
 
     // Install dependencies if selected
-    const shouldInstallDeps = selectedComponents.includes('cert-manager') ||
-                             selectedComponents.includes('gateway-api');
+    const shouldInstallDeps =
+      selectedComponents.includes('cert-manager') ||
+      selectedComponents.includes('gateway-api');
 
     // Install selected dependencies
     if (shouldInstallDeps) {
       // Always install cert-manager repo and update if installing any dependency
-      if (selectedComponents.includes('cert-manager') || selectedComponents.includes('gateway-api')) {
+      if (
+        selectedComponents.includes('cert-manager') ||
+        selectedComponents.includes('gateway-api')
+      ) {
         for (const depKey of ['cert-manager-repo', 'helm-repo-update']) {
           const dep = arkDependencies[depKey];
           output.info(`installing ${dep.description || dep.name}...`);
           try {
-            await execute(dep.command, dep.args, {
-              stdio: 'inherit',
-            }, {verbose: options.verbose});
+            await execute(
+              dep.command,
+              dep.args,
+              {
+                stdio: 'inherit',
+              },
+              {verbose: options.verbose}
+            );
             output.success(`${dep.name} completed`);
             console.log();
           } catch {
@@ -189,9 +205,14 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
         const dep = arkDependencies['cert-manager'];
         output.info(`installing ${dep.description || dep.name}...`);
         try {
-          await execute(dep.command, dep.args, {
-            stdio: 'inherit',
-          }, {verbose: options.verbose});
+          await execute(
+            dep.command,
+            dep.args,
+            {
+              stdio: 'inherit',
+            },
+            {verbose: options.verbose}
+          );
           output.success(`${dep.name} completed`);
           console.log();
         } catch {
@@ -205,9 +226,14 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
         const dep = arkDependencies['gateway-api-crds'];
         output.info(`installing ${dep.description || dep.name}...`);
         try {
-          await execute(dep.command, dep.args, {
-            stdio: 'inherit',
-          }, {verbose: options.verbose});
+          await execute(
+            dep.command,
+            dep.args,
+            {
+              stdio: 'inherit',
+            },
+            {verbose: options.verbose}
+          );
           output.success(`${dep.name} completed`);
           console.log();
         } catch {
@@ -243,9 +269,14 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
       output.info(`installing ${dep.description || dep.name}...`);
 
       try {
-        await execute(dep.command, dep.args, {
-          stdio: 'inherit',
-        }, {verbose: options.verbose});
+        await execute(
+          dep.command,
+          dep.args,
+          {
+            stdio: 'inherit',
+          },
+          {verbose: options.verbose}
+        );
         output.success(`${dep.name} completed`);
         console.log(); // Add blank line after dependency
       } catch {
@@ -287,7 +318,9 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
       const startTime = Date.now();
       const endTime = startTime + timeoutSeconds * 1000;
 
-      const spinner = ora(`Waiting for Ark to be ready (timeout: ${timeoutSeconds}s)...`).start();
+      const spinner = ora(
+        `Waiting for Ark to be ready (timeout: ${timeoutSeconds}s)...`
+      ).start();
 
       while (Date.now() < endTime) {
         if (await isArkReady()) {
@@ -299,14 +332,16 @@ export async function installArk(serviceName?: string, options: { yes?: boolean;
         spinner.text = `Waiting for Ark to be ready (${elapsed}/${timeoutSeconds}s)...`;
 
         // Wait 2 seconds before checking again
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
       // Timeout reached
       spinner.fail(`Ark did not become ready within ${timeoutSeconds} seconds`);
       process.exit(1);
     } catch (error) {
-      output.error(`Failed to wait for ready: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      output.error(
+        `Failed to wait for ready: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       process.exit(1);
     }
   }
@@ -319,7 +354,10 @@ export function createInstallCommand(_: ArkConfig) {
     .description('Install ARK components using Helm')
     .argument('[service]', 'specific service to install, or all if omitted')
     .option('-y, --yes', 'automatically confirm all installations')
-    .option('--wait-for-ready <timeout>', 'wait for Ark to be ready after installation (e.g., 30s, 2m)')
+    .option(
+      '--wait-for-ready <timeout>',
+      'wait for Ark to be ready after installation (e.g., 30s, 2m)'
+    )
     .option('-v, --verbose', 'show commands being executed')
     .action(async (service, options) => {
       await installArk(service, options);

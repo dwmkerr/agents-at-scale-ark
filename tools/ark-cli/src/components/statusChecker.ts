@@ -122,12 +122,16 @@ export class StatusChecker {
     );
 
     // Try to get version info from Helm if it's a healthy deployment
-    if (deploymentStatus.status === 'healthy' || deploymentStatus.status === 'warning') {
+    if (
+      deploymentStatus.status === 'healthy' ||
+      deploymentStatus.status === 'warning'
+    ) {
       try {
-        const {stdout} = await execa('helm', [
-          'list', '-n', namespace,
-          '-o', 'json'
-        ], { timeout: 5000 });
+        const {stdout} = await execa(
+          'helm',
+          ['list', '-n', namespace, '-o', 'json'],
+          {timeout: 5000}
+        );
         const releases = JSON.parse(stdout);
         const release = releases.find((r: any) => r.name === helmReleaseName);
 
@@ -158,9 +162,13 @@ export class StatusChecker {
   ): Promise<ServiceStatus> {
     try {
       const {stdout} = await execa('kubectl', [
-        'get', 'deployment', deploymentName,
-        '--namespace', namespace,
-        '-o', 'json'
+        'get',
+        'deployment',
+        deploymentName,
+        '--namespace',
+        namespace,
+        '-o',
+        'json',
       ]);
       const deployment = JSON.parse(stdout);
 
@@ -190,23 +198,30 @@ export class StatusChecker {
       if (replicas === 0 && devDeploymentName) {
         try {
           const {stdout: devStdout} = await execa('kubectl', [
-            'get', 'deployment', devDeploymentName,
-            '--namespace', namespace,
-            '-o', 'json'
+            'get',
+            'deployment',
+            devDeploymentName,
+            '--namespace',
+            namespace,
+            '-o',
+            'json',
           ]);
           const devDeployment = JSON.parse(devStdout);
 
           const devReplicas = devDeployment.spec?.replicas || 0;
           const devReadyReplicas = devDeployment.status?.readyReplicas || 0;
-          const devAvailableReplicas = devDeployment.status?.availableReplicas || 0;
+          const devAvailableReplicas =
+            devDeployment.status?.availableReplicas || 0;
 
           if (devReplicas > 0) {
-            const devAvailableCondition = devDeployment.status?.conditions?.find(
-              (condition: any) => condition.type === 'Available'
-            );
+            const devAvailableCondition =
+              devDeployment.status?.conditions?.find(
+                (condition: any) => condition.type === 'Available'
+              );
             const devIsAvailable = devAvailableCondition?.status === 'True';
             const devAllReplicasReady =
-              devReadyReplicas === devReplicas && devAvailableReplicas === devReplicas;
+              devReadyReplicas === devReplicas &&
+              devAvailableReplicas === devReplicas;
 
             let devStatus: 'healthy' | 'warning' | 'not ready';
             if (devReplicas === 0 || devReadyReplicas === 0) {
@@ -241,19 +256,27 @@ export class StatusChecker {
         error instanceof Error ? error.message : 'Unknown error';
 
       // If main deployment not found or not healthy, try dev deployment
-      if (errorMessage.includes('not found') || errorMessage.includes('NotFound')) {
+      if (
+        errorMessage.includes('not found') ||
+        errorMessage.includes('NotFound')
+      ) {
         if (devDeploymentName) {
           try {
             const {stdout} = await execa('kubectl', [
-              'get', 'deployment', devDeploymentName,
-              '--namespace', namespace,
-              '-o', 'json'
+              'get',
+              'deployment',
+              devDeploymentName,
+              '--namespace',
+              namespace,
+              '-o',
+              'json',
             ]);
             const devDeployment = JSON.parse(stdout);
 
             const replicas = devDeployment.spec?.replicas || 0;
             const readyReplicas = devDeployment.status?.readyReplicas || 0;
-            const availableReplicas = devDeployment.status?.availableReplicas || 0;
+            const availableReplicas =
+              devDeployment.status?.availableReplicas || 0;
 
             const availableCondition = devDeployment.status?.conditions?.find(
               (condition: any) => condition.type === 'Available'
@@ -317,9 +340,13 @@ export class StatusChecker {
   ): Promise<ServiceStatus> {
     try {
       const {stdout} = await execa('helm', [
-        'list', '--filter', helmReleaseName,
-        '--namespace', namespace,
-        '--output', 'json'
+        'list',
+        '--filter',
+        helmReleaseName,
+        '--namespace',
+        namespace,
+        '--output',
+        'json',
       ]);
       const helmList = JSON.parse(stdout);
 
@@ -411,7 +438,9 @@ export class StatusChecker {
     // Test cluster access
     let clusterAccess = false;
     try {
-      await execa('kubectl', ['get', 'namespaces', '-o', 'name'], { timeout: 5000 });
+      await execa('kubectl', ['get', 'namespaces', '-o', 'name'], {
+        timeout: 5000,
+      });
       clusterAccess = true;
     } catch {
       clusterAccess = false;
@@ -432,7 +461,8 @@ export class StatusChecker {
 
       for (const [serviceName, service] of Object.entries(arkServices)) {
         // Use service namespace if defined, otherwise use current namespace from clusterInfo
-        const namespace = service.namespace || clusterInfo?.namespace || 'default';
+        const namespace =
+          service.namespace || clusterInfo?.namespace || 'default';
 
         if (service.k8sDeploymentName) {
           // For deployments, get health from deployment and version from Helm

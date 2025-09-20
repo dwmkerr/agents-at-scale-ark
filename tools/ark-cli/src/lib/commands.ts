@@ -1,4 +1,4 @@
-import {execa} from 'execa';
+import {execa, type Options} from 'execa';
 import chalk from 'chalk';
 
 /**
@@ -27,7 +27,7 @@ export {checkCommandExists as isCommandAvailable};
 export async function execute(
   command: string,
   args: string[] = [],
-  execaOptions: any = {},
+  execaOptions: Options = {},
   additionalOptions: {verbose?: boolean} = {}
 ) {
   const {verbose = false} = additionalOptions;

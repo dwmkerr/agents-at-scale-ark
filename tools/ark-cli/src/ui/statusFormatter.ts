@@ -1,6 +1,13 @@
 import chalk from 'chalk';
 
-export type StatusColor = 'green' | 'red' | 'yellow' | 'gray' | 'white' | 'cyan' | 'bold';
+export type StatusColor =
+  | 'green'
+  | 'red'
+  | 'yellow'
+  | 'gray'
+  | 'white'
+  | 'cyan'
+  | 'bold';
 
 export interface StatusLine {
   icon: string;
@@ -28,7 +35,7 @@ export class StatusFormatter {
 
     sections.forEach((section, index) => {
       console.log(chalk.cyan.bold(section.title));
-      section.lines.forEach(line => this.printLine(line));
+      section.lines.forEach((line) => this.printLine(line));
 
       if (index < sections.length - 1) {
         console.log();

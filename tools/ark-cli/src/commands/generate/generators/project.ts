@@ -137,7 +137,9 @@ class ProjectGenerator {
 
       console.log(chalk.green(`\n✅ Project generation completed\n`));
     } catch (error) {
-      spinner.fail(`Failed: ${error instanceof Error ? error.message : String(error)}`);
+      spinner.fail(
+        `Failed: ${error instanceof Error ? error.message : String(error)}`
+      );
       throw error;
     }
   }
@@ -151,7 +153,11 @@ class ProjectGenerator {
       requirements.push({tool: 'git', available: true, required: false});
     } catch {
       requirements.push({tool: 'git', available: false, required: false});
-      console.log(chalk.yellow('⚠️  Warning: Git not found - git features will be disabled'));
+      console.log(
+        chalk.yellow(
+          '⚠️  Warning: Git not found - git features will be disabled'
+        )
+      );
     }
 
     // Check for deployment tools (optional for project generation)
@@ -169,8 +175,16 @@ class ProjectGenerator {
     }
 
     if (missingDeploymentTools.length > 0) {
-      console.log(chalk.blue(`ℹ️  Optional tools not found: ${missingDeploymentTools.join(', ')}`));
-      console.log(chalk.cyan('💡 Tip: Install kubectl and helm later to deploy your project to a cluster'));
+      console.log(
+        chalk.blue(
+          `ℹ️  Optional tools not found: ${missingDeploymentTools.join(', ')}`
+        )
+      );
+      console.log(
+        chalk.cyan(
+          '💡 Tip: Install kubectl and helm later to deploy your project to a cluster'
+        )
+      );
     }
   }
 

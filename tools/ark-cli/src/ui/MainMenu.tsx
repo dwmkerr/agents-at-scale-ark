@@ -128,7 +128,7 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
 
     if (!arkReady) {
       // Only show Install, Status, and Exit when Ark is not ready
-      return allChoices.filter(choice =>
+      return allChoices.filter((choice) =>
         ['install', 'status', 'exit'].includes(choice.value)
       );
     }
@@ -198,13 +198,14 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
         try {
           execFileSync(process.execPath, [process.argv[1], 'install'], {
             stdio: 'inherit',
-            env: { ...process.env, FORCE_COLOR: '1' }
+            env: {...process.env, FORCE_COLOR: '1'},
           });
         } catch (error: any) {
           // execFileSync throws if the process exits with non-zero
           process.exit(error.status || 1);
         }
         process.exit(0);
+        break; // Add break even though process.exit prevents reaching here
       }
 
       case 'dashboard': {
@@ -223,6 +224,7 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
         const {checkStatus} = await import('../commands/status/index.js');
         await checkStatus(config);
         process.exit(0);
+        break; // Add break even though process.exit prevents reaching here
       }
 
       case 'generate': {
@@ -272,28 +274,30 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
 
       {/* Show menu only when not checking */}
       {!isChecking && (
-
-          <Box flexDirection="column" paddingX={4} marginTop={1}>
-            {choices.map((choice, index) => {
-          const isSelected = index === selectedIndex;
-          return (
-            <Box key={choice.value} flexDirection="row" paddingY={0}>
-              <Text color="gray" dimColor>
-                {isSelected ? '❯ ' : '  '}
-              </Text>
-              <Text color="gray" dimColor>
-                {index + 1}.
-              </Text>
-              <Box marginLeft={1} width={20}>
-                <Text color={isSelected ? 'green' : 'white'} bold={isSelected}>
-                  {choice.label}
+        <Box flexDirection="column" paddingX={4} marginTop={1}>
+          {choices.map((choice, index) => {
+            const isSelected = index === selectedIndex;
+            return (
+              <Box key={choice.value} flexDirection="row" paddingY={0}>
+                <Text color="gray" dimColor>
+                  {isSelected ? '❯ ' : '  '}
                 </Text>
+                <Text color="gray" dimColor>
+                  {index + 1}.
+                </Text>
+                <Box marginLeft={1} width={20}>
+                  <Text
+                    color={isSelected ? 'green' : 'white'}
+                    bold={isSelected}
+                  >
+                    {choice.label}
+                  </Text>
+                </Box>
+                <Text color="gray">{choice.description}</Text>
               </Box>
-              <Text color="gray">{choice.description}</Text>
-            </Box>
-          );
-        })}
-          </Box>
+            );
+          })}
+        </Box>
       )}
     </>
   );

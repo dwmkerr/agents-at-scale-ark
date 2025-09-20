@@ -46,7 +46,9 @@ describe('Error Classes', () => {
     });
 
     it('creates validation error with field and suggestions', () => {
-      const error = new ValidationError('invalid email', 'email', ['Use valid format']);
+      const error = new ValidationError('invalid email', 'email', [
+        'Use valid format',
+      ]);
       expect(error.message).toBe('invalid email');
       expect(error.code).toBe(ErrorCode.VALIDATION_ERROR);
       expect(error.details).toEqual({field: 'email'});
@@ -78,7 +80,10 @@ describe('Error Classes', () => {
     });
 
     it('creates project structure error with path', () => {
-      const error = new ProjectStructureError('project invalid', '/path/to/project');
+      const error = new ProjectStructureError(
+        'project invalid',
+        '/path/to/project'
+      );
       expect(error.message).toBe('project invalid');
       expect(error.code).toBe(ErrorCode.PROJECT_STRUCTURE_INVALID);
       expect(error.details).toEqual({projectPath: '/path/to/project'});
@@ -134,7 +139,9 @@ describe('Error Classes', () => {
         mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
           throw new Error('process.exit');
         });
-        mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+        mockConsoleError = jest
+          .spyOn(console, 'error')
+          .mockImplementation(() => {});
       });
 
       afterEach(() => {
@@ -188,24 +195,29 @@ describe('Error Classes', () => {
       it('rethrows ArkError unchanged', async () => {
         const arkError = new ValidationError('test');
         await expect(
-          ErrorHandler.catchAndHandle(async () => { throw arkError; })
+          ErrorHandler.catchAndHandle(async () => {
+            throw arkError;
+          })
         ).rejects.toThrow(arkError);
       });
 
       it('wraps generic errors with context', async () => {
         const error = new Error('generic');
         await expect(
-          ErrorHandler.catchAndHandle(async () => { throw error; }, 'context')
+          ErrorHandler.catchAndHandle(async () => {
+            throw error;
+          }, 'context')
         ).rejects.toThrow('context: generic');
       });
 
       it('wraps non-Error objects', async () => {
         await expect(
-          ErrorHandler.catchAndHandle(async () => { throw 'string error'; })
+          ErrorHandler.catchAndHandle(async () => {
+            throw 'string error';
+          })
         ).rejects.toThrow('string error');
       });
     });
-
   });
 
   describe('InputValidator', () => {
@@ -217,20 +229,34 @@ describe('Error Classes', () => {
       });
 
       it('rejects empty names', () => {
-        expect(() => InputValidator.validateName('')).toThrow('name cannot be empty');
-        expect(() => InputValidator.validateName('   ')).toThrow('name cannot be empty');
+        expect(() => InputValidator.validateName('')).toThrow(
+          'name cannot be empty'
+        );
+        expect(() => InputValidator.validateName('   ')).toThrow(
+          'name cannot be empty'
+        );
       });
 
       it('rejects names over 63 characters', () => {
         const longName = 'a'.repeat(64);
-        expect(() => InputValidator.validateName(longName)).toThrow('must be 63 characters or less');
+        expect(() => InputValidator.validateName(longName)).toThrow(
+          'must be 63 characters or less'
+        );
       });
 
       it('rejects invalid characters', () => {
-        expect(() => InputValidator.validateName('Invalid Name')).toThrow('Invalid name');
-        expect(() => InputValidator.validateName('test_name')).toThrow('Invalid name');
-        expect(() => InputValidator.validateName('-start')).toThrow('Invalid name');
-        expect(() => InputValidator.validateName('end-')).toThrow('Invalid name');
+        expect(() => InputValidator.validateName('Invalid Name')).toThrow(
+          'Invalid name'
+        );
+        expect(() => InputValidator.validateName('test_name')).toThrow(
+          'Invalid name'
+        );
+        expect(() => InputValidator.validateName('-start')).toThrow(
+          'Invalid name'
+        );
+        expect(() => InputValidator.validateName('end-')).toThrow(
+          'Invalid name'
+        );
       });
 
       it('suggests normalized names', () => {
@@ -250,19 +276,29 @@ describe('Error Classes', () => {
       });
 
       it('rejects empty paths', () => {
-        expect(() => InputValidator.validatePath('')).toThrow('path cannot be empty');
+        expect(() => InputValidator.validatePath('')).toThrow(
+          'path cannot be empty'
+        );
       });
 
       it('rejects dangerous paths', () => {
-        expect(() => InputValidator.validatePath('../parent')).toThrow('unsafe characters');
-        expect(() => InputValidator.validatePath('~/home')).toThrow('unsafe characters');
-        expect(() => InputValidator.validatePath('$HOME/test')).toThrow('unsafe characters');
+        expect(() => InputValidator.validatePath('../parent')).toThrow(
+          'unsafe characters'
+        );
+        expect(() => InputValidator.validatePath('~/home')).toThrow(
+          'unsafe characters'
+        );
+        expect(() => InputValidator.validatePath('$HOME/test')).toThrow(
+          'unsafe characters'
+        );
       });
     });
 
     describe('validateDirectory', () => {
       it('validates path first', () => {
-        expect(() => InputValidator.validateDirectory('')).toThrow('directory cannot be empty');
+        expect(() => InputValidator.validateDirectory('')).toThrow(
+          'directory cannot be empty'
+        );
       });
     });
   });

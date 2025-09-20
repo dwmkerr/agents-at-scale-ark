@@ -64,15 +64,15 @@ describe('targets command', () => {
   });
 
   it('lists targets in json format', async () => {
-    const mockTargets = [
-      {id: 'agent/gpt', type: 'agent', name: 'gpt'},
-    ];
+    const mockTargets = [{id: 'agent/gpt', type: 'agent', name: 'gpt'}];
     mockArkApiClient.getQueryTargets.mockResolvedValue(mockTargets);
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(mockTargets, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(mockTargets, null, 2)
+    );
   });
 
   it('filters targets by type', async () => {
@@ -104,7 +104,7 @@ describe('targets command', () => {
     await command.parseAsync(['node', 'test']);
 
     // Check order of calls
-    const calls = mockConsoleLog.mock.calls.map(call => call[0]);
+    const calls = mockConsoleLog.mock.calls.map((call) => call[0]);
     expect(calls).toEqual(['agent/a', 'agent/z', 'model/a', 'model/b']);
   });
 
@@ -122,8 +122,13 @@ describe('targets command', () => {
 
     const command = createTargetsCommand({});
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('fetching targets:', 'API failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'fetching targets:',
+      'API failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
     expect(mockArkApiProxy.prototype.stop).toHaveBeenCalled();
   });

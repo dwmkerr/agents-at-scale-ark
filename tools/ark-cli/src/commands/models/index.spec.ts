@@ -41,17 +41,18 @@ describe('models command', () => {
 
   it('lists models in text format', async () => {
     const mockModels = {
-      items: [
-        {metadata: {name: 'gpt-4'}},
-        {metadata: {name: 'claude-3'}},
-      ],
+      items: [{metadata: {name: 'gpt-4'}}, {metadata: {name: 'claude-3'}}],
     };
     mockExeca.mockResolvedValue({stdout: JSON.stringify(mockModels)});
 
     const command = createModelsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'models', '-o', 'json'], {stdio: 'pipe'});
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['get', 'models', '-o', 'json'],
+      {stdio: 'pipe'}
+    );
     expect(mockConsoleLog).toHaveBeenCalledWith('gpt-4');
     expect(mockConsoleLog).toHaveBeenCalledWith('claude-3');
   });
@@ -65,7 +66,9 @@ describe('models command', () => {
     const command = createModelsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(mockModels.items, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(mockModels.items, null, 2)
+    );
   });
 
   it('shows info when no models', async () => {
@@ -82,8 +85,13 @@ describe('models command', () => {
 
     const command = createModelsCommand({});
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('fetching models:', 'kubectl failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'fetching models:',
+      'kubectl failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 

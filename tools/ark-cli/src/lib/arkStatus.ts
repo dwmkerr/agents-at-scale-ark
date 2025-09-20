@@ -22,7 +22,15 @@ export async function isArkReady(): Promise<boolean> {
       try {
         const devResult = await execa(
           'kubectl',
-          ['get', 'deployment', 'ark-controller-devspace', '-n', 'ark-system', '-o', 'json'],
+          [
+            'get',
+            'deployment',
+            'ark-controller-devspace',
+            '-n',
+            'ark-system',
+            '-o',
+            'json',
+          ],
           {stdio: 'pipe'}
         );
 
@@ -45,7 +53,15 @@ export async function isArkReady(): Promise<boolean> {
     try {
       const devResult = await execa(
         'kubectl',
-        ['get', 'deployment', 'ark-controller-devspace', '-n', 'ark-system', '-o', 'json'],
+        [
+          'get',
+          'deployment',
+          'ark-controller-devspace',
+          '-n',
+          'ark-system',
+          '-o',
+          'json',
+        ],
         {stdio: 'pipe'}
       );
 

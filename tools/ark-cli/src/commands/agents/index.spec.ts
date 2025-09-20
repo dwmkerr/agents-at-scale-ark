@@ -36,17 +36,18 @@ describe('agents command', () => {
 
   it('lists agents in text format', async () => {
     const mockAgents = {
-      items: [
-        {metadata: {name: 'agent1'}},
-        {metadata: {name: 'agent2'}},
-      ],
+      items: [{metadata: {name: 'agent1'}}, {metadata: {name: 'agent2'}}],
     };
     mockExeca.mockResolvedValue({stdout: JSON.stringify(mockAgents)});
 
     const command = createAgentsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'agents', '-o', 'json'], {stdio: 'pipe'});
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['get', 'agents', '-o', 'json'],
+      {stdio: 'pipe'}
+    );
     expect(mockConsoleLog).toHaveBeenCalledWith('agent1');
     expect(mockConsoleLog).toHaveBeenCalledWith('agent2');
   });
@@ -60,7 +61,9 @@ describe('agents command', () => {
     const command = createAgentsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(mockAgents.items, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(mockAgents.items, null, 2)
+    );
   });
 
   it('shows warning when no agents', async () => {
@@ -77,8 +80,13 @@ describe('agents command', () => {
 
     const command = createAgentsCommand({});
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('fetching agents:', 'kubectl failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'fetching agents:',
+      'kubectl failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 

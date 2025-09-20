@@ -39,7 +39,7 @@ describe('config command', () => {
   });
 
   it('displays config paths and environment variables', async () => {
-    const mockConfig = { defaultModel: 'test-model' };
+    const mockConfig = {defaultModel: 'test-model'};
     const mockPaths = {
       user: '/home/user/.arkrc.yaml',
       project: '/project/.arkrc.yaml',
@@ -85,7 +85,7 @@ describe('config command', () => {
     process.env.ARK_CHAT_OUTPUT_FORMAT = 'json';
 
     mockLoadConfig.mockReturnValue({});
-    mockGetConfigPaths.mockReturnValue({ user: '', project: '' });
+    mockGetConfigPaths.mockReturnValue({user: '', project: ''});
     mockFormatConfig.mockReturnValue('');
     mockExistsSync.mockReturnValue(false);
 

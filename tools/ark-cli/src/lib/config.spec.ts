@@ -9,7 +9,7 @@ const mockFs = {
 
 jest.unstable_mockModule('fs', () => ({
   default: mockFs,
-  ...mockFs
+  ...mockFs,
 }));
 
 const mockYaml = {
@@ -19,7 +19,7 @@ const mockYaml = {
 
 jest.unstable_mockModule('yaml', () => ({
   default: mockYaml,
-  ...mockYaml
+  ...mockYaml,
 }));
 
 const {loadConfig, getConfigPaths, formatConfig} = await import('./config.js');
@@ -50,9 +50,6 @@ describe('config', () => {
   });
 
   it('loads and merges configs in order: defaults, user, project', () => {
-    const userConfigPath = path.join(os.homedir(), '.arkrc.yaml');
-    const projectConfigPath = path.join(process.cwd(), '.arkrc.yaml');
-
     mockFs.existsSync.mockReturnValue(true);
     mockFs.readFileSync
       .mockReturnValueOnce('user yaml')

@@ -63,7 +63,9 @@ describe('cluster get command', () => {
     const command = createGetCommand();
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(clusterInfo, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(clusterInfo, null, 2)
+    );
   });
 
   it('uses specified context when provided', async () => {
@@ -101,8 +103,13 @@ describe('cluster get command', () => {
 
     const command = createGetCommand();
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('getting cluster info:', 'No cluster found');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'getting cluster info:',
+      'No cluster found'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
@@ -111,8 +118,13 @@ describe('cluster get command', () => {
 
     const command = createGetCommand();
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('failed to get cluster info:', 'Connection failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'failed to get cluster info:',
+      'Connection failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

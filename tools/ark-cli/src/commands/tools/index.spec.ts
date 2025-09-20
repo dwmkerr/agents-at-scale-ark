@@ -46,7 +46,11 @@ describe('tools command', () => {
     const command = createToolsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'mcpservers', '-o', 'json'], {stdio: 'pipe'});
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['get', 'mcpservers', '-o', 'json'],
+      {stdio: 'pipe'}
+    );
     expect(mockConsoleLog).toHaveBeenCalledWith('github-mcp');
     expect(mockConsoleLog).toHaveBeenCalledWith('slack-mcp');
   });
@@ -60,7 +64,9 @@ describe('tools command', () => {
     const command = createToolsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(mockTools.items, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(mockTools.items, null, 2)
+    );
   });
 
   it('shows info when no tools', async () => {
@@ -77,8 +83,13 @@ describe('tools command', () => {
 
     const command = createToolsCommand({});
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('fetching tools:', 'kubectl failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'fetching tools:',
+      'kubectl failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 

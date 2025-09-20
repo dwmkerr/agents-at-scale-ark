@@ -22,8 +22,8 @@ jest.unstable_mockModule('../../lib/output.js', () => ({
   default: mockOutput,
 }));
 
-const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+jest.spyOn(console, 'log').mockImplementation(() => {});
+jest.spyOn(console, 'error').mockImplementation(() => {});
 
 const {createModel} = await import('./create.js');
 
@@ -39,7 +39,10 @@ describe('createModel', () => {
     // Prompts for model details
     mockInquirer.prompt
       .mockResolvedValueOnce({modelType: 'openai'})
-      .mockResolvedValueOnce({modelVersion: 'gpt-4', baseUrl: 'https://api.openai.com/'})
+      .mockResolvedValueOnce({
+        modelVersion: 'gpt-4',
+        baseUrl: 'https://api.openai.com/',
+      })
       .mockResolvedValueOnce({apiKey: 'secret-key'});
 
     // Secret operations succeed
@@ -50,15 +53,24 @@ describe('createModel', () => {
     const result = await createModel('test-model');
 
     expect(result).toBe(true);
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'model', 'test-model'], {stdio: 'pipe'});
-    expect(mockOutput.success).toHaveBeenCalledWith('model test-model created successfully');
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['get', 'model', 'test-model'],
+      {stdio: 'pipe'}
+    );
+    expect(mockOutput.success).toHaveBeenCalledWith(
+      'model test-model created successfully'
+    );
   });
 
   it('prompts for name when not provided', async () => {
     mockInquirer.prompt
       .mockResolvedValueOnce({modelName: 'prompted-model'})
       .mockResolvedValueOnce({modelType: 'azure'})
-      .mockResolvedValueOnce({modelVersion: 'gpt-4', baseUrl: 'https://azure.com'})
+      .mockResolvedValueOnce({
+        modelVersion: 'gpt-4',
+        baseUrl: 'https://azure.com',
+      })
       .mockResolvedValueOnce({apiVersion: '2024-12-01'})
       .mockResolvedValueOnce({apiKey: 'secret'});
 
@@ -83,7 +95,10 @@ describe('createModel', () => {
     mockInquirer.prompt
       .mockResolvedValueOnce({overwrite: true})
       .mockResolvedValueOnce({modelType: 'openai'})
-      .mockResolvedValueOnce({modelVersion: 'gpt-4', baseUrl: 'https://api.openai.com'})
+      .mockResolvedValueOnce({
+        modelVersion: 'gpt-4',
+        baseUrl: 'https://api.openai.com',
+      })
       .mockResolvedValueOnce({apiKey: 'secret'});
 
     mockExeca.mockResolvedValue({}); // remaining kubectl ops
@@ -91,7 +106,9 @@ describe('createModel', () => {
     const result = await createModel('existing-model');
 
     expect(result).toBe(true);
-    expect(mockOutput.warning).toHaveBeenCalledWith('model existing-model already exists');
+    expect(mockOutput.warning).toHaveBeenCalledWith(
+      'model existing-model already exists'
+    );
   });
 
   it('cancels when user declines overwrite', async () => {
@@ -109,7 +126,10 @@ describe('createModel', () => {
 
     mockInquirer.prompt
       .mockResolvedValueOnce({modelType: 'openai'})
-      .mockResolvedValueOnce({modelVersion: 'gpt-4', baseUrl: 'https://api.openai.com'})
+      .mockResolvedValueOnce({
+        modelVersion: 'gpt-4',
+        baseUrl: 'https://api.openai.com',
+      })
       .mockResolvedValueOnce({apiKey: 'secret'});
 
     mockExeca.mockRejectedValueOnce(new Error('delete failed')); // delete secret may fail
@@ -126,7 +146,10 @@ describe('createModel', () => {
 
     mockInquirer.prompt
       .mockResolvedValueOnce({modelType: 'openai'})
-      .mockResolvedValueOnce({modelVersion: 'gpt-4', baseUrl: 'https://api.openai.com'})
+      .mockResolvedValueOnce({
+        modelVersion: 'gpt-4',
+        baseUrl: 'https://api.openai.com',
+      })
       .mockResolvedValueOnce({apiKey: 'secret'});
 
     mockExeca.mockResolvedValueOnce({}); // delete secret
@@ -138,6 +161,10 @@ describe('createModel', () => {
 
     expect(result).toBe(false);
     expect(mockOutput.error).toHaveBeenCalledWith('failed to create model');
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['delete', 'secret', 'test-model-model-api-key'], {stdio: 'pipe'});
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['delete', 'secret', 'test-model-model-api-key'],
+      {stdio: 'pipe'}
+    );
   });
 });

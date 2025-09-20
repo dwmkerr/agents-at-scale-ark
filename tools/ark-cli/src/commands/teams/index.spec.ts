@@ -46,7 +46,11 @@ describe('teams command', () => {
     const command = createTeamsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'teams', '-o', 'json'], {stdio: 'pipe'});
+    expect(mockExeca).toHaveBeenCalledWith(
+      'kubectl',
+      ['get', 'teams', '-o', 'json'],
+      {stdio: 'pipe'}
+    );
     expect(mockConsoleLog).toHaveBeenCalledWith('engineering');
     expect(mockConsoleLog).toHaveBeenCalledWith('data-science');
   });
@@ -60,7 +64,9 @@ describe('teams command', () => {
     const command = createTeamsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
-    expect(mockConsoleLog).toHaveBeenCalledWith(JSON.stringify(mockTeams.items, null, 2));
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      JSON.stringify(mockTeams.items, null, 2)
+    );
   });
 
   it('shows info when no teams', async () => {
@@ -77,8 +83,13 @@ describe('teams command', () => {
 
     const command = createTeamsCommand({});
 
-    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith('fetching teams:', 'kubectl failed');
+    await expect(command.parseAsync(['node', 'test'])).rejects.toThrow(
+      'process.exit called'
+    );
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'fetching teams:',
+      'kubectl failed'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 

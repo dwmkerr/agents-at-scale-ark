@@ -25,7 +25,7 @@ describe('cluster command', () => {
     const command = createClusterCommand({});
 
     expect(mockCreateGetCommand).toHaveBeenCalled();
-    const getCommand = command.commands.find(cmd => cmd.name() === 'get');
+    const getCommand = command.commands.find((cmd) => cmd.name() === 'get');
     expect(getCommand).toBeDefined();
   });
 });

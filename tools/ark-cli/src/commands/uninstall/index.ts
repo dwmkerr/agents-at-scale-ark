@@ -8,21 +8,20 @@ import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
 async function uninstallService(service: any, verbose: boolean = false) {
-  const helmArgs = [
-    'uninstall',
-    service.helmReleaseName,
-    '--ignore-not-found',
-  ];
+  const helmArgs = ['uninstall', service.helmReleaseName, '--ignore-not-found'];
 
   // Only add namespace flag if service has explicit namespace
   if (service.namespace) {
     helmArgs.push('--namespace', service.namespace);
   }
 
-  await execute('helm', helmArgs, { stdio: 'inherit' }, {verbose});
+  await execute('helm', helmArgs, {stdio: 'inherit'}, {verbose});
 }
 
-async function uninstallArk(serviceName?: string, options: { yes?: boolean; verbose?: boolean } = {}) {
+async function uninstallArk(
+  serviceName?: string,
+  options: {yes?: boolean; verbose?: boolean} = {}
+) {
   // Check cluster connectivity
   const clusterInfo = await getClusterInfo();
 
@@ -46,7 +45,7 @@ async function uninstallArk(serviceName?: string, options: { yes?: boolean; verb
   // If a specific service is requested, uninstall only that service
   if (serviceName) {
     const services = getInstallableServices();
-    const service = Object.values(services).find(s => s.name === serviceName);
+    const service = Object.values(services).find((s) => s.name === serviceName);
 
     if (!service) {
       output.error(`service '${serviceName}' not found`);
@@ -78,16 +77,18 @@ async function uninstallArk(serviceName?: string, options: { yes?: boolean; verb
 
     try {
       // Ask for confirmation
-      shouldUninstall = options.yes || (
-        await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'shouldUninstall',
-            message: `uninstall ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
-            default: true,
-          },
-        ])
-      ).shouldUninstall;
+      shouldUninstall =
+        options.yes ||
+        (
+          await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'shouldUninstall',
+              message: `uninstall ${chalk.bold(service.name)}? ${service.description ? chalk.gray(`(${service.description.toLowerCase()})`) : ''}`,
+              default: true,
+            },
+          ])
+        ).shouldUninstall;
     } catch (error) {
       // Handle Ctrl-C gracefully
       if (error && (error as any).name === 'ExitPromptError') {

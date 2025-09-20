@@ -7,17 +7,17 @@ jest.unstable_mockModule('chalk', () => ({
     yellow: (str: string) => str,
     gray: (str: string) => str,
     blue: (str: string) => str,
-  }
+  },
 }));
 
 // Mock commands module
 jest.unstable_mockModule('./commands.js', () => ({
-  checkCommandExists: jest.fn()
+  checkCommandExists: jest.fn(),
 }));
 
 // Mock config module
 jest.unstable_mockModule('./config.js', () => ({
-  loadConfig: jest.fn()
+  loadConfig: jest.fn(),
 }));
 
 // Dynamic imports after mocks
@@ -30,7 +30,7 @@ const mockCheckCommandExists = checkCommandExists as any;
 const mockLoadConfig = loadConfig as any;
 
 // Mock fetch globally
-global.fetch = jest.fn() as any;
+globalThis.fetch = jest.fn() as any;
 
 describe('startup', () => {
   let mockExit: jest.SpiedFunction<typeof process.exit>;
@@ -38,11 +38,13 @@ describe('startup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (global.fetch as any).mockClear();
+    (globalThis.fetch as any).mockClear();
     mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
-    mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockConsoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -54,8 +56,8 @@ describe('startup', () => {
     const expectedConfig = {
       chat: {
         streaming: true,
-        outputFormat: 'text'
-      }
+        outputFormat: 'text',
+      },
     };
 
     // Mock all commands as available
@@ -65,8 +67,14 @@ describe('startup', () => {
     const config = await startup();
 
     expect(config).toEqual(expectedConfig);
-    expect(mockCheckCommandExists).toHaveBeenCalledWith('kubectl', ['version', '--client']);
-    expect(mockCheckCommandExists).toHaveBeenCalledWith('helm', ['version', '--short']);
+    expect(mockCheckCommandExists).toHaveBeenCalledWith('kubectl', [
+      'version',
+      '--client',
+    ]);
+    expect(mockCheckCommandExists).toHaveBeenCalledWith('helm', [
+      'version',
+      '--short',
+    ]);
     expect(mockLoadConfig).toHaveBeenCalledTimes(1);
     expect(mockExit).not.toHaveBeenCalled();
   });
@@ -80,7 +88,9 @@ describe('startup', () => {
     await expect(startup()).rejects.toThrow('process.exit');
 
     expect(mockConsoleError).toHaveBeenCalledWith('error: kubectl is required');
-    expect(mockConsoleError).toHaveBeenCalledWith('  https://kubernetes.io/docs/tasks/tools/');
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      '  https://kubernetes.io/docs/tasks/tools/'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
@@ -93,7 +103,9 @@ describe('startup', () => {
     await expect(startup()).rejects.toThrow('process.exit');
 
     expect(mockConsoleError).toHaveBeenCalledWith('error: helm is required');
-    expect(mockConsoleError).toHaveBeenCalledWith('  https://helm.sh/docs/intro/install/');
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      '  https://helm.sh/docs/intro/install/'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
@@ -104,26 +116,36 @@ describe('startup', () => {
     await expect(startup()).rejects.toThrow('process.exit');
 
     expect(mockConsoleError).toHaveBeenCalledWith('error: kubectl is required');
-    expect(mockConsoleError).toHaveBeenCalledWith('  https://kubernetes.io/docs/tasks/tools/');
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      '  https://kubernetes.io/docs/tasks/tools/'
+    );
     expect(mockConsoleError).toHaveBeenCalledWith('error: helm is required');
-    expect(mockConsoleError).toHaveBeenCalledWith('  https://helm.sh/docs/intro/install/');
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      '  https://helm.sh/docs/intro/install/'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
   it('checks commands with correct arguments', async () => {
     mockCheckCommandExists.mockResolvedValue(true);
-    mockLoadConfig.mockReturnValue({ chat: {} });
+    mockLoadConfig.mockReturnValue({chat: {}});
 
     await startup();
 
     expect(mockCheckCommandExists).toHaveBeenCalledTimes(2);
-    expect(mockCheckCommandExists).toHaveBeenNthCalledWith(1, 'kubectl', ['version', '--client']);
-    expect(mockCheckCommandExists).toHaveBeenNthCalledWith(2, 'helm', ['version', '--short']);
+    expect(mockCheckCommandExists).toHaveBeenNthCalledWith(1, 'kubectl', [
+      'version',
+      '--client',
+    ]);
+    expect(mockCheckCommandExists).toHaveBeenNthCalledWith(2, 'helm', [
+      'version',
+      '--short',
+    ]);
   });
 
   it('loads config after checking requirements', async () => {
     mockCheckCommandExists.mockResolvedValue(true);
-    const expectedConfig = { chat: { streaming: false } };
+    const expectedConfig = {chat: {streaming: false}};
     mockLoadConfig.mockReturnValue(expectedConfig);
 
     const config = await startup();
@@ -139,56 +161,56 @@ describe('startup', () => {
     beforeEach(() => {
       // Setup successful requirements check and config
       mockCheckCommandExists.mockResolvedValue(true);
-      mockLoadConfig.mockReturnValue({ chat: { streaming: true } });
+      mockLoadConfig.mockReturnValue({chat: {streaming: true}});
     });
 
     it('fetches latest version from GitHub API', async () => {
-      (global.fetch as any).mockResolvedValue({
+      (globalThis.fetch as any).mockResolvedValue({
         ok: true,
-        json: async () => ({ tag_name: 'v0.1.35' })
+        json: async () => ({tag_name: 'v0.1.35'}),
       });
 
       const config = await startup();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
       );
 
       // Wait for async fetch to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(config.latestVersion).toBe('v0.1.35');
     });
 
     it('handles GitHub API failure gracefully', async () => {
-      (global.fetch as any).mockRejectedValue(new Error('Network error'));
+      (globalThis.fetch as any).mockRejectedValue(new Error('Network error'));
 
       const config = await startup();
 
       // Wait for async fetch attempt
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Should not have latestVersion set
       expect(config.latestVersion).toBeUndefined();
     });
 
     it('handles non-OK response from GitHub API', async () => {
-      (global.fetch as any).mockResolvedValue({
+      (globalThis.fetch as any).mockResolvedValue({
         ok: false,
-        status: 403
+        status: 403,
       });
 
       const config = await startup();
 
       // Wait for async fetch to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Should not have latestVersion set
       expect(config.latestVersion).toBeUndefined();
     });
 
     it('continues startup even if version fetch fails', async () => {
-      (global.fetch as any).mockRejectedValue(new Error('API Error'));
+      (globalThis.fetch as any).mockRejectedValue(new Error('API Error'));
 
       const config = await startup();
 

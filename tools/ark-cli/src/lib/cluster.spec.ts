@@ -17,7 +17,10 @@ describe('cluster', () => {
       mockExeca.mockResolvedValue({stdout: 'minikube'});
       const result = await detectClusterType();
       expect(result).toEqual({type: 'minikube', context: 'minikube'});
-      expect(mockExeca).toHaveBeenCalledWith('kubectl', ['config', 'current-context']);
+      expect(mockExeca).toHaveBeenCalledWith('kubectl', [
+        'config',
+        'current-context',
+      ]);
     });
 
     it('detects kind cluster', async () => {
@@ -35,19 +38,30 @@ describe('cluster', () => {
     it('detects docker-desktop cluster', async () => {
       mockExeca.mockResolvedValue({stdout: 'docker-desktop'});
       const result = await detectClusterType();
-      expect(result).toEqual({type: 'docker-desktop', context: 'docker-desktop'});
+      expect(result).toEqual({
+        type: 'docker-desktop',
+        context: 'docker-desktop',
+      });
     });
 
     it('detects gke cloud cluster', async () => {
       mockExeca.mockResolvedValue({stdout: 'gke_project_zone_cluster'});
       const result = await detectClusterType();
-      expect(result).toEqual({type: 'cloud', context: 'gke_project_zone_cluster'});
+      expect(result).toEqual({
+        type: 'cloud',
+        context: 'gke_project_zone_cluster',
+      });
     });
 
     it('detects eks cloud cluster', async () => {
-      mockExeca.mockResolvedValue({stdout: 'arn:aws:eks:region:account:cluster/name'});
+      mockExeca.mockResolvedValue({
+        stdout: 'arn:aws:eks:region:account:cluster/name',
+      });
       const result = await detectClusterType();
-      expect(result).toEqual({type: 'cloud', context: 'arn:aws:eks:region:account:cluster/name'});
+      expect(result).toEqual({
+        type: 'cloud',
+        context: 'arn:aws:eks:region:account:cluster/name',
+      });
     });
 
     it('detects aks cloud cluster', async () => {
@@ -72,12 +86,14 @@ describe('cluster', () => {
   describe('getClusterInfo', () => {
     const mockConfig = {
       'current-context': 'minikube',
-      contexts: [{
-        name: 'minikube',
-        context: {
-          namespace: 'default'
-        }
-      }]
+      contexts: [
+        {
+          name: 'minikube',
+          context: {
+            namespace: 'default',
+          },
+        },
+      ],
     };
 
     it('gets minikube cluster info with IP', async () => {
@@ -92,11 +108,20 @@ describe('cluster', () => {
         type: 'minikube',
         context: 'minikube',
         namespace: 'default',
-        ip: '192.168.49.2'
+        ip: '192.168.49.2',
       });
 
-      expect(mockExeca).toHaveBeenCalledWith('kubectl', ['config', 'view', '--minify', '-o', 'json']);
-      expect(mockExeca).toHaveBeenCalledWith('kubectl', ['config', 'current-context']);
+      expect(mockExeca).toHaveBeenCalledWith('kubectl', [
+        'config',
+        'view',
+        '--minify',
+        '-o',
+        'json',
+      ]);
+      expect(mockExeca).toHaveBeenCalledWith('kubectl', [
+        'config',
+        'current-context',
+      ]);
       expect(mockExeca).toHaveBeenCalledWith('minikube', ['ip']);
     });
 
@@ -111,20 +136,24 @@ describe('cluster', () => {
 
       expect(result.ip).toBe('192.168.49.2');
       expect(mockExeca).toHaveBeenCalledWith('kubectl', [
-        'get', 'nodes', '-o',
-        'jsonpath={.items[0].status.addresses[?(@.type=="InternalIP")].address}'
+        'get',
+        'nodes',
+        '-o',
+        'jsonpath={.items[0].status.addresses[?(@.type=="InternalIP")].address}',
       ]);
     });
 
     it('gets kind cluster info with IP', async () => {
       const kindConfig = {
         'current-context': 'kind-kind',
-        contexts: [{
-          name: 'kind-kind',
-          context: {
-            namespace: 'kube-system'
-          }
-        }]
+        contexts: [
+          {
+            name: 'kind-kind',
+            context: {
+              namespace: 'kube-system',
+            },
+          },
+        ],
       };
 
       mockExeca
@@ -138,17 +167,19 @@ describe('cluster', () => {
         type: 'kind',
         context: 'kind-kind',
         namespace: 'kube-system',
-        ip: '172.18.0.2'
+        ip: '172.18.0.2',
       });
     });
 
     it('gets docker-desktop cluster info', async () => {
       const dockerConfig = {
         'current-context': 'docker-desktop',
-        contexts: [{
-          name: 'docker-desktop',
-          context: {}
-        }]
+        contexts: [
+          {
+            name: 'docker-desktop',
+            context: {},
+          },
+        ],
       };
 
       mockExeca
@@ -161,19 +192,21 @@ describe('cluster', () => {
         type: 'docker-desktop',
         context: 'docker-desktop',
         namespace: 'default',
-        ip: 'localhost'
+        ip: 'localhost',
       });
     });
 
     it('gets cloud cluster info with load balancer IP', async () => {
       const cloudConfig = {
         'current-context': 'gke_project_zone_cluster',
-        contexts: [{
-          name: 'gke_project_zone_cluster',
-          context: {
-            namespace: 'production'
-          }
-        }]
+        contexts: [
+          {
+            name: 'gke_project_zone_cluster',
+            context: {
+              namespace: 'production',
+            },
+          },
+        ],
       };
 
       mockExeca
@@ -187,22 +220,29 @@ describe('cluster', () => {
         type: 'cloud',
         context: 'gke_project_zone_cluster',
         namespace: 'production',
-        ip: '35.201.125.17'
+        ip: '35.201.125.17',
       });
 
       expect(mockExeca).toHaveBeenCalledWith('kubectl', [
-        'get', 'svc', '-n', 'istio-system', 'istio-ingressgateway',
-        '-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}'
+        'get',
+        'svc',
+        '-n',
+        'istio-system',
+        'istio-ingressgateway',
+        '-o',
+        'jsonpath={.status.loadBalancer.ingress[0].ip}',
       ]);
     });
 
     it('falls back to hostname for cloud cluster if no IP', async () => {
       const cloudConfig = {
         'current-context': 'eks-cluster',
-        contexts: [{
-          name: 'eks-cluster',
-          context: {}
-        }]
+        contexts: [
+          {
+            name: 'eks-cluster',
+            context: {},
+          },
+        ],
       };
 
       mockExeca
@@ -219,10 +259,12 @@ describe('cluster', () => {
     it('falls back to external node IP for cloud cluster', async () => {
       const cloudConfig = {
         'current-context': 'gke-cluster',
-        contexts: [{
-          name: 'gke-cluster',
-          context: {}
-        }]
+        contexts: [
+          {
+            name: 'gke-cluster',
+            context: {},
+          },
+        ],
       };
 
       mockExeca
@@ -235,18 +277,22 @@ describe('cluster', () => {
 
       expect(result.ip).toBe('35.201.125.18');
       expect(mockExeca).toHaveBeenCalledWith('kubectl', [
-        'get', 'nodes', '-o',
-        'jsonpath={.items[0].status.addresses[?(@.type=="ExternalIP")].address}'
+        'get',
+        'nodes',
+        '-o',
+        'jsonpath={.items[0].status.addresses[?(@.type=="ExternalIP")].address}',
       ]);
     });
 
     it('gets k3s cluster info', async () => {
       const k3sConfig = {
         'current-context': 'k3s-default',
-        contexts: [{
-          name: 'k3s-default',
-          context: {}
-        }]
+        contexts: [
+          {
+            name: 'k3s-default',
+            context: {},
+          },
+        ],
       };
 
       mockExeca
@@ -260,19 +306,21 @@ describe('cluster', () => {
         type: 'k3s',
         context: 'k3s-default',
         namespace: 'default',
-        ip: '10.0.0.5'
+        ip: '10.0.0.5',
       });
     });
 
     it('uses provided context parameter', async () => {
       const multiConfig = {
         'current-context': 'kind-staging',
-        contexts: [{
-          name: 'kind-staging',
-          context: {
-            namespace: 'staging-ns'
-          }
-        }]
+        contexts: [
+          {
+            name: 'kind-staging',
+            context: {
+              namespace: 'staging-ns',
+            },
+          },
+        ],
       };
 
       mockExeca
@@ -284,17 +332,25 @@ describe('cluster', () => {
 
       expect(result.context).toBe('kind-staging');
       expect(mockExeca).toHaveBeenCalledWith('kubectl', [
-        'config', 'view', '--minify', '-o', 'json', '--context', 'kind-staging'
+        'config',
+        'view',
+        '--minify',
+        '-o',
+        'json',
+        '--context',
+        'kind-staging',
       ]);
     });
 
     it('handles unknown cluster type', async () => {
       const unknownConfig = {
         'current-context': 'custom-cluster',
-        contexts: [{
-          name: 'custom-cluster',
-          context: {}
-        }]
+        contexts: [
+          {
+            name: 'custom-cluster',
+            context: {},
+          },
+        ],
       };
 
       mockExeca
@@ -308,7 +364,7 @@ describe('cluster', () => {
         type: 'unknown',
         context: 'custom-cluster',
         namespace: 'default',
-        ip: '10.0.0.1'
+        ip: '10.0.0.1',
       });
     });
 
@@ -319,13 +375,13 @@ describe('cluster', () => {
 
       expect(result).toEqual({
         type: 'unknown',
-        error: 'kubectl not configured'
+        error: 'kubectl not configured',
       });
     });
 
     it('handles missing context in config', async () => {
       const emptyConfig = {
-        contexts: []
+        contexts: [],
       };
 
       mockExeca
