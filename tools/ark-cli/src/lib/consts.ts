@@ -14,7 +14,3 @@ export const DEFAULT_ARK_DASHBOARD_URL = 'http://localhost:3000';
 export const DEFAULT_ARK_A2A_URL = 'http://localhost:8080';
 export const DEFAULT_ARK_MEMORY_URL = 'http://localhost:8081';
 export const DEFAULT_ARK_OTEL_URL = 'http://localhost:4318';
-
-// Error message for different ARK repo
-export const ARK_REPO_ERROR_MESSAGE =
-  'Error: This command must be run inside the ARK repository.';

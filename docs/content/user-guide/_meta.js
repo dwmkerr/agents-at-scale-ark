@@ -1,5 +1,6 @@
 export default {
   dashboard: 'Running the Dashboard',
+  'ark-cli': 'ARK CLI',
   agents: 'Creating and Managing Agents',
   teams: 'Creating and Managing Teams',
   queries: 'Creating Queries',
