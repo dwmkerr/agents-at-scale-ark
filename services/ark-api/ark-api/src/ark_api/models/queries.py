@@ -89,13 +89,13 @@ class QueryCreateRequest(BaseModel):
     selector: Optional[LabelSelector] = None
     serviceAccount: Optional[str] = None
     sessionId: Optional[str] = None
-    streaming: bool = False
     targets: Optional[List[Target]] = None
     timeout: Optional[str] = None
     ttl: Optional[str] = None
     cancel: Optional[bool] = None
     evaluators: Optional[List[Memory]] = None
     evaluatorSelector: Optional[LabelSelector] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class QueryUpdateRequest(BaseModel):

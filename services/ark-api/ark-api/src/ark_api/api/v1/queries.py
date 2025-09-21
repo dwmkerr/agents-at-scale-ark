@@ -7,7 +7,6 @@ from ark_sdk.models.query_v1alpha1_spec import QueryV1alpha1Spec
 
 from ark_sdk.client import with_ark_client
 
-from ...constants.annotations import STREAMING_ENABLED_ANNOTATION
 from ...models.queries import (
     QueryResponse,
     QueryListResponse,
@@ -120,17 +119,15 @@ async def create_query(
         if query.evaluatorSelector:
             spec["evaluatorSelector"] = query.evaluatorSelector.model_dump()
         
-        # If the query is being created with streaming requested, set the streaming annotation
+        # Create the QueryV1alpha1 object
         metadata = {
             "name": query.name,
             "namespace": namespace
         }
-        if query.streaming:
-            metadata["annotations"] = {
-                STREAMING_ENABLED_ANNOTATION: "true"
-            }
-        
-        # Create the QueryV1alpha1 object
+        # The incoming query may contain additional metadata such as annotations (e.g. streaming annotation)
+        if query.metadata:
+            metadata.update(query.metadata)
+
         query_resource = QueryV1alpha1(
             metadata=metadata,
             spec=QueryV1alpha1Spec(**spec)
