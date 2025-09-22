@@ -1,5 +1,4 @@
 import {ArkApiClient, QueryTarget} from './arkApiClient.js';
-import output from './output.js';
 
 // Re-export QueryTarget for compatibility
 export {QueryTarget};
@@ -146,9 +145,7 @@ export class ChatClient {
         return content;
       }
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      output.error('failed to call openai api:', errorMessage);
+      // Don't log here - error will be displayed in the message thread
       throw error;
     }
   }
