@@ -91,7 +91,7 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
   // Check if upgrade is available
   const hasUpgrade = React.useMemo(() => {
     if (!config.currentVersion || !config.latestVersion) return false;
-    // Simple version comparison - assumes semver format
+    // Simple version comparison
     return config.currentVersion !== config.latestVersion;
   }, [config.currentVersion, config.latestVersion]);
 
@@ -147,11 +147,12 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
       );
     }
 
-    // Show upgrade instead of install when available
+    // Ark is ready - filter out install (already installed) and conditionally show upgrade
     const filteredChoices = allChoices.filter((choice) => {
-      // If upgrade is available, show upgrade instead of install
-      if (hasUpgrade && choice.value === 'install') return false;
-      if (!hasUpgrade && choice.value === 'upgrade') return false;
+      // Never show install when Ark is ready (it's already installed)
+      if (choice.value === 'install') return false;
+      // Only show upgrade if there's actually an upgrade available
+      if (choice.value === 'upgrade' && !hasUpgrade) return false;
       return true;
     });
 
@@ -301,9 +302,14 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
             <Spinner type="dots" /> Checking Ark status...
           </Text>
         ) : arkReady ? (
-          <Text color="green" bold>
-            ● Ark is ready
-          </Text>
+          <Box>
+            <Text color="green" bold>
+              ● Ark is ready
+            </Text>
+            {config.currentVersion && (
+              <Text color="gray"> ({config.currentVersion})</Text>
+            )}
+          </Box>
         ) : (
           <Text color="yellow" bold>
             ● Ark is not installed
