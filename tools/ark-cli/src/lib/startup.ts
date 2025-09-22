@@ -56,13 +56,14 @@ async function fetchVersionInfo(config: ArkConfig): Promise<void> {
     );
     if (response.ok) {
       const data = (await response.json()) as {tag_name: string};
-      config.latestVersion = data.tag_name;
+      // Remove 'v' prefix if present for consistent comparison
+      config.latestVersion = data.tag_name.replace(/^v/, '');
     }
   } catch {
     // Silently fail - latestVersion will remain undefined
   }
 
-  // Fetch current installed version
+  // Fetch current installed version (already without 'v' from helm)
   try {
     const currentVersion = await getArkVersion();
     if (currentVersion) {
@@ -83,8 +84,8 @@ export async function startup(): Promise<ArkConfig> {
   // Load config
   const config = loadConfig();
 
-  // Fetch version info asynchronously (don't await)
-  fetchVersionInfo(config);
+  // Fetch version info synchronously so it's available immediately
+  await fetchVersionInfo(config);
 
   return config;
 }

@@ -40,7 +40,7 @@ function enrichServiceDetails(
   // Build details array
   const details = [];
   if (service.status === 'healthy') {
-    if (service.version) details.push(`v${service.version}`);
+    if (service.version) details.push(service.version);
     if (service.revision) details.push(`revision ${service.revision}`);
   }
   if (service.details) details.push(service.details);
@@ -206,7 +206,8 @@ function buildStatusSections(
             details: 'unable to check for updates',
           });
         } else {
-          const currentVersion = `v${controller.version}`;
+          // Use currentVersion from config if available, otherwise use controller.version
+          const currentVersion = config.currentVersion || controller.version;
           if (currentVersion === config.latestVersion) {
             arkStatusLines.push({
               icon: '✓',
