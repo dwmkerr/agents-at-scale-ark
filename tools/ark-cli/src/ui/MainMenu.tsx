@@ -10,6 +10,7 @@ type MenuChoice =
   | 'generate'
   | 'chat'
   | 'install'
+  | 'upgrade'
   | 'exit';
 
 interface MenuItem {
@@ -87,6 +88,13 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
     };
   }, []);
 
+  // Check if upgrade is available
+  const hasUpgrade = React.useMemo(() => {
+    if (!config.currentVersion || !config.latestVersion) return false;
+    // Simple version comparison - assumes semver format
+    return config.currentVersion !== config.latestVersion;
+  }, [config.currentVersion, config.latestVersion]);
+
   const allChoices: MenuItem[] = [
     {
       label: 'Chat',
@@ -99,6 +107,12 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
       description: 'Install Ark',
       value: 'install',
       command: 'ark install',
+    },
+    {
+      label: 'Upgrade',
+      description: `Upgrade Ark from ${config.currentVersion} to ${config.latestVersion}`,
+      value: 'upgrade',
+      command: 'ark install -y',
     },
     {
       label: 'Dashboard',
@@ -133,9 +147,16 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
       );
     }
 
-    // Show all options when Ark is ready
-    return allChoices;
-  }, [arkReady, isChecking]);
+    // Show upgrade instead of install when available
+    const filteredChoices = allChoices.filter((choice) => {
+      // If upgrade is available, show upgrade instead of install
+      if (hasUpgrade && choice.value === 'install') return false;
+      if (!hasUpgrade && choice.value === 'upgrade') return false;
+      return true;
+    });
+
+    return filteredChoices;
+  }, [arkReady, isChecking, hasUpgrade, allChoices]);
 
   useInput((input: string, key: any) => {
     // Don't process input while checking status
@@ -197,6 +218,25 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
         const {execFileSync} = await import('child_process');
         try {
           execFileSync(process.execPath, [process.argv[1], 'install'], {
+            stdio: 'inherit',
+            env: {...process.env, FORCE_COLOR: '1'},
+          });
+        } catch (error: any) {
+          // execFileSync throws if the process exits with non-zero
+          process.exit(error.status || 1);
+        }
+        process.exit(0);
+        break; // Add break even though process.exit prevents reaching here
+      }
+
+      case 'upgrade': {
+        //  Unmount fullscreen app and clear screen.
+        await unmountInkApp();
+
+        // Spawn as a new process with -y flag for automatic upgrade
+        const {execFileSync} = await import('child_process');
+        try {
+          execFileSync(process.execPath, [process.argv[1], 'install', '-y'], {
             stdio: 'inherit',
             env: {...process.env, FORCE_COLOR: '1'},
           });

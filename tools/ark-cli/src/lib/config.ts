@@ -12,6 +12,8 @@ export interface ArkConfig {
   chat?: ChatConfig;
   // Dynamically loaded on startup - undefined if fetch failed or still loading
   latestVersion?: string;
+  // Current installed version - undefined if not installed or check failed
+  currentVersion?: string;
 }
 
 /**

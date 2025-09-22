@@ -1,4 +1,25 @@
 import {execa} from 'execa';
+import {arkServices} from '../arkServices.js';
+
+/**
+ * Get current installed ARK version
+ * @returns version string if found, undefined otherwise
+ */
+export async function getArkVersion(): Promise<string | undefined> {
+  try {
+    const controller = arkServices['ark-controller'];
+    const {stdout} = await execa(
+      'helm',
+      ['list', '-n', controller.namespace!, '-o', 'json'],
+      {stdio: 'pipe'}
+    );
+    const releases = JSON.parse(stdout);
+    const arkController = releases.find((r: any) => r.name === controller.helmReleaseName);
+    return arkController?.app_version;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Check if ARK is ready by verifying the ark-controller is running

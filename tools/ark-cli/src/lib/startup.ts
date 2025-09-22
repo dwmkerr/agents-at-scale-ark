@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import {checkCommandExists} from './commands.js';
 import {loadConfig} from './config.js';
 import type {ArkConfig} from './config.js';
+import {getArkVersion} from './arkStatus.js';
 
 interface RequiredCommand {
   name: string;
@@ -45,9 +46,10 @@ async function checkRequirements(): Promise<void> {
 }
 
 /**
- * Fetch latest version from GitHub releases (non-blocking)
+ * Fetch version information (non-blocking)
  */
-async function fetchLatestVersion(config: ArkConfig): Promise<void> {
+async function fetchVersionInfo(config: ArkConfig): Promise<void> {
+  // Fetch latest version from GitHub
   try {
     const response = await fetch(
       'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
@@ -58,6 +60,16 @@ async function fetchLatestVersion(config: ArkConfig): Promise<void> {
     }
   } catch {
     // Silently fail - latestVersion will remain undefined
+  }
+
+  // Fetch current installed version
+  try {
+    const currentVersion = await getArkVersion();
+    if (currentVersion) {
+      config.currentVersion = currentVersion;
+    }
+  } catch {
+    // Silently fail - currentVersion will remain undefined
   }
 }
 
@@ -71,8 +83,8 @@ export async function startup(): Promise<ArkConfig> {
   // Load config
   const config = loadConfig();
 
-  // Fetch latest version asynchronously (don't await)
-  fetchLatestVersion(config);
+  // Fetch version info asynchronously (don't await)
+  fetchVersionInfo(config);
 
   return config;
 }
