@@ -460,6 +460,9 @@ export class StatusChecker {
       const serviceChecks: Promise<ServiceStatus>[] = [];
 
       for (const [serviceName, service] of Object.entries(arkServices)) {
+        // Skip disabled services
+        if (!service.enabled) continue;
+
         // Use service namespace if defined, otherwise use current namespace from clusterInfo
         const namespace =
           service.namespace || clusterInfo?.namespace || 'default';

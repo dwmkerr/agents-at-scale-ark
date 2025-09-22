@@ -6,6 +6,7 @@ export interface ArkService {
   name: string;
   helmReleaseName: string;
   description: string;
+  enabled: boolean; // Whether this service is enabled
   namespace?: string; // Optional - if undefined, uses current namespace
   chartPath?: string;
   installArgs?: string[];
@@ -95,6 +96,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-controller',
     helmReleaseName: 'ark-controller',
     description: 'Core ARK controller for managing AI resources',
+    enabled: true,
     namespace: 'ark-system',
     chartPath: `${REGISTRY_BASE}/ark-controller`,
     installArgs: ['--create-namespace', '--set', 'rbac.enable=true'],
@@ -106,6 +108,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-api',
     helmReleaseName: 'ark-api',
     description: 'ARK API service for interacting with ARK resources',
+    enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-api`,
     installArgs: [],
@@ -120,6 +123,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-dashboard',
     helmReleaseName: 'ark-dashboard',
     description: 'Web-based dashboard for ARK',
+    enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-dashboard`,
     installArgs: [],
@@ -134,6 +138,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-api-a2a',
     helmReleaseName: 'ark-api-a2a',
     description: 'ARK API agent-to-agent communication service',
+    enabled: false, // Disabled - not currently used
     // namespace: undefined - uses current context namespace
     // Note: This service might be installed as part of ark-api or separately
   },
@@ -142,6 +147,7 @@ export const arkServices: ServiceCollection = {
     name: 'ark-mcp',
     helmReleaseName: 'ark-mcp',
     description: 'MCP (Model Context Protocol) services for ARK',
+    enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-mcp`,
     installArgs: [],
@@ -153,6 +159,7 @@ export const arkServices: ServiceCollection = {
     name: 'localhost-gateway',
     helmReleaseName: 'localhost-gateway',
     description: 'Gateway for local cluster access',
+    enabled: true,
     namespace: 'ark-system',
     chartPath: `${REGISTRY_BASE}/localhost-gateway`,
     installArgs: [],
@@ -160,13 +167,13 @@ export const arkServices: ServiceCollection = {
 };
 
 /**
- * Get services that can be installed via Helm charts
+ * Get services that can be installed via Helm charts (only enabled services)
  */
 export function getInstallableServices(): ServiceCollection {
   const installable: ServiceCollection = {};
 
   for (const [key, service] of Object.entries(arkServices)) {
-    if (service.chartPath) {
+    if (service.enabled && service.chartPath) {
       installable[key] = service;
     }
   }
