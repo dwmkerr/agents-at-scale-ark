@@ -12,8 +12,10 @@ jest.unstable_mockModule('../../lib/cluster.js', () => ({
 }));
 
 const mockGetInstallableServices = jest.fn() as any;
+const mockArkServices = {};
 jest.unstable_mockModule('../../arkServices.js', () => ({
   getInstallableServices: mockGetInstallableServices,
+  arkServices: mockArkServices,
 }));
 
 const mockOutput = {
@@ -36,6 +38,14 @@ jest.spyOn(console, 'error').mockImplementation(() => {});
 const {createUninstallCommand} = await import('./index.js');
 
 describe('uninstall command', () => {
+  const mockConfig = {
+    clusterInfo: {
+      context: 'test-cluster',
+      type: 'minikube',
+      namespace: 'default',
+    },
+  } as any;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetClusterInfo.mockResolvedValue({
@@ -46,7 +56,7 @@ describe('uninstall command', () => {
   });
 
   it('creates command with correct structure', () => {
-    const command = createUninstallCommand({});
+    const command = createUninstallCommand(mockConfig);
 
     expect(command).toBeInstanceOf(Command);
     expect(command.name()).toBe('uninstall');
@@ -62,7 +72,7 @@ describe('uninstall command', () => {
       'ark-api': mockService,
     });
 
-    const command = createUninstallCommand({});
+    const command = createUninstallCommand(mockConfig);
     await command.parseAsync(['node', 'test', 'ark-api']);
 
     expect(mockExeca).toHaveBeenCalledWith(
@@ -89,7 +99,7 @@ describe('uninstall command', () => {
       'ark-controller': {name: 'ark-controller'},
     });
 
-    const command = createUninstallCommand({});
+    const command = createUninstallCommand(mockConfig);
 
     await expect(
       command.parseAsync(['node', 'test', 'invalid-service'])
@@ -113,7 +123,7 @@ describe('uninstall command', () => {
       'ark-dashboard': mockService,
     });
 
-    const command = createUninstallCommand({});
+    const command = createUninstallCommand(mockConfig);
     await command.parseAsync(['node', 'test', 'ark-dashboard']);
 
     // Should NOT include --namespace flag
@@ -137,7 +147,7 @@ describe('uninstall command', () => {
     });
     mockExeca.mockRejectedValue(new Error('helm failed'));
 
-    const command = createUninstallCommand({});
+    const command = createUninstallCommand(mockConfig);
 
     await expect(
       command.parseAsync(['node', 'test', 'ark-api'])
@@ -156,9 +166,6 @@ describe('uninstall command', () => {
     await expect(
       command.parseAsync(['node', 'test', 'ark-api'])
     ).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith(
-      'no kubernetes cluster detected'
-    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

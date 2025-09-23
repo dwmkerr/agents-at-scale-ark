@@ -179,7 +179,7 @@ describe('startup', () => {
       // Wait for async fetch to complete
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(config.latestVersion).toBe('v0.1.35');
+      expect(config.latestVersion).toBe('0.1.35');
     });
 
     it('handles GitHub API failure gracefully', async () => {

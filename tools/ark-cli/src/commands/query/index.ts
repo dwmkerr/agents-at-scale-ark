@@ -1,7 +1,6 @@
 import {Command} from 'commander';
 import {execa} from 'execa';
 import ora from 'ora';
-import chalk from 'chalk';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 
@@ -42,7 +41,7 @@ async function runQuery(target: string, message: string): Promise<void> {
     });
 
     // Watch for query completion
-    spinner.text = 'Running query: initializing';
+    spinner.text = 'Query status: initializing';
 
     let queryComplete = false;
     let attempts = 0;
@@ -65,7 +64,7 @@ async function runQuery(target: string, message: string): Promise<void> {
 
         // Update spinner with current phase
         if (phase) {
-          spinner.text = `Running query: ${phase}`;
+          spinner.text = `Query status: ${phase}`;
         }
 
         // Check if query is complete based on phase
@@ -73,9 +72,10 @@ async function runQuery(target: string, message: string): Promise<void> {
           queryComplete = true;
           spinner.succeed('Query completed');
 
-          // Extract and display the response
-          if (query.status?.response) {
-            console.log('\n' + query.status.response);
+          // Extract and display the response from responses array
+          if (query.status?.responses && query.status.responses.length > 0) {
+            const response = query.status.responses[0];
+            console.log('\n' + (response.content || response));
           } else {
             output.warning('No response received');
           }
@@ -84,9 +84,10 @@ async function runQuery(target: string, message: string): Promise<void> {
           spinner.fail('Query failed');
 
           // Try to get error message from conditions or status
-          const errorCondition = query.status?.conditions?.find((c: any) =>
-            c.type === 'Complete' && c.status === 'False'
-          );
+          const errorCondition = query.status?.conditions?.find((c: unknown) => {
+            const condition = c as {type?: string; status?: string; message?: string};
+            return condition.type === 'Complete' && condition.status === 'False';
+          });
           if (errorCondition?.message) {
             output.error(errorCondition.message);
           } else if (query.status?.error) {
@@ -94,8 +95,16 @@ async function runQuery(target: string, message: string): Promise<void> {
           } else {
             output.error('Query failed with unknown error');
           }
+        } else if (phase === 'canceled') {
+          queryComplete = true;
+          spinner.warn('Query canceled');
+
+          // Try to get cancellation reason if available
+          if (query.status?.message) {
+            output.warning(query.status.message);
+          }
         }
-      } catch (error) {
+      } catch {
         // Query might not exist yet, continue waiting
         spinner.text = 'Running query: waiting for query to be created';
       }
@@ -114,13 +123,6 @@ async function runQuery(target: string, message: string): Promise<void> {
     spinner.fail('Query failed');
     output.error(error instanceof Error ? error.message : 'Unknown error');
     process.exit(1);
-  } finally {
-    // Clean up the query resource
-    try {
-      await execa('kubectl', ['delete', 'query', queryName], {stdio: 'pipe'});
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -134,7 +136,7 @@ export function createQueryCommand(_: ArkConfig): Command {
     .action(async (target: string, message: string) => {
       // Validate target format
       if (!target.includes('/')) {
-        output.error('Invalid target format. Use: model/name or agent/name');
+        output.error('Invalid target format. Use: model/name or agent/name etc');
         process.exit(1);
       }
 

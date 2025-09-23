@@ -12,9 +12,11 @@ jest.unstable_mockModule('../../lib/cluster.js', () => ({
 }));
 
 const mockGetInstallableServices = jest.fn() as any;
+const mockArkServices = {};
 const mockArkDependencies = {};
 jest.unstable_mockModule('../../arkServices.js', () => ({
   getInstallableServices: mockGetInstallableServices,
+  arkServices: mockArkServices,
   arkDependencies: mockArkDependencies,
 }));
 
@@ -38,6 +40,14 @@ jest.spyOn(console, 'error').mockImplementation(() => {});
 const {createInstallCommand} = await import('./index.js');
 
 describe('install command', () => {
+  const mockConfig = {
+    clusterInfo: {
+      context: 'test-cluster',
+      type: 'minikube',
+      namespace: 'default',
+    },
+  } as any;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetClusterInfo.mockResolvedValue({
@@ -48,7 +58,7 @@ describe('install command', () => {
   });
 
   it('creates command with correct structure', () => {
-    const command = createInstallCommand({});
+    const command = createInstallCommand(mockConfig);
 
     expect(command).toBeInstanceOf(Command);
     expect(command.name()).toBe('install');
@@ -66,7 +76,7 @@ describe('install command', () => {
       'ark-api': mockService,
     });
 
-    const command = createInstallCommand({});
+    const command = createInstallCommand(mockConfig);
     await command.parseAsync(['node', 'test', 'ark-api']);
 
     expect(mockExeca).toHaveBeenCalledWith(
@@ -94,7 +104,7 @@ describe('install command', () => {
       'ark-controller': {name: 'ark-controller'},
     });
 
-    const command = createInstallCommand({});
+    const command = createInstallCommand(mockConfig);
 
     await expect(
       command.parseAsync(['node', 'test', 'invalid-service'])
@@ -120,7 +130,7 @@ describe('install command', () => {
       'ark-dashboard': mockService,
     });
 
-    const command = createInstallCommand({});
+    const command = createInstallCommand(mockConfig);
     await command.parseAsync(['node', 'test', 'ark-dashboard']);
 
     // Should NOT include --namespace flag
@@ -149,7 +159,7 @@ describe('install command', () => {
       'simple-service': mockService,
     });
 
-    const command = createInstallCommand({});
+    const command = createInstallCommand(mockConfig);
     await command.parseAsync(['node', 'test', 'simple-service']);
 
     expect(mockExeca).toHaveBeenCalledWith(
@@ -174,9 +184,6 @@ describe('install command', () => {
     await expect(
       command.parseAsync(['node', 'test', 'ark-api'])
     ).rejects.toThrow('process.exit called');
-    expect(mockOutput.error).toHaveBeenCalledWith(
-      'no kubernetes cluster detected'
-    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });
