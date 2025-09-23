@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-openai-server
+data:
+  server.js: |
+    const http = require('http');
+
+    const server = http.createServer((req, res) => {
+      let body = '';
+
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+
+      req.on('end', () => {
+        console.log('Received request:', body);
+
+        // Parse the OpenAI request
+        try {
+          const request = JSON.parse(body);
+
+          // Extract the prompt/messages
+          let promptContent = '';
+          if (request.messages) {
+            // Chat completion format
+            promptContent = JSON.stringify(request.messages);
+          } else if (request.prompt) {
+            // Completion format
+            promptContent = request.prompt;
+          }
+
+          // Echo back in OpenAI response format
+          const response = {
+            id: "mock-" + Date.now(),
+            object: "chat.completion",
+            created: Math.floor(Date.now() / 1000),
+            model: request.model || "echo-model",
+            choices: [{
+              index: 0,
+              message: {
+                role: "assistant",
+                content: "ECHO:" + promptContent
+              },
+              finish_reason: "stop"
+            }],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 10,
+              total_tokens: 20
+            }
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(response));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+    });
+
+    server.listen(8080, () => {
+      console.log('Mock OpenAI server listening on port 8080');
+    });
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-openai
+spec:
+  selector:
+    app: mock-openai
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mock-openai
+  labels:
+    app: mock-openai
+spec:
+  containers:
+  - name: server
+    image: node:18-alpine
+    command: ["node", "/app/server.js"]
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: server-code
+      mountPath: /app
+  volumes:
+  - name: server-code
+    configMap:
+      name: mock-openai-server

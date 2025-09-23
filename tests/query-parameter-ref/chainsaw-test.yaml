@@ -5,16 +5,37 @@ metadata:
 spec:
   steps:
     - try:
-      - script:
-          skipLogOutput: true
-          content: |
-            set -u
-            echo "{\"token\": \"$E2E_TEST_AZURE_OPENAI_KEY\", \"url\": \"$E2E_TEST_AZURE_OPENAI_BASE_URL\"}"
-          outputs:
-          - name: azure
-            value: (json_parse($stdout))
       - apply:
-          file: "manifests/*.yaml"
+          file: manifests/a0[0-3]-*.yaml
+      - script:
+          content: |
+            kubectl apply -f - <<EOF
+            apiVersion: ark.mckinsey.com/v1alpha1
+            kind: Model
+            metadata:
+              name: test-model
+              namespace: $NAMESPACE
+            spec:
+              type: openai
+              model:
+                value: echo-model
+              config:
+                openai:
+                  baseUrl:
+                    value: http://mock-openai.$NAMESPACE.svc.cluster.local
+                  apiKey:
+                    value: mock-api-key
+            EOF
+      - apply:
+          file: manifests/a0[4-7]-*.yaml
+      - assert:
+          resource:
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              name: mock-openai
+            status:
+              phase: Running
       - assert:
           resource:
             apiVersion: v1
