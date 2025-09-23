@@ -5,32 +5,18 @@ metadata:
 data:
   server.js: |
     const http = require('http');
-
     const server = http.createServer((req, res) => {
       let body = '';
-
       req.on('data', chunk => {
         body += chunk.toString();
       });
-
       req.on('end', () => {
-        console.log('Received request:', body);
-
-        // Parse the OpenAI request
         try {
           const request = JSON.parse(body);
+          const promptContent = request.messages ?
+            JSON.stringify(request.messages) :
+            request.prompt || '';
 
-          // Extract the prompt/messages
-          let promptContent = '';
-          if (request.messages) {
-            // Chat completion format
-            promptContent = JSON.stringify(request.messages);
-          } else if (request.prompt) {
-            // Completion format
-            promptContent = request.prompt;
-          }
-
-          // Echo back in OpenAI response format
           const response = {
             id: "mock-" + Date.now(),
             object: "chat.completion",
@@ -43,14 +29,8 @@ data:
                 content: "ECHO:" + promptContent
               },
               finish_reason: "stop"
-            }],
-            usage: {
-              prompt_tokens: 10,
-              completion_tokens: 10,
-              total_tokens: 20
-            }
+            }]
           };
-
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(response));
         } catch (e) {
@@ -59,10 +39,7 @@ data:
         }
       });
     });
-
-    server.listen(8080, () => {
-      console.log('Mock OpenAI server listening on port 8080');
-    });
+    server.listen(8080);
 ---
 apiVersion: v1
 kind: Service
