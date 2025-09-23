@@ -188,10 +188,6 @@ function buildStatusSections(
         statusColor: statusInfo.color,
         name: displayName,
         details: details,
-        subtext:
-          controller.status === 'healthy' && !data.defaultModelExists
-            ? '(no default model configured)'
-            : undefined,
       });
 
       // Add version update status as separate line
@@ -227,6 +223,38 @@ function buildStatusSections(
               details: config.latestVersion,
             });
           }
+        }
+      }
+
+      // Add default model status
+      if (data.defaultModel) {
+        if (!data.defaultModel.exists) {
+          arkStatusLines.push({
+            icon: '○',
+            iconColor: 'yellow' as StatusColor,
+            status: 'default model',
+            statusColor: 'yellow' as StatusColor,
+            name: '',
+            details: 'not configured',
+          });
+        } else if (data.defaultModel.available) {
+          arkStatusLines.push({
+            icon: '●',
+            iconColor: 'green' as StatusColor,
+            status: 'default model',
+            statusColor: 'green' as StatusColor,
+            name: '',
+            details: data.defaultModel.provider || 'configured',
+          });
+        } else {
+          arkStatusLines.push({
+            icon: '●',
+            iconColor: 'yellow' as StatusColor,
+            status: 'default model',
+            statusColor: 'yellow' as StatusColor,
+            name: '',
+            details: 'not available',
+          });
         }
       }
     }

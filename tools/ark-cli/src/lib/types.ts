@@ -42,11 +42,19 @@ export interface DependencyStatus {
   details?: string;
 }
 
+export interface ModelStatus {
+  exists: boolean;
+  available?: boolean;
+  provider?: string;
+  details?: string;
+}
+
 export interface StatusData {
   services: ServiceStatus[];
   dependencies: DependencyStatus[];
   arkReady?: boolean;
   defaultModelExists?: boolean;
+  defaultModel?: ModelStatus;
 }
 
 export interface CommandVersionConfig {

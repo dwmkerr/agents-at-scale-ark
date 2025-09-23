@@ -3,6 +3,7 @@ import {
   DependencyStatus,
   ServiceStatus,
   StatusData,
+  ModelStatus,
   CommandVersionConfig,
 } from '../lib/types.js';
 import {checkCommandExists} from '../lib/commands.js';
@@ -495,17 +496,40 @@ export class StatusChecker {
     // Check if ARK is ready (controller is running)
     let arkReady = false;
     let defaultModelExists = false;
+    let defaultModel: ModelStatus | undefined;
 
     if (clusterAccess) {
       arkReady = await isArkReady();
 
-      // Check for default model
+      // Check for default model with detailed status
       if (arkReady) {
         try {
-          await execa('kubectl', ['get', 'model', 'default', '-o', 'name']);
+          const {stdout} = await execa('kubectl', [
+            'get',
+            'model',
+            'default',
+            '-o',
+            'json',
+          ]);
+          const model = JSON.parse(stdout);
           defaultModelExists = true;
+
+          // Extract model details
+          const available = model.status?.conditions?.find(
+            (c: any) => c.type === 'Available'
+          )?.status === 'True';
+
+          defaultModel = {
+            exists: true,
+            available,
+            provider: model.spec?.provider,
+            details: model.spec?.model || model.spec?.apiEndpoint,
+          };
         } catch {
           defaultModelExists = false;
+          defaultModel = {
+            exists: false,
+          };
         }
       }
     }
@@ -517,6 +541,7 @@ export class StatusChecker {
       clusterInfo,
       arkReady,
       defaultModelExists,
+      defaultModel,
     };
   }
 }
