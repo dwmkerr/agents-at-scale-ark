@@ -4,13 +4,8 @@ Interactive terminal interface for ARK agents.
 
 ## Prerequisites
 
-1. **Kubernetes cluster** - You need access to a Kubernetes cluster. For local development, you can use:
-   - [Minikube](https://minikube.sigs.k8s.io/docs/start) - Recommended for local development
-   - [Docker Desktop](https://docs.docker.com/desktop/kubernetes/) - Built-in Kubernetes support
-   - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - Kubernetes in Docker
-
-2. **ARK system deployed** in your Kubernetes cluster
-3. **Gateway setup** for service discovery:
+1. **ARK system deployed** in your Kubernetes cluster
+2. **Gateway setup** for service discovery:
    ```bash
    # From agents-at-scale project root
    make localhost-gateway-install
