@@ -316,7 +316,10 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
           </Text>
         )}
         {config.clusterInfo?.context ? (
-          <Text color="white" bold>Current context: {config.clusterInfo.context}</Text>
+          <Text>
+            <Text color="gray">Current context: </Text>
+            <Text color="white" bold>{config.clusterInfo.context}</Text>
+          </Text>
         ) : (
           <Text color="gray">No Kubernetes context configured</Text>
         )}
