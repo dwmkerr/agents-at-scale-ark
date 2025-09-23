@@ -53,11 +53,11 @@ export function showNoClusterError(): void {
   console.log(chalk.red.bold('\n✗ No Kubernetes cluster detected\n'));
   console.log('Please ensure you have configured a connection to a Kubernetes cluster.');
   console.log('For local development, you can use:');
-  console.log('  • Minikube: https://minikube.sigs.k8s.io/docs/start');
-  console.log('  • Docker Desktop: https://docs.docker.com/desktop/kubernetes/');
-  console.log('  • Kind: https://kind.sigs.k8s.io/docs/user/quick-start/');
+  console.log(`  • Minikube: ${chalk.blue('https://minikube.sigs.k8s.io/docs/start')}`);
+  console.log(`  • Docker Desktop: ${chalk.blue('https://docs.docker.com/desktop/kubernetes/')}`);
+  console.log(`  • Kind: ${chalk.blue('https://kind.sigs.k8s.io/docs/user/quick-start/')}`);
   console.log('');
-  console.log('For more help check the Quickstart guide:');
+  console.log('And more. For help, check the Quickstart guide:');
   console.log(chalk.blue('  https://mckinsey.github.io/agents-at-scale-ark/quickstart/'));
 }
 
