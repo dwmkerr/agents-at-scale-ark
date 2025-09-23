@@ -12,6 +12,9 @@ async function runQuery(target: string, message: string): Promise<void> {
   const timestamp = Date.now();
   const queryName = `cli-query-${timestamp}`;
 
+  // Parse the target format (e.g., model/default -> type: model, name: default)
+  const [targetType, targetName] = target.split('/');
+
   // Create the Query resource
   const queryManifest = {
     apiVersion: 'ark.mckinsey.com/v1alpha1',
@@ -20,11 +23,11 @@ async function runQuery(target: string, message: string): Promise<void> {
       name: queryName,
     },
     spec: {
-      target: target,
-      messages: [
+      input: message,
+      targets: [
         {
-          role: 'user',
-          content: message,
+          type: targetType,
+          name: targetName,
         },
       ],
     },
