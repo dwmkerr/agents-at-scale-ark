@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import {execute} from '../../lib/commands.js';
 import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
-import {getClusterInfo} from '../../lib/cluster.js';
+import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
 import {getInstallableServices} from '../../arkServices.js';
 
@@ -19,19 +19,17 @@ async function uninstallService(service: any, verbose: boolean = false) {
 }
 
 async function uninstallArk(
+  config: ArkConfig,
   serviceName?: string,
   options: {yes?: boolean; verbose?: boolean} = {}
 ) {
-  // Check cluster connectivity
-  const clusterInfo = await getClusterInfo();
-
-  if (clusterInfo.error) {
-    output.error('no kubernetes cluster detected');
-    output.info(
-      'please ensure you have a running cluster and kubectl is configured.'
-    );
+  // Check cluster connectivity from config
+  if (!config.clusterInfo) {
+    showNoClusterError();
     process.exit(1);
   }
+
+  const clusterInfo = config.clusterInfo;
 
   // Show cluster info
   output.success(`connected to cluster: ${chalk.bold(clusterInfo.context)}`);
@@ -113,7 +111,7 @@ async function uninstallArk(
   }
 }
 
-export function createUninstallCommand(_: ArkConfig) {
+export function createUninstallCommand(config: ArkConfig) {
   const command = new Command('uninstall');
 
   command
@@ -122,7 +120,7 @@ export function createUninstallCommand(_: ArkConfig) {
     .option('-y, --yes', 'automatically confirm all uninstallations')
     .option('-v, --verbose', 'show commands being executed')
     .action(async (service, options) => {
-      await uninstallArk(service, options);
+      await uninstallArk(config, service, options);
     });
 
   return command;

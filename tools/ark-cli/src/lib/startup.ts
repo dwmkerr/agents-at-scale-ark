@@ -3,6 +3,7 @@ import {checkCommandExists} from './commands.js';
 import {loadConfig} from './config.js';
 import type {ArkConfig} from './config.js';
 import {getArkVersion} from './arkStatus.js';
+import {getClusterInfo} from './cluster.js';
 
 interface RequiredCommand {
   name: string;
@@ -46,6 +47,21 @@ async function checkRequirements(): Promise<void> {
 }
 
 /**
+ * Show error message when no cluster is detected
+ */
+export function showNoClusterError(): void {
+  console.log(chalk.red.bold('\n✗ No Kubernetes cluster detected\n'));
+  console.log('Please ensure you have configured a connection to a Kubernetes cluster.');
+  console.log('For local development, you can use:');
+  console.log('  • Minikube: https://minikube.sigs.k8s.io/docs/start');
+  console.log('  • Docker Desktop: https://docs.docker.com/desktop/kubernetes/');
+  console.log('  • Kind: https://kind.sigs.k8s.io/docs/user/quick-start/');
+  console.log('');
+  console.log('For more help check the Quickstart guide:');
+  console.log(chalk.blue('  https://mckinsey.github.io/agents-at-scale-ark/quickstart/'));
+}
+
+/**
  * Fetch version information (non-blocking)
  */
 async function fetchVersionInfo(config: ArkConfig): Promise<void> {
@@ -83,6 +99,12 @@ export async function startup(): Promise<ArkConfig> {
 
   // Load config
   const config = loadConfig();
+
+  // Get cluster info - if no error, we have cluster access
+  const clusterInfo = await getClusterInfo();
+  if (!clusterInfo.error) {
+    config.clusterInfo = clusterInfo;
+  }
 
   // Fetch version info synchronously so it's available immediately
   await fetchVersionInfo(config);

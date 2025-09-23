@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import yaml from 'yaml';
+import type {ClusterInfo} from './cluster.js';
 
 export interface ChatConfig {
   streaming?: boolean;
@@ -14,6 +15,8 @@ export interface ArkConfig {
   latestVersion?: string;
   // Current installed version - undefined if not installed or check failed
   currentVersion?: string;
+  // Cluster info - populated during startup if cluster is accessible
+  clusterInfo?: ClusterInfo;
 }
 
 /**

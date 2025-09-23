@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import {execute} from '../../lib/commands.js';
 import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
-import {getClusterInfo} from '../../lib/cluster.js';
+import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
@@ -29,6 +29,7 @@ async function installService(service: any, verbose: boolean = false) {
 }
 
 export async function installArk(
+  config: ArkConfig,
   serviceName?: string,
   options: {yes?: boolean; waitForReady?: string; verbose?: boolean} = {}
 ) {
@@ -38,22 +39,13 @@ export async function installArk(
     process.exit(1);
   }
 
-  // Check cluster connectivity
-  const clusterInfo = await getClusterInfo();
-
-  if (clusterInfo.error) {
-    output.error('no kubernetes cluster detected');
-    output.info(
-      'please ensure you have a running cluster and kubectl is configured.'
-    );
-    output.info('');
-    output.info('for local development, we recommend minikube:');
-    output.info('• install: https://minikube.sigs.k8s.io/docs/start');
-    output.info('• start cluster: minikube start');
-    output.info('');
-    output.info('alternatively, you can use kind or docker desktop.');
+  // Check cluster connectivity from config
+  if (!config.clusterInfo) {
+    showNoClusterError();
     process.exit(1);
   }
+
+  const clusterInfo = config.clusterInfo;
 
   // Show cluster info
   output.success(`connected to cluster: ${chalk.bold(clusterInfo.context)}`);
@@ -347,7 +339,7 @@ export async function installArk(
   }
 }
 
-export function createInstallCommand(_: ArkConfig) {
+export function createInstallCommand(config: ArkConfig) {
   const command = new Command('install');
 
   command
@@ -360,7 +352,7 @@ export function createInstallCommand(_: ArkConfig) {
     )
     .option('-v, --verbose', 'show commands being executed')
     .action(async (service, options) => {
-      await installArk(service, options);
+      await installArk(config, service, options);
     });
 
   return command;
