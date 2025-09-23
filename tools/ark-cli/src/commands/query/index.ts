@@ -42,7 +42,7 @@ async function runQuery(target: string, message: string): Promise<void> {
     });
 
     // Watch for query completion
-    spinner.text = 'Processing query...';
+    spinner.text = 'Running query: initializing';
 
     let queryComplete = false;
     let attempts = 0;
@@ -61,37 +61,43 @@ async function runQuery(target: string, message: string): Promise<void> {
         ], {stdio: 'pipe'});
 
         const query = JSON.parse(stdout);
-        const condition = query.status?.conditions?.find((c: any) => c.type === 'Complete');
+        const phase = query.status?.phase;
 
-        if (condition) {
-          if (condition.status === 'True') {
-            queryComplete = true;
-            spinner.succeed('Query completed');
-
-            // Extract and display the response
-            if (query.status?.response) {
-              console.log('\n' + query.status.response);
-            } else {
-              output.warning('No response received');
-            }
-          } else if (condition.reason === 'Failed') {
-            spinner.fail('Query failed');
-            if (condition.message) {
-              output.error(condition.message);
-            }
-            queryComplete = true;
-          }
+        // Update spinner with current phase
+        if (phase) {
+          spinner.text = `Running query: ${phase}`;
         }
 
-        // Update spinner with status
-        if (!queryComplete && query.status?.conditions) {
-          const processingCondition = query.status.conditions.find((c: any) => c.type === 'Processing');
-          if (processingCondition?.status === 'True') {
-            spinner.text = `Processing query... (${attempts}s)`;
+        // Check if query is complete based on phase
+        if (phase === 'done') {
+          queryComplete = true;
+          spinner.succeed('Query completed');
+
+          // Extract and display the response
+          if (query.status?.response) {
+            console.log('\n' + query.status.response);
+          } else {
+            output.warning('No response received');
+          }
+        } else if (phase === 'error') {
+          queryComplete = true;
+          spinner.fail('Query failed');
+
+          // Try to get error message from conditions or status
+          const errorCondition = query.status?.conditions?.find((c: any) =>
+            c.type === 'Complete' && c.status === 'False'
+          );
+          if (errorCondition?.message) {
+            output.error(errorCondition.message);
+          } else if (query.status?.error) {
+            output.error(query.status.error);
+          } else {
+            output.error('Query failed with unknown error');
           }
         }
       } catch (error) {
         // Query might not exist yet, continue waiting
+        spinner.text = 'Running query: waiting for query to be created';
       }
 
       if (!queryComplete) {
