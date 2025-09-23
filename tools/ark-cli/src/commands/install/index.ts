@@ -7,6 +7,7 @@ import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
 import {getInstallableServices, arkDependencies} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
+import {printNextSteps} from '../../lib/nextSteps.js';
 import ora from 'ora';
 
 async function installService(service: any, verbose: boolean = false) {
@@ -290,6 +291,11 @@ export async function installArk(
         console.log(); // Add blank line after error output
       }
     }
+  }
+
+  // Show next steps after successful installation
+  if (!serviceName || serviceName === 'all') {
+    printNextSteps();
   }
 
   // Wait for Ark to be ready if requested
