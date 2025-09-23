@@ -32,7 +32,7 @@ _ark_completion() {
   
   case \${COMP_CWORD} in
     1)
-      opts="agents chat cluster completion config dashboard dev generate install models routes status targets teams tools uninstall help"
+      opts="agents chat cluster completion config dashboard dev docs generate install models query routes status targets teams tools uninstall help"
       COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
       return 0
       ;;
@@ -95,6 +95,17 @@ _ark_completion() {
           if [ -z "$targets" ]; then
             # Fallback to common targets if API is not available
             targets="agent/sample-agent agent/math agent/weather model/default"
+          fi
+          COMPREPLY=( $(compgen -W "\${targets}" -- \${cur}) )
+          return 0
+          ;;
+        query)
+          # Dynamically fetch available targets for query command
+          local targets
+          targets=$(ark targets list 2>/dev/null)
+          if [ -z "$targets" ]; then
+            # Fallback to common targets if API is not available
+            targets="model/default agent/sample-agent"
           fi
           COMPREPLY=( $(compgen -W "\${targets}" -- \${cur}) )
           return 0
@@ -166,9 +177,11 @@ _ark() {
         'config[Configuration management]' \\
         'dashboard[Open ARK dashboard]' \\
         'dev[Development tools for ARK]' \\
+        'docs[Open ARK documentation]' \\
         'generate[Generate ARK resources]' \\
         'install[Install ARK services]' \\
         'models[List available models]' \\
+        'query[Execute a single query]' \\
         'routes[List available routes]' \\
         'status[Check system status]' \\
         'targets[List available query targets]' \\
@@ -238,6 +251,15 @@ _ark() {
           targets=($(ark targets list 2>/dev/null))
           if [ \${#targets[@]} -eq 0 ]; then
             targets=('agent/sample-agent' 'agent/math' 'agent/weather' 'model/default')
+          fi
+          _values 'available targets' \${targets[@]}
+          ;;
+        query)
+          # Get available targets dynamically for query
+          local -a targets
+          targets=($(ark targets list 2>/dev/null))
+          if [ \${#targets[@]} -eq 0 ]; then
+            targets=('model/default' 'agent/sample-agent')
           fi
           _values 'available targets' \${targets[@]}
           ;;
