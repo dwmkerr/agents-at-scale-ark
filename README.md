@@ -45,7 +45,7 @@ User guides, developer guides, operations guides and API reference documentation
 
 https://mckinsey.github.io/agents-at-scale-ark/
 
-The 'quickstart' guide will walk you through the process of configuring a model, creating an agent and running basic queries.
+The [Quickstart](https://mckinsey.github.io/agents-at-scale-ark/quickstart/) guide will walk you through the process of configuring a model, creating an agent and running basic queries.
 
 To troubleshoot an installation, run `ark status`.
 

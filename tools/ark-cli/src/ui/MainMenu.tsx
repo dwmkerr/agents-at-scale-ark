@@ -315,7 +315,11 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
             ● Ark is not installed
           </Text>
         )}
-        <Text color="gray">Interactive terminal interface for Ark agents</Text>
+        {config.clusterInfo?.context ? (
+          <Text color="white" bold>Current context: {config.clusterInfo.context}</Text>
+        ) : (
+          <Text color="gray">No Kubernetes context configured</Text>
+        )}
       </Box>
 
       {/* Show menu only when not checking */}
