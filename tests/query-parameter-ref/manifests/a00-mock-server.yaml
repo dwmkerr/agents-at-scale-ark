@@ -1,3 +1,7 @@
+# This configmap contains the source code for a simple Node.js server that
+# simulates an OpenAI chat completions endpoint (i.e. a model). This model
+# essentially echos back chat input into chat response - allowing you to
+# deterministically test and verify the exact input sent to a model.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -41,6 +45,7 @@ data:
     });
     server.listen(8080);
 ---
+# Run the mock-open server as a service, using the code above.
 apiVersion: v1
 kind: Service
 metadata:
