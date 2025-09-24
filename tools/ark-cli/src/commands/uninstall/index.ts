@@ -5,9 +5,9 @@ import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
 import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
-import {getInstallableServices} from '../../arkServices.js';
+import {getInstallableServices, type ArkService} from '../../arkServices.js';
 
-async function uninstallService(service: any, verbose: boolean = false) {
+async function uninstallService(service: ArkService, verbose: boolean = false) {
   const helmArgs = ['uninstall', service.helmReleaseName, '--ignore-not-found'];
 
   // Only add namespace flag if service has explicit namespace
@@ -89,7 +89,7 @@ async function uninstallArk(
         ).shouldUninstall;
     } catch (error) {
       // Handle Ctrl-C gracefully
-      if (error && (error as any).name === 'ExitPromptError') {
+      if (error && (error as {name?: string}).name === 'ExitPromptError') {
         console.log('\nUninstallation cancelled');
         process.exit(130); // Standard exit code for SIGINT
       }

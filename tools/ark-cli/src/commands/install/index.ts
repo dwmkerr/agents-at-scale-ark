@@ -5,12 +5,12 @@ import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
 import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
-import {getInstallableServices, arkDependencies} from '../../arkServices.js';
+import {getInstallableServices, arkDependencies, type ArkService} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
 import {printNextSteps} from '../../lib/nextSteps.js';
 import ora from 'ora';
 
-async function installService(service: any, verbose: boolean = false) {
+async function installService(service: ArkService, verbose: boolean = false) {
   const helmArgs = [
     'upgrade',
     '--install',
@@ -153,7 +153,7 @@ export async function installArk(
       }
     } catch (error) {
       // Handle Ctrl-C gracefully
-      if (error && (error as any).name === 'ExitPromptError') {
+      if (error && (error as {name?: string}).name === 'ExitPromptError') {
         console.log('\nInstallation cancelled');
         process.exit(130);
       }

@@ -1,5 +1,6 @@
 import {execa} from 'execa';
 import {arkServices} from '../arkServices.js';
+import type {HelmRelease} from './types.js';
 
 /**
  * Get current installed ARK version
@@ -13,8 +14,8 @@ export async function getArkVersion(): Promise<string | undefined> {
       ['list', '-n', controller.namespace!, '-o', 'json'],
       {stdio: 'pipe'}
     );
-    const releases = JSON.parse(stdout);
-    const arkController = releases.find((r: any) => r.name === controller.helmReleaseName);
+    const releases = JSON.parse(stdout) as HelmRelease[];
+    const arkController = releases.find((r) => r.name === controller.helmReleaseName);
     return arkController?.app_version;
   } catch {
     return undefined;

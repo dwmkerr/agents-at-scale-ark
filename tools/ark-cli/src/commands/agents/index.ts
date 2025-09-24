@@ -2,6 +2,8 @@ import {Command} from 'commander';
 import {execa} from 'execa';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
+import {executeQuery} from '../../lib/executeQuery.js';
+import type {Agent, K8sListResource} from '../../lib/types.js';
 
 async function listAgents(options: {output?: string}) {
   try {
@@ -10,7 +12,7 @@ async function listAgents(options: {output?: string}) {
       stdio: 'pipe',
     });
 
-    const data = JSON.parse(result.stdout);
+    const data = JSON.parse(result.stdout) as K8sListResource<Agent>;
     const agents = data.items || [];
 
     if (options.output === 'json') {
@@ -23,7 +25,7 @@ async function listAgents(options: {output?: string}) {
       }
 
       // Simple list output - just agent names
-      agents.forEach((agent: {metadata: {name: string}}) => {
+      agents.forEach((agent: Agent) => {
         console.log(agent.metadata.name);
       });
     }
@@ -55,6 +57,20 @@ export function createAgentsCommand(_: ArkConfig): Command {
     .option('-o, --output <format>', 'output format (json or text)', 'text')
     .action(async (options) => {
       await listAgents(options);
+    });
+
+  // Add query subcommand
+  agentsCommand
+    .command('query')
+    .description('Query an agent')
+    .argument('<name>', 'Agent name')
+    .argument('<message>', 'Message to send')
+    .action(async (name: string, message: string) => {
+      await executeQuery({
+        targetType: 'agent',
+        targetName: name,
+        message,
+      });
     });
 
   return agentsCommand;

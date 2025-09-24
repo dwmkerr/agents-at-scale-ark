@@ -19,6 +19,12 @@ jest.unstable_mockModule('./create.js', () => ({
   createModel: mockCreateModel,
 }));
 
+const mockExecuteQuery = jest.fn();
+jest.unstable_mockModule('../../lib/executeQuery.js', () => ({
+  executeQuery: mockExecuteQuery,
+  parseTarget: jest.fn(),
+}));
+
 const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
   throw new Error('process.exit called');
 }) as any);
@@ -109,5 +115,16 @@ describe('models command', () => {
     await command.parseAsync(['node', 'test', 'create', 'my-model']);
 
     expect(mockCreateModel).toHaveBeenCalledWith('my-model');
+  });
+
+  it('query subcommand works', async () => {
+    const command = createModelsCommand({});
+    await command.parseAsync(['node', 'test', 'query', 'default', 'Hello world']);
+
+    expect(mockExecuteQuery).toHaveBeenCalledWith({
+      targetType: 'model',
+      targetName: 'default',
+      message: 'Hello world',
+    });
   });
 });

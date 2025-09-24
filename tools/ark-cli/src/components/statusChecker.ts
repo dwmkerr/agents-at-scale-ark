@@ -5,6 +5,8 @@ import {
   StatusData,
   ModelStatus,
   CommandVersionConfig,
+  K8sCondition,
+  ClusterInfo,
 } from '../lib/types.js';
 import {checkCommandExists} from '../lib/commands.js';
 import {arkServices} from '../arkServices.js';
@@ -133,8 +135,8 @@ export class StatusChecker {
           ['list', '-n', namespace, '-o', 'json'],
           {timeout: 5000}
         );
-        const releases = JSON.parse(stdout);
-        const release = releases.find((r: any) => r.name === helmReleaseName);
+        const releases = JSON.parse(stdout) as Array<{name: string; app_version?: string; revision?: string}>;
+        const release = releases.find((r) => r.name === helmReleaseName);
 
         if (release) {
           // Merge Helm version info into deployment status
@@ -179,7 +181,7 @@ export class StatusChecker {
 
       // Check Kubernetes 'Available' condition - only 'available' deployments are healthy
       const availableCondition = deployment.status?.conditions?.find(
-        (condition: any) => condition.type === 'Available'
+        (condition: K8sCondition) => condition.type === 'Available'
       );
       const isAvailable = availableCondition?.status === 'True';
       const allReplicasReady =
@@ -217,7 +219,7 @@ export class StatusChecker {
           if (devReplicas > 0) {
             const devAvailableCondition =
               devDeployment.status?.conditions?.find(
-                (condition: any) => condition.type === 'Available'
+                (condition: K8sCondition) => condition.type === 'Available'
               );
             const devIsAvailable = devAvailableCondition?.status === 'True';
             const devAllReplicasReady =
@@ -431,7 +433,7 @@ export class StatusChecker {
    * Run all checks and return results
    */
   public async checkAll(): Promise<
-    StatusData & {clusterAccess: boolean; clusterInfo?: any}
+    StatusData & {clusterAccess: boolean; clusterInfo?: ClusterInfo}
   > {
     // Check dependencies first
     const dependencies = await this.checkDependencies();
@@ -516,7 +518,7 @@ export class StatusChecker {
 
           // Extract model details
           const available = model.status?.conditions?.find(
-            (c: any) => c.type === 'Available'
+            (c: K8sCondition) => c.type === 'Available'
           )?.status === 'True';
 
           defaultModel = {

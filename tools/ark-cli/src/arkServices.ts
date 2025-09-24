@@ -95,7 +95,7 @@ export const arkServices: ServiceCollection = {
   'ark-controller': {
     name: 'ark-controller',
     helmReleaseName: 'ark-controller',
-    description: 'Core ARK controller for managing AI resources',
+    description: 'Core Ark controller for managing AI resources',
     enabled: true,
     namespace: 'ark-system',
     chartPath: `${REGISTRY_BASE}/ark-controller`,
@@ -107,7 +107,7 @@ export const arkServices: ServiceCollection = {
   'ark-api': {
     name: 'ark-api',
     helmReleaseName: 'ark-api',
-    description: 'ARK API service for interacting with ARK resources',
+    description: 'API layer for interacting with Ark resources',
     enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-api`,
@@ -122,7 +122,7 @@ export const arkServices: ServiceCollection = {
   'ark-dashboard': {
     name: 'ark-dashboard',
     helmReleaseName: 'ark-dashboard',
-    description: 'Web-based dashboard for ARK',
+    description: 'Ark Dashboard',
     enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-dashboard`,
@@ -137,7 +137,7 @@ export const arkServices: ServiceCollection = {
   'ark-api-a2a': {
     name: 'ark-api-a2a',
     helmReleaseName: 'ark-api-a2a',
-    description: 'ARK API agent-to-agent communication service',
+    description: 'Ark API agent-to-agent communication service',
     enabled: false, // Disabled - not currently used
     // namespace: undefined - uses current context namespace
     // Note: This service might be installed as part of ark-api or separately
@@ -146,7 +146,7 @@ export const arkServices: ServiceCollection = {
   'ark-mcp': {
     name: 'ark-mcp',
     helmReleaseName: 'ark-mcp',
-    description: 'MCP (Model Context Protocol) services for ARK',
+    description: 'Ark Model Context Protocol server',
     enabled: true,
     // namespace: undefined - uses current context namespace
     chartPath: `${REGISTRY_BASE}/ark-mcp`,
@@ -158,7 +158,7 @@ export const arkServices: ServiceCollection = {
   'localhost-gateway': {
     name: 'localhost-gateway',
     helmReleaseName: 'localhost-gateway',
-    description: 'Gateway for local cluster access',
+    description: 'Gateway for local development clusters',
     enabled: true,
     namespace: 'ark-system',
     chartPath: `${REGISTRY_BASE}/localhost-gateway`,

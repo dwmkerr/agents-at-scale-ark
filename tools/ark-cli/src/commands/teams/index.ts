@@ -2,6 +2,8 @@ import {Command} from 'commander';
 import {execa} from 'execa';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
+import {executeQuery} from '../../lib/executeQuery.js';
+import type {Team, K8sListResource} from '../../lib/types.js';
 
 async function listTeams(options: {output?: string}) {
   try {
@@ -10,7 +12,7 @@ async function listTeams(options: {output?: string}) {
       stdio: 'pipe',
     });
 
-    const data = JSON.parse(result.stdout);
+    const data = JSON.parse(result.stdout) as K8sListResource<Team>;
     const teams = data.items || [];
 
     if (options.output === 'json') {
@@ -22,7 +24,7 @@ async function listTeams(options: {output?: string}) {
         return;
       }
 
-      teams.forEach((team: {metadata: {name: string}}) => {
+      teams.forEach((team: Team) => {
         console.log(team.metadata.name);
       });
     }
@@ -55,6 +57,22 @@ export function createTeamsCommand(_: ArkConfig): Command {
     });
 
   teamsCommand.addCommand(listCommand);
+
+  // Add query command
+  const queryCommand = new Command('query');
+  queryCommand
+    .description('Query a team')
+    .argument('<name>', 'Team name')
+    .argument('<message>', 'Message to send')
+    .action(async (name: string, message: string) => {
+      await executeQuery({
+        targetType: 'team',
+        targetName: name,
+        message,
+      });
+    });
+
+  teamsCommand.addCommand(queryCommand);
 
   return teamsCommand;
 }

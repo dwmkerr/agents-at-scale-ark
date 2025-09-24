@@ -633,7 +633,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: dwmkerr/agents-at-scale-ark
+          slug: ${{ github.repository }}
           directory: tools/ark-cli/artifacts/coverage
           name: ark-cli
 

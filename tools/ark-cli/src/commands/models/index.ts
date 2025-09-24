@@ -3,6 +3,8 @@ import {execa} from 'execa';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
 import {createModel} from './create.js';
+import {executeQuery} from '../../lib/executeQuery.js';
+import type {Model, K8sListResource} from '../../lib/types.js';
 
 async function listModels(options: {output?: string}) {
   try {
@@ -11,7 +13,7 @@ async function listModels(options: {output?: string}) {
       stdio: 'pipe',
     });
 
-    const data = JSON.parse(result.stdout);
+    const data = JSON.parse(result.stdout) as K8sListResource<Model>;
     const models = data.items || [];
 
     if (options.output === 'json') {
@@ -24,7 +26,7 @@ async function listModels(options: {output?: string}) {
       }
 
       // Just output the model names
-      models.forEach((model: {metadata: {name: string}}) => {
+      models.forEach((model: Model) => {
         console.log(model.metadata.name);
       });
     }
@@ -68,6 +70,22 @@ export function createModelsCommand(_: ArkConfig): Command {
     });
 
   modelsCommand.addCommand(createCommand);
+
+  // Add query command
+  const queryCommand = new Command('query');
+  queryCommand
+    .description('Query a model')
+    .argument('<name>', 'Model name (e.g., default)')
+    .argument('<message>', 'Message to send')
+    .action(async (name: string, message: string) => {
+      await executeQuery({
+        targetType: 'model',
+        targetName: name,
+        message,
+      });
+    });
+
+  modelsCommand.addCommand(queryCommand);
 
   return modelsCommand;
 }

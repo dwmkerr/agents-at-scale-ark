@@ -150,7 +150,7 @@ export async function createModel(modelName?: string): Promise<boolean> {
   // Step 7: Create the Model resource
   output.info(`creating model ${modelName}...`);
 
-  const modelManifest: any = {
+  const modelManifest = {
     apiVersion: 'ark.mckinsey.com/v1alpha1',
     kind: 'Model',
     metadata: {
@@ -161,7 +161,7 @@ export async function createModel(modelName?: string): Promise<boolean> {
       model: {
         value: commonAnswers.modelVersion,
       },
-      config: {},
+      config: {} as Record<string, unknown>,
     },
   };
 
