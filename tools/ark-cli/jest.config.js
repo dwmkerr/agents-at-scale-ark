@@ -42,14 +42,14 @@ export default {
     '!src/ui/*.tsx'
   ],
   coverageReporters: ['text', 'lcov', 'html'],
-  // Coverage thresholds set to 0 to allow builds to pass
-  // TODO: Increase these gradually as more tests are added
+  // Coverage thresholds - these ensure coverage doesn't decrease
+  // Current values as of the latest test run
   coverageThreshold: {
     global: {
-      branches: 0,
-      functions: 0,
-      lines: 0,
-      statements: 0
+      branches: 17,
+      functions: 24,
+      lines: 23,
+      statements: 23
     }
   },
 };
