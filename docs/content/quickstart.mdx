@@ -4,9 +4,16 @@ title: Getting Started
 
 # Quickstart
 
-Ensure you have [Node.js](https://nodejs.org/en/download) and [Helm](https://helm.sh/docs/intro/install/) installed. Then run the following commands to install Ark:
+Ensure you have [Node.js](https://nodejs.org/en/download) and [Helm](https://helm.sh/docs/intro/install/) installed. 
+
+You need a Kubernetes cluster to install Ark into, you can use [Minikube](https://minikube.sigs.k8s.io/docs/start), [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [Docker Desktop](https://docs.docker.com/desktop/kubernetes/) or similar to run a local cluster. The `install` command will warn if any required dependencies are missing.
+
+Then run the following commands to install Ark:
 
 ```bash
+# Create and start your k8s cluster, see https://minikube.sigs.k8s.io/docs/start for installation instructions
+minikube start --driver=docker --kubernetes-version=v1.30.0
+
 # Install the 'ark' CLI:
 npm install -g @agents-at-scale/ark
 
@@ -20,9 +27,37 @@ ark models create default
 ark dashboard
 ```
 
-In most cases the default installation options will be sufficient. This will install the Ark dependencies, the controller, the APIs and the dashboard. You can optionally setup a `default` model that will be the default used by agents. You will need a Kubernetes cluster to install Ark into, you can use [Minikube](https://minikube.sigs.k8s.io/docs/start), [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/), [Docker Desktop](https://docs.docker.com/desktop/kubernetes/) or similar to run a local cluster. The `install` command will warn if any required dependencies are missing.
+In most cases the default installation options will be sufficient. This will install the Ark dependencies, the controller, the APIs and the dashboard. You can optionally setup a `default` model that will be the default used by agents.
 
-You can also install the [Fark](../developer-guide/cli-tools.mdx) (Fast Agentic Runtime Kit) CLI tool to manage agents, run queries and more.
+You can also install the [Fark](./developer-guide/cli-tools.mdx) (Fast Agentic Runtime Kit) CLI tool to manage agents, run queries and more.
+
+## Troubleshooting and verifying your installation
+
+### ARK install fails
+```bash
+# If you have previously installed ARK via make - remove it from your $PATH variable
+grep -r "ark" ~/.zshrc ~/.bashrc ~/.bash_profile ~/.profile 2>/dev/null
+
+# If found, remove the lines that point to yur old ark installation and reload your shell
+source ~/.zshrc
+```
+
+### ARK Dashboard fails to load in browser
+```bash
+❯ ark dashboard
+✔ Dashboard connected
+ARK dashboard running on: http://localhost:3274
+```
+
+If your browser redirects you to http://0.0.0.0:3000/signout, you need to set your BASE_URL env variable
+
+# Set the BASE_URL env variable
+kubectl -n default set env deploy/ark-dashboard BASE_URL=http://localhost:3274
+kubectl -n default rollout status deploy/ark-dashboard
+
+# Run ark dashboard again
+ark dashboard
+```
 
 ## Installing Ark on Windows
 
