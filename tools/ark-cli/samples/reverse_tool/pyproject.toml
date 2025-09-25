@@ -1,0 +1,11 @@
+[project]
+name = "reverse-tool"
+version = "0.1.0"
+description = "Basic 'reverse' MCP tool"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=0.5.0",
+]
+
+[tool.uv]
+dev-dependencies = []
