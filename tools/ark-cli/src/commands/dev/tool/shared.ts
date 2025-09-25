@@ -326,9 +326,10 @@ function processTemplateFile(
         content = yamlContent.content || '';
       }
     } catch (helmError: unknown) {
-      const errorMsg = (helmError as {stderr?: string; message?: string}).stderr ||
-                       (helmError as {stderr?: string; message?: string}).message ||
-                       'Unknown error';
+      const errorMsg =
+        (helmError as {stderr?: string; message?: string}).stderr ||
+        (helmError as {stderr?: string; message?: string}).message ||
+        'Unknown error';
       throw new Error(`Failed to template ${targetFileName}: ${errorMsg}`);
     }
 

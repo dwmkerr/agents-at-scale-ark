@@ -3,6 +3,8 @@ import Spinner from 'ink-spinner';
 import * as React from 'react';
 import {isArkReady} from '../lib/arkStatus.js';
 import type {ArkConfig} from '../lib/config.js';
+import {fetchVersionInfo} from '../lib/versions.js';
+import type {ArkVersionInfo} from '../lib/versions.js';
 
 type MenuChoice =
   | 'dashboard'
@@ -58,17 +60,25 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [arkReady, setArkReady] = React.useState<boolean | null>(null);
   const [isChecking, setIsChecking] = React.useState(true);
+  const [versionInfo, setVersionInfo] = React.useState<ArkVersionInfo>({});
 
   React.useEffect(() => {
-    const checkArkStatus = async () => {
+    const checkStatus = async () => {
       setIsChecking(true);
-      const ready = await isArkReady();
+
+      // Run ark ready check and version fetch in parallel
+      const [ready, versions] = await Promise.all([
+        isArkReady(),
+        fetchVersionInfo(),
+      ]);
+
       setArkReady(ready);
+      setVersionInfo(versions);
       setIsChecking(false);
       // Reset selected index to 0 after status check
       setSelectedIndex(0);
     };
-    checkArkStatus();
+    checkStatus();
   }, []);
 
   // Handle Ctrl+C to properly unmount Ink and restore terminal
@@ -90,10 +100,8 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
 
   // Check if upgrade is available
   const hasUpgrade = React.useMemo(() => {
-    if (!config.currentVersion || !config.latestVersion) return false;
-    // Simple version comparison
-    return config.currentVersion !== config.latestVersion;
-  }, [config.currentVersion, config.latestVersion]);
+    return versionInfo.updateAvailable === true;
+  }, [versionInfo.updateAvailable]);
 
   const allChoices: MenuItem[] = [
     {
@@ -110,7 +118,7 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
     },
     {
       label: 'Upgrade',
-      description: `Upgrade Ark from ${config.currentVersion} to ${config.latestVersion}`,
+      description: `Upgrade Ark from ${versionInfo.current || 'unknown'} to ${versionInfo.latest || 'unknown'}`,
       value: 'upgrade',
       command: 'ark install -y',
     },
@@ -263,7 +271,7 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
         await unmountInkApp();
 
         const {checkStatus} = await import('../commands/status/index.js');
-        await checkStatus(config);
+        await checkStatus();
         process.exit(0);
         break; // Add break even though process.exit prevents reaching here
       }
@@ -306,9 +314,10 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
             <Text color="green" bold>
               ● Ark is ready
             </Text>
-            {config.currentVersion && (
-              <Text color="gray"> ({config.currentVersion})</Text>
-            )}
+            <Text color="gray">
+              {' '}
+              ({versionInfo.current || 'version unknown'})
+            </Text>
           </Box>
         ) : (
           <Text color="yellow" bold>
@@ -318,7 +327,9 @@ const MainMenu: React.FC<MainMenuProps> = ({config}) => {
         {config.clusterInfo?.context ? (
           <Text>
             <Text color="gray">Current context: </Text>
-            <Text color="white" bold>{config.clusterInfo.context}</Text>
+            <Text color="white" bold>
+              {config.clusterInfo.context}
+            </Text>
           </Text>
         ) : (
           <Text color="gray">No Kubernetes context configured</Text>

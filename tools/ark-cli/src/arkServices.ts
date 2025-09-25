@@ -159,7 +159,7 @@ export const arkServices: ServiceCollection = {
     name: 'localhost-gateway',
     helmReleaseName: 'localhost-gateway',
     description: 'Gateway for local development clusters',
-    enabled: true,
+    enabled: false, // Disabled - not needed for most users
     namespace: 'ark-system',
     chartPath: `${REGISTRY_BASE}/localhost-gateway`,
     installArgs: [],

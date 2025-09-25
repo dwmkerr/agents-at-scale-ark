@@ -119,7 +119,13 @@ describe('models command', () => {
 
   it('query subcommand works', async () => {
     const command = createModelsCommand({});
-    await command.parseAsync(['node', 'test', 'query', 'default', 'Hello world']);
+    await command.parseAsync([
+      'node',
+      'test',
+      'query',
+      'default',
+      'Hello world',
+    ]);
 
     expect(mockExecuteQuery).toHaveBeenCalledWith({
       targetType: 'model',

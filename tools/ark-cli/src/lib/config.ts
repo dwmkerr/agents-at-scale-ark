@@ -11,11 +11,7 @@ export interface ChatConfig {
 
 export interface ArkConfig {
   chat?: ChatConfig;
-  // Dynamically loaded on startup - undefined if fetch failed or still loading
-  latestVersion?: string;
-  // Current installed version - undefined if not installed or check failed
-  currentVersion?: string;
-  // Cluster info - populated during startup if cluster is accessible
+  // Cluster info - populated during startup if context exists
   clusterInfo?: ClusterInfo;
 }
 

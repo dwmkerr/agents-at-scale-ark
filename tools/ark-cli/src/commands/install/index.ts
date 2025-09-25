@@ -5,7 +5,11 @@ import inquirer from 'inquirer';
 import type {ArkConfig} from '../../lib/config.js';
 import {showNoClusterError} from '../../lib/startup.js';
 import output from '../../lib/output.js';
-import {getInstallableServices, arkDependencies, type ArkService} from '../../arkServices.js';
+import {
+  getInstallableServices,
+  arkDependencies,
+  type ArkService,
+} from '../../arkServices.js';
 import {isArkReady} from '../../lib/arkStatus.js';
 import {printNextSteps} from '../../lib/nextSteps.js';
 import ora from 'ora';
@@ -50,11 +54,6 @@ export async function installArk(
 
   // Show cluster info
   output.success(`connected to cluster: ${chalk.bold(clusterInfo.context)}`);
-  output.info(`type: ${clusterInfo.type}`);
-  output.info(`namespace: ${clusterInfo.namespace}`);
-  if (clusterInfo.ip) {
-    output.info(`ip: ${clusterInfo.ip}`);
-  }
   console.log(); // Add blank line after cluster info
 
   // If a specific service is requested, install only that service

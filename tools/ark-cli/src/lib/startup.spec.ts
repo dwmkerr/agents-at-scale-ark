@@ -20,17 +20,21 @@ jest.unstable_mockModule('./config.js', () => ({
   loadConfig: jest.fn(),
 }));
 
+// Mock execa module
+jest.unstable_mockModule('execa', () => ({
+  execa: jest.fn(),
+}));
+
 // Dynamic imports after mocks
 const {checkCommandExists} = await import('./commands.js');
 const {loadConfig} = await import('./config.js');
+const {execa} = await import('execa');
 const {startup} = await import('./startup.js');
 
 // Type the mocks
 const mockCheckCommandExists = checkCommandExists as any;
 const mockLoadConfig = loadConfig as any;
-
-// Mock fetch globally
-globalThis.fetch = jest.fn() as any;
+const mockExeca = execa as any;
 
 describe('startup', () => {
   let mockExit: jest.SpiedFunction<typeof process.exit>;
@@ -38,7 +42,8 @@ describe('startup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (globalThis.fetch as any).mockClear();
+    // Mock execa to reject by default (no kubectl context)
+    mockExeca.mockRejectedValue(new Error('No context'));
     mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
@@ -157,67 +162,34 @@ describe('startup', () => {
     expect(config).toEqual(expectedConfig);
   });
 
-  describe('version fetching', () => {
-    beforeEach(() => {
-      // Setup successful requirements check and config
-      mockCheckCommandExists.mockResolvedValue(true);
-      mockLoadConfig.mockReturnValue({chat: {streaming: true}});
+  it('includes cluster context when available', async () => {
+    mockCheckCommandExists.mockResolvedValue(true);
+    mockLoadConfig.mockReturnValue({chat: {streaming: true}});
+    // Mock successful kubectl context check
+    mockExeca.mockResolvedValue({
+      stdout: 'minikube',
+      stderr: '',
     });
 
-    it('fetches latest version from GitHub API', async () => {
-      (globalThis.fetch as any).mockResolvedValue({
-        ok: true,
-        json: async () => ({tag_name: 'v0.1.35'}),
-      });
+    const config = await startup();
 
-      const config = await startup();
-
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
-      );
-
-      // Wait for async fetch to complete
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(config.latestVersion).toBe('0.1.35');
+    expect(config.clusterInfo).toEqual({
+      type: 'unknown',
+      context: 'minikube',
     });
-
-    it('handles GitHub API failure gracefully', async () => {
-      (globalThis.fetch as any).mockRejectedValue(new Error('Network error'));
-
-      const config = await startup();
-
-      // Wait for async fetch attempt
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // Should not have latestVersion set
-      expect(config.latestVersion).toBeUndefined();
-    });
-
-    it('handles non-OK response from GitHub API', async () => {
-      (globalThis.fetch as any).mockResolvedValue({
-        ok: false,
-        status: 403,
-      });
-
-      const config = await startup();
-
-      // Wait for async fetch to complete
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // Should not have latestVersion set
-      expect(config.latestVersion).toBeUndefined();
-    });
-
-    it('continues startup even if version fetch fails', async () => {
-      (globalThis.fetch as any).mockRejectedValue(new Error('API Error'));
-
-      const config = await startup();
-
-      // Startup should complete successfully
-      expect(config).toBeDefined();
-      expect(config.chat).toBeDefined();
-      expect(mockExit).not.toHaveBeenCalled();
-    });
+    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['config', 'current-context']);
   });
+
+  it('handles missing kubectl context gracefully', async () => {
+    mockCheckCommandExists.mockResolvedValue(true);
+    const expectedConfig = {chat: {streaming: false}};
+    mockLoadConfig.mockReturnValue(expectedConfig);
+    // mockExeca already mocked to reject in beforeEach
+
+    const config = await startup();
+
+    expect(config).toEqual(expectedConfig);
+    expect(config.clusterInfo).toBeUndefined();
+  });
+
 });

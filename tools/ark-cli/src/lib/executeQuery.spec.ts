@@ -79,7 +79,11 @@ describe('executeQuery', () => {
           return {stdout: '', stderr: '', exitCode: 0};
         }
         if (args.includes('get') && args.includes('query')) {
-          return {stdout: JSON.stringify(mockQueryResponse), stderr: '', exitCode: 0};
+          return {
+            stdout: JSON.stringify(mockQueryResponse),
+            stderr: '',
+            exitCode: 0,
+          };
         }
         if (args.includes('delete')) {
           return {stdout: '', stderr: '', exitCode: 0};
@@ -111,7 +115,11 @@ describe('executeQuery', () => {
           return {stdout: '', stderr: '', exitCode: 0};
         }
         if (args.includes('get') && args.includes('query')) {
-          return {stdout: JSON.stringify(mockQueryResponse), stderr: '', exitCode: 0};
+          return {
+            stdout: JSON.stringify(mockQueryResponse),
+            stderr: '',
+            exitCode: 0,
+          };
         }
         if (args.includes('delete')) {
           return {stdout: '', stderr: '', exitCode: 0};
@@ -126,7 +134,9 @@ describe('executeQuery', () => {
       });
 
       expect(mockSpinner.fail).toHaveBeenCalledWith('Query failed');
-      expect(mockOutput.error).toHaveBeenCalledWith('Query failed with test error');
+      expect(mockOutput.error).toHaveBeenCalledWith(
+        'Query failed with test error'
+      );
     });
 
     it('should handle query canceled phase', async () => {
@@ -142,7 +152,11 @@ describe('executeQuery', () => {
           return {stdout: '', stderr: '', exitCode: 0};
         }
         if (args.includes('get') && args.includes('query')) {
-          return {stdout: JSON.stringify(mockQueryResponse), stderr: '', exitCode: 0};
+          return {
+            stdout: JSON.stringify(mockQueryResponse),
+            stderr: '',
+            exitCode: 0,
+          };
         }
         if (args.includes('delete')) {
           return {stdout: '', stderr: '', exitCode: 0};

@@ -30,7 +30,9 @@ describe('printNextSteps', () => {
     expect(fullOutput).toContain('ark models create default');
     expect(fullOutput).toContain('ark dashboard');
     expect(fullOutput).toContain('kubectl get agents');
-    expect(fullOutput).toContain('ark query model/default "What are large language models?"');
+    expect(fullOutput).toContain(
+      'ark query model/default "What are large language models?"'
+    );
     expect(fullOutput).toContain('ark');
     expect(fullOutput).toContain("# then choose 'Chat'");
     expect(fullOutput).toContain('ark generate project my-agents');
@@ -41,8 +43,12 @@ describe('printNextSteps', () => {
     const fullOutput = output.join('\n');
 
     // Check for documentation links
-    expect(fullOutput).toContain('https://mckinsey.github.io/agents-at-scale-ark/');
-    expect(fullOutput).toContain('https://mckinsey.github.io/agents-at-scale-ark/developer-guide/cli-tools/');
+    expect(fullOutput).toContain(
+      'https://mckinsey.github.io/agents-at-scale-ark/'
+    );
+    expect(fullOutput).toContain(
+      'https://mckinsey.github.io/agents-at-scale-ark/developer-guide/cli-tools/'
+    );
   });
 
   it('includes all section labels', () => {

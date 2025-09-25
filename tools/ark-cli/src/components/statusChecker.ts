@@ -135,7 +135,11 @@ export class StatusChecker {
           ['list', '-n', namespace, '-o', 'json'],
           {timeout: 5000}
         );
-        const releases = JSON.parse(stdout) as Array<{name: string; app_version?: string; revision?: string}>;
+        const releases = JSON.parse(stdout) as Array<{
+          name: string;
+          app_version?: string;
+          revision?: string;
+        }>;
         const release = releases.find((r) => r.name === helmReleaseName);
 
         if (release) {
@@ -517,9 +521,10 @@ export class StatusChecker {
           defaultModelExists = true;
 
           // Extract model details
-          const available = model.status?.conditions?.find(
-            (c: K8sCondition) => c.type === 'Available'
-          )?.status === 'True';
+          const available =
+            model.status?.conditions?.find(
+              (c: K8sCondition) => c.type === 'Available'
+            )?.status === 'True';
 
           defaultModel = {
             exists: true,

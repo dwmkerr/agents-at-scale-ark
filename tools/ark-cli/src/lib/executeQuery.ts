@@ -8,8 +8,8 @@ import output from './output.js';
 import type {Query, QueryTarget, K8sCondition} from './types.js';
 
 export interface QueryOptions {
-  targetType: string;  // 'model', 'agent', 'team'
-  targetName: string;  // 'default', 'weather-agent', etc.
+  targetType: string; // 'model', 'agent', 'team'
+  targetName: string; // 'default', 'weather-agent', etc.
   message: string;
   verbose?: boolean;
 }
@@ -62,13 +62,11 @@ export async function executeQuery(options: QueryOptions): Promise<void> {
       attempts++;
 
       try {
-        const {stdout} = await execa('kubectl', [
-          'get',
-          'query',
-          queryName,
-          '-o',
-          'json',
-        ], {stdio: 'pipe'});
+        const {stdout} = await execa(
+          'kubectl',
+          ['get', 'query', queryName, '-o', 'json'],
+          {stdio: 'pipe'}
+        );
 
         const query = JSON.parse(stdout) as Query;
         const phase = query.status?.phase;
@@ -95,9 +93,11 @@ export async function executeQuery(options: QueryOptions): Promise<void> {
           spinner.fail('Query failed');
 
           // Try to get error message from conditions or status
-          const errorCondition = query.status?.conditions?.find((c: K8sCondition) => {
-            return c.type === 'Complete' && c.status === 'False';
-          });
+          const errorCondition = query.status?.conditions?.find(
+            (c: K8sCondition) => {
+              return c.type === 'Complete' && c.status === 'False';
+            }
+          );
           if (errorCondition?.message) {
             output.error(errorCondition.message);
           } else if (query.status?.error) {
@@ -120,7 +120,7 @@ export async function executeQuery(options: QueryOptions): Promise<void> {
       }
 
       if (!queryComplete) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
       }
     }
 
@@ -128,7 +128,6 @@ export async function executeQuery(options: QueryOptions): Promise<void> {
       spinner.fail('Query timed out');
       output.error('Query did not complete within 5 minutes');
     }
-
   } catch (error) {
     spinner.fail('Query failed');
     output.error(error instanceof Error ? error.message : 'Unknown error');

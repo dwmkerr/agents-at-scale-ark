@@ -1,25 +1,52 @@
 import {Command} from 'commander';
+import {execa} from 'execa';
 import type {ArkConfig} from '../../lib/config.js';
 import output from '../../lib/output.js';
-import {ArkApiProxy} from '../../lib/arkApiProxy.js';
+
+interface Target {
+  type: string;
+  name: string;
+  id: string;
+  available?: boolean;
+}
+
+async function fetchResourceTargets(resourceType: string): Promise<Target[]> {
+  const result = await execa(
+    'kubectl',
+    ['get', `${resourceType}s`, '-o', 'json'],
+    {
+      stdio: 'pipe',
+    }
+  );
+
+  const data = JSON.parse(result.stdout);
+  const items = data.items || [];
+
+  return items.map((item: any) => ({
+    type: resourceType,
+    name: item.metadata.name,
+    id: `${resourceType}/${item.metadata.name}`,
+    available: item.status?.available || item.status?.phase === 'ready' || true,
+  }));
+}
 
 async function listTargets(options: {output?: string; type?: string}) {
-  let proxy: ArkApiProxy | undefined;
-
   try {
-    proxy = new ArkApiProxy();
-    const arkApiClient = await proxy.start();
+    // Fetch all resource types in parallel
+    const resourceTypes = options.type
+      ? [options.type]
+      : ['model', 'agent', 'team', 'tool'];
 
-    const allTargets = await arkApiClient.getQueryTargets();
+    const targetPromises = resourceTypes.map((type) =>
+      fetchResourceTargets(type)
+    );
+    const targetArrays = await Promise.all(targetPromises);
 
-    // Filter by type if specified
-    let filteredTargets = allTargets;
-    if (options.type) {
-      filteredTargets = allTargets.filter((t) => t.type === options.type);
-    }
+    // Flatten all targets into single array
+    const allTargets = targetArrays.flat();
 
     // Sort targets by type and name
-    filteredTargets.sort((a, b) => {
+    allTargets.sort((a, b) => {
       if (a.type !== b.type) {
         return a.type.localeCompare(b.type);
       }
@@ -27,15 +54,15 @@ async function listTargets(options: {output?: string; type?: string}) {
     });
 
     if (options.output === 'json') {
-      console.log(JSON.stringify(filteredTargets, null, 2));
+      console.log(JSON.stringify(allTargets, null, 2));
     } else {
-      if (filteredTargets.length === 0) {
+      if (allTargets.length === 0) {
         output.warning('no targets available');
         return;
       }
 
       // Simple list output with type/name format
-      for (const target of filteredTargets) {
+      for (const target of allTargets) {
         console.log(target.id);
       }
     }
@@ -45,10 +72,6 @@ async function listTargets(options: {output?: string; type?: string}) {
       error instanceof Error ? error.message : error
     );
     process.exit(1);
-  } finally {
-    if (proxy) {
-      proxy.stop();
-    }
   }
 }
 

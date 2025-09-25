@@ -1,21 +1,9 @@
 import {jest} from '@jest/globals';
 import {Command} from 'commander';
 
-const mockArkApiClient = {
-  getQueryTargets: jest.fn() as any,
-};
-
-const mockStart = jest.fn() as any;
-mockStart.mockResolvedValue(mockArkApiClient);
-
-const mockArkApiProxy = jest.fn() as any;
-mockArkApiProxy.prototype = {
-  start: mockStart,
-  stop: jest.fn(),
-};
-
-jest.unstable_mockModule('../../lib/arkApiProxy.js', () => ({
-  ArkApiProxy: mockArkApiProxy,
+// Mock execa to avoid real kubectl calls
+jest.unstable_mockModule('execa', () => ({
+  execa: jest.fn(),
 }));
 
 const mockOutput = {
@@ -32,6 +20,9 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {
 
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
+const {execa} = await import('execa');
+const mockExeca = execa as any;
+
 const {createTargetsCommand} = await import('./index.js');
 
 describe('targets command', () => {
@@ -47,69 +38,119 @@ describe('targets command', () => {
   });
 
   it('lists targets in text format', async () => {
-    const mockTargets = [
-      {id: 'agent/gpt-assistant', type: 'agent', name: 'gpt-assistant'},
-      {id: 'model/gpt-4', type: 'model', name: 'gpt-4'},
-    ];
-    mockArkApiClient.getQueryTargets.mockResolvedValue(mockTargets);
+    // Mock kubectl responses for each resource type (order: model, agent, team, tool)
+    mockExeca
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          items: [{metadata: {name: 'gpt-4'}, status: {available: true}}],
+        }),
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          items: [
+            {metadata: {name: 'gpt-assistant'}, status: {phase: 'ready'}},
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})});
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    expect(mockArkApiProxy.prototype.start).toHaveBeenCalled();
-    expect(mockArkApiClient.getQueryTargets).toHaveBeenCalled();
+    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'models', '-o', 'json'], {
+      stdio: 'pipe',
+    });
+    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'agents', '-o', 'json'], {
+      stdio: 'pipe',
+    });
     expect(mockConsoleLog).toHaveBeenCalledWith('agent/gpt-assistant');
     expect(mockConsoleLog).toHaveBeenCalledWith('model/gpt-4');
-    expect(mockArkApiProxy.prototype.stop).toHaveBeenCalled();
   });
 
   it('lists targets in json format', async () => {
-    const mockTargets = [{id: 'agent/gpt', type: 'agent', name: 'gpt'}];
-    mockArkApiClient.getQueryTargets.mockResolvedValue(mockTargets);
+    // Order: model, agent, team, tool
+    mockExeca
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          items: [{metadata: {name: 'gpt'}, status: {phase: 'ready'}}],
+        }),
+      })
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})});
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test', '-o', 'json']);
 
+    const expectedTargets = [
+      {type: 'agent', name: 'gpt', id: 'agent/gpt', available: true},
+    ];
     expect(mockConsoleLog).toHaveBeenCalledWith(
-      JSON.stringify(mockTargets, null, 2)
+      JSON.stringify(expectedTargets, null, 2)
     );
   });
 
   it('filters targets by type', async () => {
-    const mockTargets = [
-      {id: 'agent/gpt', type: 'agent', name: 'gpt'},
-      {id: 'model/claude', type: 'model', name: 'claude'},
-      {id: 'agent/helper', type: 'agent', name: 'helper'},
-    ];
-    mockArkApiClient.getQueryTargets.mockResolvedValue(mockTargets);
+    mockExeca.mockResolvedValueOnce({
+      stdout: JSON.stringify({
+        items: [
+          {metadata: {name: 'gpt'}, status: {phase: 'ready'}},
+          {metadata: {name: 'helper'}, status: {phase: 'ready'}},
+        ],
+      }),
+    });
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test', '-t', 'agent']);
 
+    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'agents', '-o', 'json'], {
+      stdio: 'pipe',
+    });
+    expect(mockExeca).toHaveBeenCalledTimes(1); // Only agents, not other types
     expect(mockConsoleLog).toHaveBeenCalledWith('agent/gpt');
     expect(mockConsoleLog).toHaveBeenCalledWith('agent/helper');
-    expect(mockConsoleLog).not.toHaveBeenCalledWith('model/claude');
   });
 
   it('sorts targets by type then name', async () => {
-    const mockTargets = [
-      {id: 'model/b', type: 'model', name: 'b'},
-      {id: 'agent/z', type: 'agent', name: 'z'},
-      {id: 'agent/a', type: 'agent', name: 'a'},
-      {id: 'model/a', type: 'model', name: 'a'},
-    ];
-    mockArkApiClient.getQueryTargets.mockResolvedValue(mockTargets);
+    // Order: model, agent, team, tool
+    mockExeca
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          items: [
+            {metadata: {name: 'b'}, status: {available: true}},
+            {metadata: {name: 'a'}, status: {available: true}},
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          items: [
+            {metadata: {name: 'z'}, status: {phase: 'ready'}},
+            {metadata: {name: 'a'}, status: {phase: 'ready'}},
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})});
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test']);
 
-    // Check order of calls
-    const calls = mockConsoleLog.mock.calls.map((call) => call[0]);
+    // Check order of calls - sorted by type then name
+    const calls = mockConsoleLog.mock.calls
+      .filter((call) => call[0] && call[0].includes('/'))
+      .map((call) => call[0]);
     expect(calls).toEqual(['agent/a', 'agent/z', 'model/a', 'model/b']);
   });
 
   it('shows warning when no targets', async () => {
-    mockArkApiClient.getQueryTargets.mockResolvedValue([]);
+    // All resource types return empty (order: model, agent, team, tool)
+    mockExeca
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})});
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test']);
@@ -117,8 +158,8 @@ describe('targets command', () => {
     expect(mockOutput.warning).toHaveBeenCalledWith('no targets available');
   });
 
-  it('handles errors and stops proxy', async () => {
-    mockArkApiClient.getQueryTargets.mockRejectedValue(new Error('API failed'));
+  it('handles errors', async () => {
+    mockExeca.mockRejectedValue(new Error('kubectl not found'));
 
     const command = createTargetsCommand({});
 
@@ -127,18 +168,24 @@ describe('targets command', () => {
     );
     expect(mockOutput.error).toHaveBeenCalledWith(
       'fetching targets:',
-      'API failed'
+      'kubectl not found'
     );
     expect(mockExit).toHaveBeenCalledWith(1);
-    expect(mockArkApiProxy.prototype.stop).toHaveBeenCalled();
   });
 
   it('list subcommand works', async () => {
-    mockArkApiClient.getQueryTargets.mockResolvedValue([]);
+    // Order: model, agent, team, tool
+    mockExeca
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})})
+      .mockResolvedValueOnce({stdout: JSON.stringify({items: []})});
 
     const command = createTargetsCommand({});
     await command.parseAsync(['node', 'test', 'list']);
 
-    expect(mockArkApiClient.getQueryTargets).toHaveBeenCalled();
+    expect(mockExeca).toHaveBeenCalledWith('kubectl', ['get', 'models', '-o', 'json'], {
+      stdio: 'pipe',
+    });
   });
 });

@@ -33,11 +33,6 @@ async function uninstallArk(
 
   // Show cluster info
   output.success(`connected to cluster: ${chalk.bold(clusterInfo.context)}`);
-  output.info(`type: ${clusterInfo.type}`);
-  output.info(`namespace: ${clusterInfo.namespace}`);
-  if (clusterInfo.ip) {
-    output.info(`ip: ${clusterInfo.ip}`);
-  }
   console.log(); // Add blank line after cluster info
 
   // If a specific service is requested, uninstall only that service

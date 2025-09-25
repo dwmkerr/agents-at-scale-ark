@@ -1,7 +1,6 @@
 import {Command} from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import type {ArkConfig} from '../../lib/config.js';
 import {StatusChecker} from '../../components/statusChecker.js';
 import {
   StatusFormatter,
@@ -9,14 +8,13 @@ import {
   StatusColor,
 } from '../../ui/statusFormatter.js';
 import {StatusData, ServiceStatus} from '../../lib/types.js';
+import {fetchVersionInfo} from '../../lib/versions.js';
+import type {ArkVersionInfo} from '../../lib/versions.js';
 
 /**
  * Enrich service with formatted details including version/revision
  */
-function enrichServiceDetails(
-  service: ServiceStatus,
-  _?: ArkConfig
-): {
+function enrichServiceDetails(service: ServiceStatus): {
   statusInfo: {icon: string; text: string; color: StatusColor};
   displayName: string;
   details: string;
@@ -63,7 +61,7 @@ function enrichServiceDetails(
 
 function buildStatusSections(
   data: StatusData & {clusterAccess?: boolean; clusterInfo?: any},
-  config?: ArkConfig
+  versionInfo?: ArkVersionInfo
 ): StatusSection[] {
   const sections: StatusSection[] = [];
 
@@ -120,10 +118,8 @@ function buildStatusSections(
     const serviceLines = data.services
       .filter((s) => s.name !== 'ark-controller')
       .map((service) => {
-        const {statusInfo, displayName, details} = enrichServiceDetails(
-          service,
-          config
-        );
+        const {statusInfo, displayName, details} =
+          enrichServiceDetails(service);
         return {
           icon: statusInfo.icon,
           iconColor: statusInfo.color,
@@ -168,10 +164,8 @@ function buildStatusSections(
         name: 'ark-controller',
       });
     } else {
-      const {statusInfo, displayName, details} = enrichServiceDetails(
-        controller,
-        config
-      );
+      const {statusInfo, displayName, details} =
+        enrichServiceDetails(controller);
 
       // Map service status to ark status display
       const statusText =
@@ -191,27 +185,41 @@ function buildStatusSections(
       });
 
       // Add version update status as separate line
-      if (controller.status === 'healthy' && controller.version && config) {
-        if (config.latestVersion === undefined) {
+      if (controller.status === 'healthy' && versionInfo) {
+        const currentVersion = versionInfo.current || controller.version;
+
+        if (!currentVersion) {
+          // Version is unknown
           arkStatusLines.push({
             icon: '?',
             iconColor: 'yellow' as StatusColor,
-            status: 'version check',
+            status: 'version unknown',
+            statusColor: 'yellow' as StatusColor,
+            name: '',
+            details: versionInfo.latest
+              ? `latest: ${versionInfo.latest}`
+              : 'unable to determine version',
+          });
+        } else if (versionInfo.latest === undefined) {
+          // Have current version but couldn't check for updates
+          arkStatusLines.push({
+            icon: '?',
+            iconColor: 'yellow' as StatusColor,
+            status: `version ${currentVersion}`,
             statusColor: 'yellow' as StatusColor,
             name: '',
             details: 'unable to check for updates',
           });
         } else {
-          // Use currentVersion from config if available, otherwise use controller.version
-          const currentVersion = config.currentVersion || controller.version;
-          if (currentVersion === config.latestVersion) {
+          // Have both current and latest versions
+          if (currentVersion === versionInfo.latest) {
             arkStatusLines.push({
               icon: '✓',
               iconColor: 'green' as StatusColor,
               status: 'up to date',
               statusColor: 'green' as StatusColor,
               name: '',
-              details: config.latestVersion,
+              details: versionInfo.latest,
             });
           } else {
             arkStatusLines.push({
@@ -220,7 +228,7 @@ function buildStatusSections(
               status: 'update available',
               statusColor: 'yellow' as StatusColor,
               name: '',
-              details: config.latestVersion,
+              details: `${currentVersion} → ${versionInfo.latest}`,
             });
           }
         }
@@ -264,7 +272,7 @@ function buildStatusSections(
   return sections;
 }
 
-export async function checkStatus(config: ArkConfig) {
+export async function checkStatus() {
   const spinner = ora('Checking system status').start();
 
   try {
@@ -274,11 +282,16 @@ export async function checkStatus(config: ArkConfig) {
     spinner.text = 'Testing cluster access';
 
     spinner.text = 'Checking ARK services';
-    const statusData = await statusChecker.checkAll();
+
+    // Run status check and version fetch in parallel
+    const [statusData, versionInfo] = await Promise.all([
+      statusChecker.checkAll(),
+      fetchVersionInfo(),
+    ]);
 
     spinner.stop();
 
-    const sections = buildStatusSections(statusData, config);
+    const sections = buildStatusSections(statusData, versionInfo);
     StatusFormatter.printSections(sections);
     process.exit(0);
   } catch (error) {
@@ -288,11 +301,11 @@ export async function checkStatus(config: ArkConfig) {
   }
 }
 
-export function createStatusCommand(config: ArkConfig): Command {
+export function createStatusCommand(): Command {
   const statusCommand = new Command('status');
   statusCommand
     .description('Check ARK system status')
-    .action(() => checkStatus(config));
+    .action(() => checkStatus());
 
   return statusCommand;
 }

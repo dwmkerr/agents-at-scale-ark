@@ -15,7 +15,9 @@ export async function getArkVersion(): Promise<string | undefined> {
       {stdio: 'pipe'}
     );
     const releases = JSON.parse(stdout) as HelmRelease[];
-    const arkController = releases.find((r) => r.name === controller.helmReleaseName);
+    const arkController = releases.find(
+      (r) => r.name === controller.helmReleaseName
+    );
     return arkController?.app_version;
   } catch {
     return undefined;

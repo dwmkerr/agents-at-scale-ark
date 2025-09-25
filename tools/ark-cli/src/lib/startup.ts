@@ -1,9 +1,8 @@
 import chalk from 'chalk';
+import {execa} from 'execa';
 import {checkCommandExists} from './commands.js';
 import {loadConfig} from './config.js';
 import type {ArkConfig} from './config.js';
-import {getArkVersion} from './arkStatus.js';
-import {getClusterInfo} from './cluster.js';
 
 interface RequiredCommand {
   name: string;
@@ -51,63 +50,64 @@ async function checkRequirements(): Promise<void> {
  */
 export function showNoClusterError(): void {
   console.log(chalk.red.bold('\n✗ No Kubernetes cluster detected\n'));
-  console.log('Please ensure you have configured a connection to a Kubernetes cluster.');
+  console.log(
+    'Please ensure you have configured a connection to a Kubernetes cluster.'
+  );
   console.log('For local development, you can use:');
-  console.log(`  • Minikube: ${chalk.blue('https://minikube.sigs.k8s.io/docs/start')}`);
-  console.log(`  • Docker Desktop: ${chalk.blue('https://docs.docker.com/desktop/kubernetes/')}`);
-  console.log(`  • Kind: ${chalk.blue('https://kind.sigs.k8s.io/docs/user/quick-start/')}`);
+  console.log(
+    `  • Minikube: ${chalk.blue('https://minikube.sigs.k8s.io/docs/start')}`
+  );
+  console.log(
+    `  • Docker Desktop: ${chalk.blue('https://docs.docker.com/desktop/kubernetes/')}`
+  );
+  console.log(
+    `  • Kind: ${chalk.blue('https://kind.sigs.k8s.io/docs/user/quick-start/')}`
+  );
   console.log('');
   console.log('And more. For help, check the Quickstart guide:');
-  console.log(chalk.blue('  https://mckinsey.github.io/agents-at-scale-ark/quickstart/'));
+  console.log(
+    chalk.blue('  https://mckinsey.github.io/agents-at-scale-ark/quickstart/')
+  );
 }
 
 /**
- * Fetch version information (non-blocking)
+ * Check if a Kubernetes context is configured
+ * This is a fast local check that doesn't hit the cluster
  */
-async function fetchVersionInfo(config: ArkConfig): Promise<void> {
-  // Fetch latest version from GitHub
+async function hasKubernetesContext(): Promise<boolean> {
   try {
-    const response = await fetch(
-      'https://api.github.com/repos/mckinsey/agents-at-scale-ark/releases/latest'
-    );
-    if (response.ok) {
-      const data = (await response.json()) as {tag_name: string};
-      // Remove 'v' prefix if present for consistent comparison
-      config.latestVersion = data.tag_name.replace(/^v/, '');
-    }
+    const {stdout} = await execa('kubectl', ['config', 'current-context']);
+    return stdout.trim().length > 0;
   } catch {
-    // Silently fail - latestVersion will remain undefined
-  }
-
-  // Fetch current installed version (already without 'v' from helm)
-  try {
-    const currentVersion = await getArkVersion();
-    if (currentVersion) {
-      config.currentVersion = currentVersion;
-    }
-  } catch {
-    // Silently fail - currentVersion will remain undefined
+    return false;
   }
 }
 
 /**
- * Initialize the CLI by checking requirements and loading config
+ * Initialize the CLI with minimal checks for fast startup
  */
 export async function startup(): Promise<ArkConfig> {
-  // Check required commands
+  // Check required commands (kubectl, helm) - fast local checks
   await checkRequirements();
 
-  // Load config
+  // Load config from disk (fast - just file I/O)
   const config = loadConfig();
 
-  // Get cluster info - if no error, we have cluster access
-  const clusterInfo = await getClusterInfo();
-  if (!clusterInfo.error) {
-    config.clusterInfo = clusterInfo;
+  // Check if we have a kubernetes context configured (fast local check)
+  // We don't check cluster connectivity here - that's expensive
+  const hasContext = await hasKubernetesContext();
+  if (hasContext) {
+    try {
+      const {stdout} = await execa('kubectl', ['config', 'current-context']);
+      config.clusterInfo = {
+        type: 'unknown', // We don't detect cluster type here - too slow
+        context: stdout.trim(),
+        // We don't fetch namespace or cluster details here - too slow
+      };
+    } catch {
+      // Ignore - no context
+    }
   }
-
-  // Fetch version info synchronously so it's available immediately
-  await fetchVersionInfo(config);
 
   return config;
 }

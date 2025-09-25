@@ -32,7 +32,9 @@ describe('createQueryCommand', () => {
 
     expect(command).toBeInstanceOf(Command);
     expect(command.name()).toBe('query');
-    expect(command.description()).toBe('Execute a single query against a model or agent');
+    expect(command.description()).toBe(
+      'Execute a single query against a model or agent'
+    );
   });
 
   it('should parse and execute query with valid target', async () => {
@@ -66,7 +68,9 @@ describe('createQueryCommand', () => {
 
     expect(mockParseTarget).toHaveBeenCalledWith('invalid-target');
     expect(mockExecuteQuery).not.toHaveBeenCalled();
-    expect(mockOutput.error).toHaveBeenCalledWith('Invalid target format. Use: model/name or agent/name etc');
+    expect(mockOutput.error).toHaveBeenCalledWith(
+      'Invalid target format. Use: model/name or agent/name etc'
+    );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

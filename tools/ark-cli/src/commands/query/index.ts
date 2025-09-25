@@ -14,7 +14,9 @@ export function createQueryCommand(_: ArkConfig): Command {
       // Parse and validate target format
       const parsed = parseTarget(target);
       if (!parsed) {
-        output.error('Invalid target format. Use: model/name or agent/name etc');
+        output.error(
+          'Invalid target format. Use: model/name or agent/name etc'
+        );
         process.exit(1);
       }
 

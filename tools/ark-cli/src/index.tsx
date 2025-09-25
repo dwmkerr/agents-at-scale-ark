@@ -61,7 +61,7 @@ async function main() {
   program.addCommand(createModelsCommand(config));
   program.addCommand(createQueryCommand(config));
   program.addCommand(createUninstallCommand(config));
-  program.addCommand(createStatusCommand(config));
+  program.addCommand(createStatusCommand());
   program.addCommand(createConfigCommand(config));
   program.addCommand(createTargetsCommand(config));
   program.addCommand(createTeamsCommand(config));
