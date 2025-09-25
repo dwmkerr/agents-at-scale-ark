@@ -32,7 +32,7 @@ _ark_completion() {
   
   case \${COMP_CWORD} in
     1)
-      opts="agents chat cluster completion config dashboard dev docs generate install models query routes status targets teams tools uninstall help"
+      opts="agents chat cluster completion config dashboard docs generate install models query routes status targets teams tools uninstall help"
       COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
       return 0
       ;;
@@ -78,11 +78,6 @@ _ark_completion() {
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
           return 0
           ;;
-        dev)
-          opts="tool"
-          COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
-          return 0
-          ;;
         generate)
           opts="agent marketplace mcp-server project query team"
           COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
@@ -109,35 +104,6 @@ _ark_completion() {
           fi
           COMPREPLY=( $(compgen -W "\${targets}" -- \${cur}) )
           return 0
-          ;;
-      esac
-      ;;
-    3)
-      case \${COMP_WORDS[1]} in
-        dev)
-          case \${prev} in
-            tool)
-              opts="check init generate"
-              COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
-              return 0
-              ;;
-          esac
-          ;;
-      esac
-      ;;
-    4)
-      # Handle path completion for dev tool commands
-      case \${COMP_WORDS[1]} in
-        dev)
-          if [[ \${COMP_WORDS[2]} == "tool" ]]; then
-            case \${COMP_WORDS[3]} in
-              check|init|generate)
-                # Complete with directories
-                COMPREPLY=( $(compgen -d -- \${cur}) )
-                return 0
-                ;;
-            esac
-          fi
           ;;
       esac
       ;;
@@ -176,7 +142,6 @@ _ark() {
         'completion[Generate shell completion scripts]' \\
         'config[Configuration management]' \\
         'dashboard[Open ARK dashboard]' \\
-        'dev[Development tools for ARK]' \\
         'docs[Open ARK documentation]' \\
         'generate[Generate ARK resources]' \\
         'install[Install ARK services]' \\
@@ -232,10 +197,6 @@ _ark() {
             'list[List all available tools]' \\
             'ls[List all available tools]'
           ;;
-        dev)
-          _values 'dev commands' \\
-            'tool[MCP tool development utilities]'
-          ;;
         generate)
           _values 'generate types' \\
             'agent[Generate a new agent]' \\
@@ -262,27 +223,6 @@ _ark() {
             targets=('model/default' 'agent/sample-agent')
           fi
           _values 'available targets' \${targets[@]}
-          ;;
-      esac
-      ;;
-    args)
-      case \$words[2] in
-        dev)
-          if [[ \$words[3] == "tool" ]]; then
-            case \$words[4] in
-              check|init|generate)
-                # Complete with directories
-                _files -/
-                ;;
-              *)
-                _values 'tool commands' \\
-                  'check[Check the status of an MCP tool project]' \\
-                  'init[Initialize an MCP tool project]' \\
-                  'generate[Generate project files from templates]' \\
-                  'clean[Remove template-generated files]'
-                ;;
-            esac
-          fi
           ;;
       esac
       ;;
