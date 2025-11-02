@@ -90,6 +90,16 @@ const defaultArkServices: ServiceCollection = {
     k8sDevDeploymentName: 'ark-controller-devspace',
   },
 
+  'ark-tenant': {
+    name: 'ark-tenant',
+    helmReleaseName: 'ark-tenant',
+    description: 'Tenant provisioning with RBAC and resource quotas',
+    enabled: true,
+    category: 'core',
+    chartPath: `${REGISTRY_BASE}/ark-tenant`,
+    installArgs: [],
+  },
+
   'ark-api': {
     name: 'ark-api',
     helmReleaseName: 'ark-api',
@@ -144,6 +154,19 @@ const defaultArkServices: ServiceCollection = {
     k8sDevDeploymentName: 'ark-mcp-devspace',
   },
 
+  'mcp-filesystem': {
+    name: 'mcp-filesystem',
+    helmReleaseName: 'mcp-filesystem',
+    description: 'Stateful filesystem MCP server with workspace isolation',
+    enabled: false,
+    category: 'service',
+    // namespace: undefined - uses current context namespace
+    chartPath: `${REGISTRY_BASE}/mcp-filesystem`,
+    installArgs: [],
+    k8sDeploymentName: 'mcp-filesystem',
+    k8sDevDeploymentName: 'mcp-filesystem-devspace',
+  },
+
   'agents-at-scale': {
     name: 'agents-at-scale',
     helmReleaseName: 'agents-at-scale',
@@ -166,9 +189,7 @@ const defaultArkServices: ServiceCollection = {
   },
 };
 
-function applyConfigOverrides(
-  defaults: ServiceCollection
-): ServiceCollection {
+function applyConfigOverrides(defaults: ServiceCollection): ServiceCollection {
   const config = loadConfig();
   const overrides = config?.services || {};
   const result: ServiceCollection = {};
@@ -183,7 +204,8 @@ function applyConfigOverrides(
 /**
  * Core ARK services - initialized with defaults and config overrides applied
  */
-export const arkServices: ServiceCollection = applyConfigOverrides(defaultArkServices);
+export const arkServices: ServiceCollection =
+  applyConfigOverrides(defaultArkServices);
 
 /**
  * Get services that can be installed via Helm charts (only enabled services)

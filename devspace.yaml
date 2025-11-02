@@ -3,19 +3,36 @@ version: v2beta1
 
 # Dependencies - include other DevSpace configurations
 dependencies:
+  localhost-gateway:
+    path: ./services/localhost-gateway
+  ark:
+    path: ./ark
   ark-cluster-memory:
     path: ./services/ark-cluster-memory
   ark-api:
     path: ./services/ark-api
   ark-dashboard:
     path: ./services/ark-dashboard
-  ark:
-    path: ./ark
-#   ark-mcp:
-#     path: ./services/ark-mcp
-#     pipeline: dev
+#  ark-api-a2a:
+#    path: ./services/ark-api-a2a
+#  ark-mcp:
+#    path: ./services/ark-mcp
+#  mcp-filesystem:
+#    path: ./mcp/filesystem-mcp
+#  ark-evaluator:
+#    path: ./services/ark-evaluator
+#  executor-langchain:
+#    path: ./services/executor-langchain
 #   postgres-memory:
 #     path: ./services/postgres-memory
+  
+  # Observability services. Uncomment to enable locally. Only phoenix or langfuse is needed
+  # # phoenix service for observability. phoenix has a hook to restart ark-controller to pick up its url
+  # phoenix:
+  #   path: ./marketplace/services/phoenix
+  # # langfuse service for observability. langfuse has a hook to restart ark-controller to pick up its url
+  # langfuse:
+  #   path: ./marketplace/services/langfuse
 
 # Vars - To disable, set environment variables before the devspace commands
 #        For example: ENABLE_CERT_MANAGER=false devspace dev
@@ -26,6 +43,13 @@ vars:
   ENABLE_GATEWAY_API_CRDS:
     source: env
     default: true
+  ENABLE_ARK_TENANT:
+    source: env
+    default: true
+
+commands:
+  routes:
+    ./services/localhost-gateway/scripts/show-routes.sh
 
 profiles:
   - name: enable-cert-manager
@@ -59,11 +83,54 @@ profiles:
             kubectl:
               manifests:
                 - "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml"
+  - name: enable-ark-tenant
+    activation:
+      - vars:
+          ENABLE_ARK_TENANT: true
+    patches:
+      - op: add
+        path: deployments
+        value:
+          ark-tenant:
+            namespace: default
+            helm:
+              chart:
+                path: ./charts/ark-tenant
+              releaseName: ark-tenant
+              upgradeArgs: [ "--install" ]
 
 pipelines:
   deploy: |-
-    create_deployments --all
-    run_dependency_pipelines --all --pipeline=deploy
+    
+    if [ "${ENABLE_CERT_MANAGER}" == "true" ]; then
+      create_deployments cert-manager
+    fi
+    
+    if [ "${ENABLE_GATEWAY_API_CRDS}" == "true" ]; then
+      create_deployments gateway-api
+    fi
+    
+    run_dependency_pipelines ark --pipeline=deploy
+    
+    if [ "${ENABLE_ARK_TENANT}" == "true" ]; then
+      create_deployments ark-tenant
+    fi
+    
+    run_dependency_pipelines --all --exclude ark --pipeline=deploy
   dev: |-
-    create_deployments --all
-    run_dependency_pipelines --all --pipeline=dev
+    
+    if [ "${ENABLE_CERT_MANAGER}" == "true" ]; then
+      create_deployments cert-manager
+    fi
+    
+    if [ "${ENABLE_GATEWAY_API_CRDS}" == "true" ]; then
+      create_deployments gateway-api
+    fi
+    
+    run_dependency_pipelines ark --pipeline=dev
+    
+    if [ "${ENABLE_ARK_TENANT}" == "true" ]; then
+      create_deployments ark-tenant
+    fi
+    
+    run_dependency_pipelines --all --exclude ark --pipeline=dev

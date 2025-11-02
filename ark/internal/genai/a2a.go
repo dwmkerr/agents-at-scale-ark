@@ -21,29 +21,58 @@ import (
 	"mckinsey.com/ark/internal/telemetry"
 )
 
+const (
+	// AgentCardPathVersion2 is the A2A protocol 0.2.x agent card path
+	AgentCardPathVersion2 = "/.well-known/agent.json"
+	// AgentCardPathVersion3 is the A2A protocol 0.3.x agent card path
+	AgentCardPathVersion3 = "/.well-known/agent-card.json"
+)
+
 // DiscoverA2AAgents discovers agents from an A2A server using simplified HTTP approach
-// Note: The A2A library doesn't provide a direct agent discovery API yet, so we use HTTP
 func DiscoverA2AAgents(ctx context.Context, k8sClient client.Client, address string, headers []arkv1prealpha1.Header, namespace string) (*A2AAgentCard, error) {
 	return DiscoverA2AAgentsWithRecorder(ctx, k8sClient, address, headers, namespace, nil, nil)
 }
 
 // DiscoverA2AAgentsWithRecorder discovers agents with optional K8s event recording
+// Tries both A2A protocol versions: 0.3.x (agent-card.json) and 0.2.x (agent.json)
+// Note: protocol.AgentCardPath is version 0.2.x (agent.json) at time of writing
 func DiscoverA2AAgentsWithRecorder(ctx context.Context, k8sClient client.Client, address string, headers []arkv1prealpha1.Header, namespace string, recorder record.EventRecorder, obj client.Object) (*A2AAgentCard, error) {
-	agentCardURL := strings.TrimSuffix(address, "/") + protocol.AgentCardPath
+	baseURL := strings.TrimSuffix(address, "/")
 
-	// Create A2A client for consistent configuration
 	if err := validateA2AClient(address, headers, ctx, k8sClient, namespace, recorder, obj); err != nil {
 		return nil, err
 	}
 
-	// Create and configure HTTP request
-	req, err := createA2ARequest(ctx, agentCardURL, headers, k8sClient, namespace, recorder, obj)
-	if err != nil {
-		return nil, err
+	endpoints := []struct {
+		url     string
+		version string
+	}{
+		{baseURL + AgentCardPathVersion3, "protocol version 0.3.x"},
+		{baseURL + AgentCardPathVersion2, "protocol version 0.2.x"},
 	}
 
-	// Execute request and parse response
-	return executeA2ARequest(ctx, req, address, recorder, obj)
+	var lastErr error
+	for _, endpoint := range endpoints {
+		req, err := createA2ARequest(ctx, endpoint.url, headers, k8sClient, namespace, recorder, obj)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		agentCard, err := executeA2ARequest(ctx, req, address, recorder, obj)
+		if err == nil {
+			if recorder != nil && obj != nil {
+				recorder.Event(obj, corev1.EventTypeNormal, "A2ADiscoverySuccess", fmt.Sprintf("Successfully discovered agent using %s at %s", endpoint.version, endpoint.url))
+			}
+			return agentCard, nil
+		}
+
+		lastErr = err
+		logf.FromContext(ctx).Info("Failed to discover agent using endpoint, trying next", "url", endpoint.url, "version", endpoint.version, "error", err)
+	}
+
+	return nil, fmt.Errorf("failed to discover agent from all endpoints (%s, %s): %w",
+		AgentCardPathVersion3, AgentCardPathVersion2, lastErr)
 }
 
 // ExecuteA2AAgent executes a task on an A2A agent using the official library client
@@ -101,9 +130,17 @@ func executeA2AAgentMessage(ctx context.Context, a2aClient *a2aclient.A2AClient,
 		protocol.NewTextPart(input),
 	})
 
+	blocking := true
 	params := protocol.SendMessageParams{
 		RPCID:   protocol.GenerateRPCID(),
 		Message: message,
+		// Blocking: true causes the A2A server to wait for task completion before responding.
+		// When false, the server returns immediately with a Task in "submitted" state, requiring
+		// the client to poll for updates. Ark currently only supports blocking mode, expecting
+		// Tasks to be in terminal state ("completed" or "failed") when returned.
+		Configuration: &protocol.SendMessageConfiguration{
+			Blocking: &blocking,
+		},
 	}
 
 	result, err := a2aClient.SendMessage(ctx, params)
@@ -160,29 +197,59 @@ func extractTextFromMessageResult(result *protocol.MessageResult) (string, error
 
 	switch r := result.Result.(type) {
 	case *protocol.Message:
-		text := extractTextFromParts(r.Parts)
-		logf.Log.Info("A2A message extracted", "text", text, "parts_count", len(r.Parts))
-		return text, nil
+		return extractTextFromParts(r.Parts), nil
 	case *protocol.Task:
-		return "", fmt.Errorf("received task response, streaming not yet supported")
+		return extractTextFromTask(r)
 	default:
 		return "", fmt.Errorf("unexpected result type: %T", result.Result)
+	}
+}
+
+// extractTextFromTask extracts text from a completed or failed Task
+func extractTextFromTask(task *protocol.Task) (string, error) {
+	if task.Status.State == "" {
+		return "", fmt.Errorf("task has no status state")
+	}
+
+	switch task.Status.State {
+	case TaskStateCompleted:
+		// Extract all agent messages from history
+		var text strings.Builder
+		for _, msg := range task.History {
+			if msg.Role == protocol.MessageRoleAgent && len(msg.Parts) > 0 {
+				msgText := extractTextFromParts(msg.Parts)
+				if msgText != "" {
+					if text.Len() > 0 {
+						text.WriteString("\n")
+					}
+					text.WriteString(msgText)
+				}
+			}
+		}
+
+		return text.String(), nil
+
+	case TaskStateFailed:
+		// Extract error message from status.message
+		errorMsg := "task failed"
+		if task.Status.Message != nil && len(task.Status.Message.Parts) > 0 {
+			errorMsg = extractTextFromParts(task.Status.Message.Parts)
+		}
+		return "", fmt.Errorf("%s", errorMsg)
+
+	default:
+		return "", fmt.Errorf("task in state '%s' (expected %s or %s)", task.Status.State, TaskStateCompleted, TaskStateFailed)
 	}
 }
 
 // extractTextFromParts extracts text from message parts in a type-safe way
 func extractTextFromParts(parts []protocol.Part) string {
 	var text strings.Builder
-	for i, part := range parts {
-		logf.Log.Info("A2A part debug", "index", i, "part_type", fmt.Sprintf("%T", part))
+	for _, part := range parts {
 		if textPart, ok := part.(protocol.TextPart); ok {
-			logf.Log.Info("A2A text part found", "text", textPart.Text)
 			text.WriteString(textPart.Text)
 		} else if textPartPtr, ok := part.(*protocol.TextPart); ok {
-			logf.Log.Info("A2A text part pointer found", "text", textPartPtr.Text)
 			text.WriteString(textPartPtr.Text)
-		} else {
-			logf.Log.Info("A2A non-text part skipped", "part_type", fmt.Sprintf("%T", part))
 		}
 	}
 	return text.String()

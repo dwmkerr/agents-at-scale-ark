@@ -1,11 +1,11 @@
 import {Box, Text, useInput, useApp} from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
-import chalk from 'chalk';
 import * as React from 'react';
 import {marked} from 'marked';
 // @ts-ignore - no types available
 import TerminalRenderer from 'marked-terminal';
+import {APIError} from 'openai';
 import {
   ChatClient,
   QueryTarget,
@@ -15,10 +15,10 @@ import {
 } from '../lib/chatClient.js';
 import {ArkApiClient} from '../lib/arkApiClient.js';
 import {ArkApiProxy} from '../lib/arkApiProxy.js';
-import {AgentSelector} from '../ui/AgentSelector.js';
-import {ModelSelector} from '../ui/ModelSelector.js';
-import {TeamSelector} from '../ui/TeamSelector.js';
-import {ToolSelector} from '../ui/ToolSelector.js';
+import {TargetSelector} from '../ui/TargetSelector.js';
+import {Agent, Model, Team, Tool} from '../lib/arkApiClient.js';
+import {useAsyncOperation, AsyncOperationStatus} from './AsyncOperation.js';
+import {createConnectingToArkOperation} from '../ui/asyncOperations/connectingToArk.js';
 
 type SlashCommand =
   | '/output'
@@ -108,6 +108,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   config,
 }) => {
   const {exit} = useApp();
+  const asyncOp = useAsyncOperation();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
@@ -116,7 +117,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
     []
   );
   const [error, setError] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
   const [targetIndex, setTargetIndex] = React.useState(0);
   const [abortController, setAbortController] =
     React.useState<AbortController | null>(null);
@@ -133,6 +133,15 @@ const ChatUI: React.FC<ChatUIProps> = ({
   const [showTeamSelector, setShowTeamSelector] = React.useState(false);
   const [showToolSelector, setShowToolSelector] = React.useState(false);
 
+  const [agents, setAgents] = React.useState<Agent[]>([]);
+  const [models, setModels] = React.useState<Model[]>([]);
+  const [teams, setTeams] = React.useState<Team[]>([]);
+  const [tools, setTools] = React.useState<Tool[]>([]);
+  const [selectorLoading, setSelectorLoading] = React.useState(false);
+  const [selectorError, setSelectorError] = React.useState<string | undefined>(
+    undefined
+  );
+
   // Message history navigation
   const [messageHistory, setMessageHistory] = React.useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = React.useState(-1);
@@ -142,6 +151,54 @@ const ChatUI: React.FC<ChatUIProps> = ({
     streamingEnabled: config?.chat?.streaming ?? true,
     currentTarget: undefined,
   });
+
+  React.useEffect(() => {
+    if (showAgentSelector && agents.length === 0) {
+      setSelectorLoading(true);
+      setSelectorError(undefined);
+      arkApiClient
+        .getAgents()
+        .then(setAgents)
+        .catch((err) => setSelectorError(err.message))
+        .finally(() => setSelectorLoading(false));
+    }
+  }, [showAgentSelector, arkApiClient, agents.length]);
+
+  React.useEffect(() => {
+    if (showModelSelector && models.length === 0) {
+      setSelectorLoading(true);
+      setSelectorError(undefined);
+      arkApiClient
+        .getModels()
+        .then(setModels)
+        .catch((err) => setSelectorError(err.message))
+        .finally(() => setSelectorLoading(false));
+    }
+  }, [showModelSelector, arkApiClient, models.length]);
+
+  React.useEffect(() => {
+    if (showTeamSelector && teams.length === 0) {
+      setSelectorLoading(true);
+      setSelectorError(undefined);
+      arkApiClient
+        .getTeams()
+        .then(setTeams)
+        .catch((err) => setSelectorError(err.message))
+        .finally(() => setSelectorLoading(false));
+    }
+  }, [showTeamSelector, arkApiClient, teams.length]);
+
+  React.useEffect(() => {
+    if (showToolSelector && tools.length === 0) {
+      setSelectorLoading(true);
+      setSelectorError(undefined);
+      arkApiClient
+        .getTools()
+        .then(setTools)
+        .catch((err) => setSelectorError(err.message))
+        .finally(() => setSelectorLoading(false));
+    }
+  }, [showToolSelector, arkApiClient, tools.length]);
 
   const chatClientRef = React.useRef<ChatClient | undefined>(undefined);
 
@@ -154,86 +211,28 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
   // Initialize chat client and fetch targets on mount
   React.useEffect(() => {
-    const initializeChat = async () => {
-      try {
-        // Use the provided ArkApiClient to create ChatClient
-        const client = new ChatClient(arkApiClient);
-        chatClientRef.current = client;
-
-        const targets = await client.getQueryTargets();
-        setAvailableTargets(targets);
-
-        if (initialTargetId) {
-          // If initialTargetId is provided, find and set the target
-          const matchedTarget = targets.find((t) => t.id === initialTargetId);
-          const matchedIndex = targets.findIndex(
-            (t) => t.id === initialTargetId
-          );
-          if (matchedTarget) {
-            setTarget(matchedTarget);
-            setTargetIndex(matchedIndex >= 0 ? matchedIndex : 0);
-            setChatConfig((prev) => ({...prev, currentTarget: matchedTarget}));
-            setMessages([]);
-          } else {
-            // If target not found, show error and exit
-            console.error(
-              chalk.red('Error:'),
-              `Target "${initialTargetId}" not found`
-            );
-            console.error(
-              chalk.gray('Use "ark targets list" to see available targets')
-            );
-            if (arkApiProxy) {
-              arkApiProxy.stop();
-            }
-            exit();
-          }
-        } else if (targets.length > 0) {
-          // No initial target specified - auto-select first available
-          // Priority: agents > models > tools
-          const agents = targets.filter((t) => t.type === 'agent');
-          const models = targets.filter((t) => t.type === 'model');
-          const tools = targets.filter((t) => t.type === 'tool');
-
-          let selectedTarget: QueryTarget | null = null;
-          let selectedIndex = 0;
-
-          if (agents.length > 0) {
-            selectedTarget = agents[0];
-            selectedIndex = targets.findIndex((t) => t.id === agents[0].id);
-          } else if (models.length > 0) {
-            selectedTarget = models[0];
-            selectedIndex = targets.findIndex((t) => t.id === models[0].id);
-          } else if (tools.length > 0) {
-            selectedTarget = tools[0];
-            selectedIndex = targets.findIndex((t) => t.id === tools[0].id);
-          }
-
+    asyncOp.run(
+      createConnectingToArkOperation({
+        arkApiClient,
+        initialTargetId,
+        onSuccess: ({client, targets, selectedTarget, selectedIndex}) => {
+          chatClientRef.current = client;
+          setAvailableTargets(targets);
           if (selectedTarget) {
             setTarget(selectedTarget);
             setTargetIndex(selectedIndex);
             setChatConfig((prev) => ({...prev, currentTarget: selectedTarget}));
             setMessages([]);
-          } else {
-            setError('No targets available');
           }
-        } else {
-          setError('No agents, models, or tools available');
-        }
-
-        setIsLoading(false);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to initialize chat';
-        console.error(chalk.red('Error:'), errorMessage);
-        if (arkApiProxy) {
-          arkApiProxy.stop();
-        }
-        exit();
-      }
-    };
-
-    initializeChat();
+        },
+        onQuit: () => {
+          if (arkApiProxy) {
+            arkApiProxy.stop();
+          }
+          exit();
+        },
+      })
+    );
 
     // Cleanup function to close port forward when component unmounts
     return () => {
@@ -703,8 +702,26 @@ const ChatUI: React.FC<ChatUIProps> = ({
         return;
       }
 
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to send message';
+      let errorMessage = 'Failed to send message';
+
+      // OpenAI SDK errors include response body in .error property
+      if (err instanceof APIError) {
+        if (err.error && typeof err.error === 'object') {
+          const errorObj = err.error as any;
+          errorMessage = errorObj.message || JSON.stringify(err.error, null, 2);
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      // Standard JavaScript errors
+      else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      // String errors from throw statements
+      else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+
       setError(errorMessage);
       setIsTyping(false);
       setAbortController(null);
@@ -964,15 +981,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
     );
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <Box flexDirection="column">
-        <Text color="yellow">
-          <Spinner type="dots" /> Loading available targets...
-        </Text>
-      </Box>
-    );
+  // Show async operation status (connection, etc.)
+  if (asyncOp.state.status === 'loading' || asyncOp.state.status === 'error') {
+    return <AsyncOperationStatus operation={asyncOp} />;
   }
 
   // Show error if no targets available
@@ -993,10 +1004,18 @@ const ChatUI: React.FC<ChatUIProps> = ({
   // Show agent selector if requested
   if (showAgentSelector) {
     return (
-      <AgentSelector
-        arkApiClient={arkApiClient}
-        onSelect={(agent) => {
-          // Update the target to the selected agent
+      <TargetSelector
+        targets={agents}
+        title="Select Agent"
+        subtitle="Choose an agent to start a conversation with"
+        loading={selectorLoading}
+        error={selectorError}
+        formatInlineDetail={(t) => t.description}
+        showDetailPanel={true}
+        onSelect={(target) => {
+          const agent = agents.find((a) => a.name === target.name);
+          if (!agent) return;
+
           const agentTarget: QueryTarget = {
             id: `agent/${agent.name}`,
             name: agent.name,
@@ -1008,7 +1027,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setMessages([]);
           setShowAgentSelector(false);
 
-          // Add system message about the selection
           const systemMessage: SystemMessage = {
             id: generateMessageId(),
             type: 'system',
@@ -1026,10 +1044,27 @@ const ChatUI: React.FC<ChatUIProps> = ({
   // Show model selector if requested
   if (showModelSelector) {
     return (
-      <ModelSelector
-        arkApiClient={arkApiClient}
-        onSelect={(model) => {
-          // Update the target to the selected model
+      <TargetSelector
+        targets={models}
+        title="Select Model"
+        subtitle="Choose a model to start a conversation with"
+        loading={selectorLoading}
+        error={selectorError}
+        formatLabel={(t) => {
+          const model = models.find((m) => m.name === t.name);
+          return model
+            ? `${model.name}${model.type ? ` (${model.type})` : ''}`
+            : t.name;
+        }}
+        formatInlineDetail={(t) => {
+          const model = models.find((m) => m.name === t.name);
+          return model?.model;
+        }}
+        showDetailPanel={false}
+        onSelect={(target) => {
+          const model = models.find((m) => m.name === target.name);
+          if (!model) return;
+
           const modelTarget: QueryTarget = {
             id: `model/${model.name}`,
             name: model.name,
@@ -1041,7 +1076,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setMessages([]);
           setShowModelSelector(false);
 
-          // Add system message about the selection
           const systemMessage: SystemMessage = {
             id: generateMessageId(),
             type: 'system',
@@ -1059,10 +1093,24 @@ const ChatUI: React.FC<ChatUIProps> = ({
   // Show team selector if requested
   if (showTeamSelector) {
     return (
-      <TeamSelector
-        arkApiClient={arkApiClient}
-        onSelect={(team) => {
-          // Update the target to the selected team
+      <TargetSelector
+        targets={teams}
+        title="Select Team"
+        subtitle="Choose a team to start a conversation with"
+        loading={selectorLoading}
+        error={selectorError}
+        formatLabel={(t) => {
+          const team = teams.find((tm) => tm.name === t.name);
+          return team
+            ? `${team.name}${team.strategy ? ` (${team.strategy})` : ''}`
+            : t.name;
+        }}
+        formatInlineDetail={(t) => t.description}
+        showDetailPanel={true}
+        onSelect={(target) => {
+          const team = teams.find((tm) => tm.name === target.name);
+          if (!team) return;
+
           const teamTarget: QueryTarget = {
             id: `team/${team.name}`,
             name: team.name,
@@ -1074,7 +1122,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setMessages([]);
           setShowTeamSelector(false);
 
-          // Add system message about the selection
           const systemMessage: SystemMessage = {
             id: generateMessageId(),
             type: 'system',
@@ -1092,10 +1139,18 @@ const ChatUI: React.FC<ChatUIProps> = ({
   // Show tool selector if requested
   if (showToolSelector) {
     return (
-      <ToolSelector
-        arkApiClient={arkApiClient}
-        onSelect={(tool) => {
-          // Update the target to the selected tool
+      <TargetSelector
+        targets={tools}
+        title="Select Tool"
+        subtitle="Choose a tool to start a conversation with"
+        loading={selectorLoading}
+        error={selectorError}
+        formatInlineDetail={(t) => t.description}
+        showDetailPanel={true}
+        onSelect={(target) => {
+          const tool = tools.find((tl) => tl.name === target.name);
+          if (!tool) return;
+
           const toolTarget: QueryTarget = {
             id: `tool/${tool.name}`,
             name: tool.name,
@@ -1107,7 +1162,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
           setMessages([]);
           setShowToolSelector(false);
 
-          // Add system message about the selection
           const systemMessage: SystemMessage = {
             id: generateMessageId(),
             type: 'system',

@@ -53,6 +53,7 @@ export class ArkApiClient {
       baseURL: `${arkApiUrl}/openai/v1`,
       apiKey: 'dummy', // ark-api doesn't require an API key
       dangerouslyAllowBrowser: false,
+      maxRetries: 0, // Disable automatic retries for query errors
     });
   }
 
@@ -87,9 +88,7 @@ export class ArkApiClient {
 
   async getAgents(): Promise<Agent[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/v1/agents`
-      );
+      const response = await fetch(`${this.baseUrl}/v1/agents`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -104,9 +103,7 @@ export class ArkApiClient {
 
   async getModels(): Promise<Model[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/v1/models`
-      );
+      const response = await fetch(`${this.baseUrl}/v1/models`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -121,9 +118,7 @@ export class ArkApiClient {
 
   async getTools(): Promise<Tool[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/v1/tools`
-      );
+      const response = await fetch(`${this.baseUrl}/v1/tools`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -138,9 +133,7 @@ export class ArkApiClient {
 
   async getTeams(): Promise<Team[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/v1/teams`
-      );
+      const response = await fetch(`${this.baseUrl}/v1/teams`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

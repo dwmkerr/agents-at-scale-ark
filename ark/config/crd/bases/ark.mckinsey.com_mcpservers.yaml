@@ -154,6 +154,29 @@ spec:
                           type: string
                         valueFrom:
                           properties:
+                            configMapKeyRef:
+                              description: Selects a key from a ConfigMap.
+                              properties:
+                                key:
+                                  description: The key to select.
+                                  type: string
+                                name:
+                                  default: ""
+                                  description: |-
+                                    Name of the referent.
+                                    This field is effectively required, but due to backwards compatibility is
+                                    allowed to be empty. Instances of this type with an empty value here are
+                                    almost certainly wrong.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                                optional:
+                                  description: Specify whether the ConfigMap or its
+                                    key must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
                             secretKeyRef:
                               description: SecretKeySelector selects a key of a Secret.
                               properties:
@@ -190,6 +213,10 @@ spec:
                 type: string
               timeout:
                 default: 30s
+                description: |-
+                  Timeout specifies the maximum duration for MCP tool calls to this server.
+                  Use this to support long-running operations (e.g., "5m", "10m", "30m").
+                  Defaults to "30s" if not specified.
                 type: string
               transport:
                 default: http

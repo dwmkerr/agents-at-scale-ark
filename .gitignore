@@ -13,6 +13,7 @@ local.mk
 .vscode/
 /local.mk
 .venv/
+venv/
 help.mk
 
 .venv/
@@ -30,6 +31,7 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.egg-info/
 
 # Local development
 .ark-sdk-local/
@@ -151,3 +153,6 @@ node_modules/
 .devspace/
 services/*/ark_sdk-*.whl
 services/ark-dashboard/ark-dashboard/lib/api/generated/openapi.json
+
+# Helm chart dependencies
+**/charts/*.tgz

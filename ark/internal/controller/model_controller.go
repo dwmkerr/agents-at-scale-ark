@@ -16,6 +16,7 @@ import (
 
 	arkv1alpha1 "mckinsey.com/ark/api/v1alpha1"
 	"mckinsey.com/ark/internal/genai"
+	"mckinsey.com/ark/internal/telemetry"
 )
 
 const (
@@ -25,8 +26,9 @@ const (
 
 type ModelReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
+	Telemetry telemetry.Provider
 }
 
 // +kubebuilder:rbac:groups=ark.mckinsey.com,resources=models,verbs=get;list;watch;create;update;patch;delete
@@ -50,11 +52,6 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Initialize conditions if empty
 	if len(model.Status.Conditions) == 0 {
 		r.setCondition(&model, ModelAvailable, metav1.ConditionUnknown, "Initializing", "Model availability is being determined")
-		if err := r.updateStatus(ctx, &model); err != nil {
-			return ctrl.Result{}, err
-		}
-		// Return early to avoid double reconciliation, let the status update trigger next reconcile
-		return ctrl.Result{}, nil
 	}
 
 	// Probe the model to test whether it is available.
@@ -93,11 +90,15 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *ModelReconciler) probeModel(ctx context.Context, model arkv1alpha1.Model) genai.ProbeResult {
+	ctx, span := r.Telemetry.ModelRecorder().StartModelProbe(ctx, model.Name, model.Namespace)
+	defer span.End()
+
 	resolvedModel, err := genai.LoadModel(ctx, r.Client, &arkv1alpha1.AgentModelRef{
 		Name:      model.Name,
 		Namespace: model.Namespace,
-	}, model.Namespace)
+	}, model.Namespace, r.Telemetry.ModelRecorder())
 	if err != nil {
+		r.Telemetry.ModelRecorder().RecordError(span, err)
 		return genai.ProbeResult{
 			Available:     false,
 			Message:       "Failed to load model configuration",
@@ -105,7 +106,14 @@ func (r *ModelReconciler) probeModel(ctx context.Context, model arkv1alpha1.Mode
 		}
 	}
 
-	return genai.ProbeModel(ctx, resolvedModel)
+	result := genai.ProbeModel(ctx, resolvedModel)
+	if !result.Available {
+		r.Telemetry.ModelRecorder().RecordError(span, result.DetailedError)
+	} else {
+		r.Telemetry.ModelRecorder().RecordSuccess(span)
+	}
+
+	return result
 }
 
 // setCondition sets a condition on the Model

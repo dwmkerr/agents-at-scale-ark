@@ -11,8 +11,7 @@
   - Custom Resource Definitions (CRDs) for AI workloads
   - Webhooks for validation and admission control
 
-- **`services/`** - Supporting services for ARK (Go, Python, TypeScript)
-  - `fark/` - CLI tool and API service (Go)
+- **`services/`** - Supporting services for Ark (Go, Python, TypeScript)
   - `postgres-memory/` - Memory persistence service (Go)
   - **Execution Engines (Python):**
     - `executor-langchain/` - LangChain agent execution and tool integration engine
@@ -23,7 +22,7 @@
 
 - **`mcp/`** - Model Context Protocol servers
   - `atlassian/` - Jira and Confluence integration
-  - `filesys/` - File system operations
+  - `filesystem-mcp/` - File system operations
   - `git/` - Git repository operations
   - `github/` - GitHub API integration
   - `pyodide-python/` - Python execution in browser
@@ -38,8 +37,18 @@
   - Architecture guides and API references
   - Built with Next.js and MDX
 
+- **`marketplace/`** - Ark Marketplace (DevSpace-based services)
+  - Services packaged for future marketplace repository separation
+  - `services/phoenix/` - Phoenix observability platform 
+  - `services/langfuse/` - Langfuse observability platform
+  - `docs/` - Marketplace-specific documentation site (Next.js)
+  - Uses DevSpace deployment instead of Make-based builds
+
 ## Supporting Folders
 
+- **`tools/`** - CLI tools
+  - `ark-cli/` - Ark CLI (Node.js) - General-purpose, interactive
+  - `fark/` - Fark CLI (Go) - Optimized for resource management and low latency
 - **`bundles/`** - LegacyX and vNext component bundles and manifests
 - **`scripts/`** - Build and deployment scripts (Bash)
 - **`templates/`** - Project templates for new services
@@ -97,6 +106,31 @@ cd services/vnext-ui/    # UI service
 make build         # Build Docker image
 ```
 
+## Marketplace Services (DevSpace)
+All marketplace services use DevSpace for deployment:
+```bash
+cd marketplace/services/{service-name}/
+devspace dev       # Deploy in development mode with hot-reload
+devspace deploy    # Deploy to current Kubernetes context
+devspace purge     # Remove service from cluster
+
+# Alternative using Helm directly
+helm install {service-name} ./chart --namespace {namespace} --create-namespace
+```
+
+## CLI Tools
+```bash
+cd tools/ark-cli/  # Ark CLI (Node.js)
+npm install        # Install dependencies
+npm run build      # Build TypeScript
+npm test           # Run tests
+
+cd tools/fark/     # Fark CLI (Go)
+make build-binary  # Build binary
+make test          # Run tests
+make install       # Install to ~/.local/bin
+```
+
 # Writing Style
 
 - **Be concise and direct** - Remove unnecessary adjectives and verbose descriptions
@@ -105,6 +139,7 @@ make build         # Build Docker image
 - **Keep descriptions brief** - 1-2 sentences maximum for each item
 - **Use active voice** - "Creates agent" not "Agent is created"
 - **Avoid extra adjectives**
+- **Ark capitalization** - Always write "Ark" (capital A, lowercase rk), never "ARK" in documentation
 
 ## Makefile Guidelines
 

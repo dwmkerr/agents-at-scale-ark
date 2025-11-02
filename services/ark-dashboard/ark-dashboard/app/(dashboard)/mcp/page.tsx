@@ -1,54 +1,38 @@
-"use client"
+'use client';
 
-import { McpServersSection } from "@/components/sections/mcp-servers-section"
-import { useSearchParams } from "next/navigation"
-import { Suspense, useRef } from "react"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useRef } from 'react';
 
-function McpContent() {
-  const searchParams = useSearchParams()
-  const namespace = searchParams.get("namespace") || "default"
-  const mcpSectionRef = useRef<{ openAddEditor: () => void }>(null)
+import type { BreadcrumbElement } from '@/components/common/page-header';
+import { PageHeader } from '@/components/common/page-header';
+import { McpServersSection } from '@/components/sections/mcp-servers-section';
+import { Button } from '@/components/ui/button';
+
+const breadcrumbs: BreadcrumbElement[] = [
+  { href: '/', label: 'ARK Dashboard' },
+];
+
+export default function McpPage() {
+  const searchParams = useSearchParams();
+  const namespace = searchParams.get('namespace') || 'default';
+  const mcpSectionRef = useRef<{ openAddEditor: () => void }>(null);
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>MCP Servers</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="ml-auto">
+      <PageHeader
+        breadcrumbs={breadcrumbs}
+        currentPage="MCP Servers"
+        actions={
           <Button onClick={() => mcpSectionRef.current?.openAddEditor()}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add MCP Server
           </Button>
-        </div>
-      </header>
+        }
+      />
       <div className="flex flex-1 flex-col">
         <McpServersSection ref={mcpSectionRef} namespace={namespace} />
       </div>
     </>
-  )
-}
-
-export default function McpPage() {
-  return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center">Loading...</div>}>
-      <McpContent />
-    </Suspense>
-  )
+  );
 }
