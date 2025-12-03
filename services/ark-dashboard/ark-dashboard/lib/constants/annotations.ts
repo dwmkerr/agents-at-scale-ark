@@ -6,6 +6,9 @@ export const ARK_ANNOTATIONS = {
   // Dashboard annotations
   DASHBOARD_ICON: `${ARK_PREFIX}dashboard-icon`,
 
+  // Origin annotation - JSON with uri and type (github, helm, marketplace)
+  ORIGIN: `${ARK_PREFIX}origin`,
+
   // A2A annotations
   A2A_SERVER_NAME: `${ARK_PREFIX}a2a-server-name`,
   A2A_SERVER_ADDRESS: `${ARK_PREFIX}a2a-server-address`,
