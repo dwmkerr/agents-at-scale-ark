@@ -60,16 +60,519 @@ export interface SessionQuery {
   events: SessionEvent[];
 }
 
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'error' | 'skipped';
+  startTime?: string;
+  endTime?: string;
+  durationMs?: number;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  queries: SessionQuery[];
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  startTime: string;
+  endTime?: string;
+  durationMs?: number;
+  steps: WorkflowStep[];
+}
+
 export interface Session {
   id: string;
   memoryName?: string;
   createdAt: string;
   lastActivity: string;
   queries: SessionQuery[];
+  workflow?: Workflow;
   totalTokens?: number;
 }
 
 const MOCK_SESSIONS: Session[] = [
+  {
+    id: 'session-workflow-001',
+    memoryName: 'ark-issue-resolver-memory',
+    createdAt: '2025-12-03T09:00:00Z',
+    lastActivity: '2025-12-03T09:45:00Z',
+    totalTokens: 15680,
+    queries: [],
+    workflow: {
+      id: 'wf-resolve-ark-issues',
+      name: 'Resolve All Ark Issues',
+      description:
+        'Automated workflow to identify, analyze, and resolve issues in the Ark platform',
+      status: 'completed',
+      startTime: '2025-12-03T09:00:00Z',
+      endTime: '2025-12-03T09:45:00Z',
+      durationMs: 2700000,
+      steps: [
+        {
+          id: 'step-1',
+          name: 'Scan for Issues',
+          description:
+            'Scan the Ark cluster for any failing pods, pending queries, or resource constraints',
+          status: 'completed',
+          startTime: '2025-12-03T09:00:00Z',
+          endTime: '2025-12-03T09:08:00Z',
+          durationMs: 480000,
+          input: {
+            namespace: 'default',
+            includeSystemPods: false,
+            scanDepth: 'full',
+          },
+          output: {
+            issuesFound: 3,
+            categories: {
+              failingPods: 1,
+              pendingQueries: 1,
+              resourceWarnings: 1,
+            },
+          },
+          queries: [
+            {
+              id: 'query-scan-001',
+              name: 'cluster-health-scan',
+              input: 'Scan the Ark cluster for issues',
+              output:
+                'Found 3 issues: 1 failing pod (executor-langchain-7b8c9d), 1 pending query (query-stuck-42), 1 resource warning (memory pressure on ark-api)',
+              status: 'completed',
+              startTime: '2025-12-03T09:00:00Z',
+              endTime: '2025-12-03T09:05:00Z',
+              durationMs: 300000,
+              targetName: 'cluster-scanner',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 450, completion: 280, total: 730 },
+              events: [
+                {
+                  id: 'evt-scan-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:00:00.000Z',
+                  message: 'Starting cluster scan',
+                  data: {},
+                },
+                {
+                  id: 'evt-scan-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:00:30.000Z',
+                  message: 'Calling tool: kubectl_get_pods',
+                  data: {
+                    toolName: 'kubectl_get_pods',
+                    parameters: { namespace: 'default' },
+                  },
+                },
+                {
+                  id: 'evt-scan-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:01:30.000Z',
+                  durationMs: 60000,
+                  message: 'Tool call completed',
+                  data: { toolName: 'kubectl_get_pods', podsFound: 12 },
+                },
+                {
+                  id: 'evt-scan-4',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:05:00.000Z',
+                  durationMs: 300000,
+                  message: 'Scan completed',
+                  data: { issuesFound: 3 },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'step-2',
+          name: 'Analyze Failing Pod',
+          description:
+            'Investigate the failing executor-langchain pod and determine root cause',
+          status: 'completed',
+          startTime: '2025-12-03T09:08:00Z',
+          endTime: '2025-12-03T09:18:00Z',
+          durationMs: 600000,
+          input: {
+            podName: 'executor-langchain-7b8c9d',
+            namespace: 'default',
+            analyzeLogs: true,
+            analyzeEvents: true,
+          },
+          output: {
+            rootCause: 'OOMKilled',
+            recommendation: 'Increase memory limit from 512Mi to 1Gi',
+            severity: 'high',
+            affectedQueries: 2,
+          },
+          queries: [
+            {
+              id: 'query-analyze-001',
+              name: 'pod-analysis',
+              input: 'Analyze failing pod executor-langchain-7b8c9d',
+              output:
+                'Root cause: OOMKilled. The pod exceeded its memory limit of 512Mi during a complex langchain operation. Recommendation: Increase memory limit to 1Gi.',
+              status: 'completed',
+              startTime: '2025-12-03T09:08:00Z',
+              endTime: '2025-12-03T09:15:00Z',
+              durationMs: 420000,
+              targetName: 'pod-analyzer',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 1200, completion: 650, total: 1850 },
+              events: [
+                {
+                  id: 'evt-analyze-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:08:00.000Z',
+                  message: 'Starting pod analysis',
+                  data: {},
+                },
+                {
+                  id: 'evt-analyze-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:08:30.000Z',
+                  message: 'Calling tool: kubectl_describe_pod',
+                  data: { toolName: 'kubectl_describe_pod' },
+                },
+                {
+                  id: 'evt-analyze-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:09:00.000Z',
+                  durationMs: 30000,
+                  message: 'Tool call completed',
+                  data: { toolName: 'kubectl_describe_pod' },
+                },
+                {
+                  id: 'evt-analyze-4',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:09:30.000Z',
+                  message: 'Calling tool: kubectl_logs',
+                  data: { toolName: 'kubectl_logs', parameters: { tail: 100 } },
+                },
+                {
+                  id: 'evt-analyze-5',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:11:00.000Z',
+                  durationMs: 90000,
+                  message: 'Tool call completed',
+                  data: { toolName: 'kubectl_logs', linesRetrieved: 100 },
+                },
+                {
+                  id: 'evt-analyze-6',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:15:00.000Z',
+                  durationMs: 420000,
+                  message: 'Analysis completed',
+                  data: { rootCause: 'OOMKilled' },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'step-3',
+          name: 'Apply Fix - Memory Increase',
+          description:
+            'Patch the executor-langchain deployment to increase memory limits',
+          status: 'completed',
+          startTime: '2025-12-03T09:18:00Z',
+          endTime: '2025-12-03T09:25:00Z',
+          durationMs: 420000,
+          input: {
+            deployment: 'executor-langchain',
+            patch: {
+              'spec.template.spec.containers[0].resources.limits.memory': '1Gi',
+              'spec.template.spec.containers[0].resources.requests.memory':
+                '512Mi',
+            },
+          },
+          output: {
+            applied: true,
+            rolloutStatus: 'completed',
+            newPodName: 'executor-langchain-9f3e2a',
+            healthCheck: 'passed',
+          },
+          queries: [
+            {
+              id: 'query-fix-001',
+              name: 'apply-memory-patch',
+              input:
+                'Patch executor-langchain deployment with increased memory',
+              output:
+                'Successfully patched deployment. New pod executor-langchain-9f3e2a is running with 1Gi memory limit. Health check passed.',
+              status: 'completed',
+              startTime: '2025-12-03T09:18:00Z',
+              endTime: '2025-12-03T09:25:00Z',
+              durationMs: 420000,
+              targetName: 'kubectl-agent',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 380, completion: 190, total: 570 },
+              events: [
+                {
+                  id: 'evt-fix-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:18:00.000Z',
+                  message: 'Starting patch operation',
+                  data: {},
+                },
+                {
+                  id: 'evt-fix-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:18:30.000Z',
+                  message: 'Calling tool: kubectl_patch',
+                  data: { toolName: 'kubectl_patch' },
+                },
+                {
+                  id: 'evt-fix-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:19:30.000Z',
+                  durationMs: 60000,
+                  message: 'Patch applied',
+                  data: { toolName: 'kubectl_patch' },
+                },
+                {
+                  id: 'evt-fix-4',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:20:00.000Z',
+                  message: 'Calling tool: kubectl_rollout_status',
+                  data: { toolName: 'kubectl_rollout_status' },
+                },
+                {
+                  id: 'evt-fix-5',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:24:00.000Z',
+                  durationMs: 240000,
+                  message: 'Rollout completed',
+                  data: {
+                    toolName: 'kubectl_rollout_status',
+                    status: 'completed',
+                  },
+                },
+                {
+                  id: 'evt-fix-6',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:25:00.000Z',
+                  durationMs: 420000,
+                  message: 'Fix applied successfully',
+                  data: {},
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'step-4',
+          name: 'Resolve Pending Query',
+          description:
+            'Retry or cancel the stuck query that was affected by the pod failure',
+          status: 'completed',
+          startTime: '2025-12-03T09:25:00Z',
+          endTime: '2025-12-03T09:32:00Z',
+          durationMs: 420000,
+          input: {
+            queryName: 'query-stuck-42',
+            action: 'retry',
+            timeout: '5m',
+          },
+          output: {
+            action: 'retried',
+            newStatus: 'completed',
+            result: 'Query completed successfully on retry',
+          },
+          queries: [
+            {
+              id: 'query-retry-001',
+              name: 'retry-stuck-query',
+              input: 'Retry stuck query query-stuck-42',
+              output:
+                'Query query-stuck-42 successfully retried and completed.',
+              status: 'completed',
+              startTime: '2025-12-03T09:25:00Z',
+              endTime: '2025-12-03T09:32:00Z',
+              durationMs: 420000,
+              targetName: 'query-manager',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 220, completion: 95, total: 315 },
+              events: [
+                {
+                  id: 'evt-retry-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:25:00.000Z',
+                  message: 'Starting query retry',
+                  data: {},
+                },
+                {
+                  id: 'evt-retry-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:25:30.000Z',
+                  message: 'Calling tool: ark_query_retry',
+                  data: { toolName: 'ark_query_retry' },
+                },
+                {
+                  id: 'evt-retry-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:31:30.000Z',
+                  durationMs: 360000,
+                  message: 'Query retried successfully',
+                  data: { toolName: 'ark_query_retry', newStatus: 'completed' },
+                },
+                {
+                  id: 'evt-retry-4',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:32:00.000Z',
+                  durationMs: 420000,
+                  message: 'Retry completed',
+                  data: {},
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'step-5',
+          name: 'Address Resource Warning',
+          description: 'Analyze and resolve memory pressure on ark-api service',
+          status: 'completed',
+          startTime: '2025-12-03T09:32:00Z',
+          endTime: '2025-12-03T09:42:00Z',
+          durationMs: 600000,
+          input: {
+            service: 'ark-api',
+            warning: 'memory_pressure',
+            threshold: '85%',
+          },
+          output: {
+            action: 'scaled_horizontally',
+            previousReplicas: 2,
+            newReplicas: 3,
+            memoryUsage: '62%',
+          },
+          queries: [
+            {
+              id: 'query-scale-001',
+              name: 'scale-ark-api',
+              input: 'Address memory pressure on ark-api by scaling',
+              output:
+                'Scaled ark-api from 2 to 3 replicas. Memory usage reduced from 85% to 62%.',
+              status: 'completed',
+              startTime: '2025-12-03T09:32:00Z',
+              endTime: '2025-12-03T09:42:00Z',
+              durationMs: 600000,
+              targetName: 'scaler-agent',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 340, completion: 175, total: 515 },
+              events: [
+                {
+                  id: 'evt-scale-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:32:00.000Z',
+                  message: 'Starting scaling operation',
+                  data: {},
+                },
+                {
+                  id: 'evt-scale-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:33:00.000Z',
+                  message: 'Calling tool: kubectl_scale',
+                  data: {
+                    toolName: 'kubectl_scale',
+                    parameters: { replicas: 3 },
+                  },
+                },
+                {
+                  id: 'evt-scale-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:40:00.000Z',
+                  durationMs: 420000,
+                  message: 'Scaling completed',
+                  data: { toolName: 'kubectl_scale' },
+                },
+                {
+                  id: 'evt-scale-4',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:42:00.000Z',
+                  durationMs: 600000,
+                  message: 'Resource warning resolved',
+                  data: {},
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'step-6',
+          name: 'Verification',
+          description: 'Verify all issues are resolved and cluster is healthy',
+          status: 'completed',
+          startTime: '2025-12-03T09:42:00Z',
+          endTime: '2025-12-03T09:45:00Z',
+          durationMs: 180000,
+          input: {
+            checkPods: true,
+            checkQueries: true,
+            checkResources: true,
+          },
+          output: {
+            allHealthy: true,
+            podsRunning: 14,
+            pendingQueries: 0,
+            resourceWarnings: 0,
+            summary: 'All 3 issues resolved successfully',
+          },
+          queries: [
+            {
+              id: 'query-verify-001',
+              name: 'verify-cluster-health',
+              input: 'Verify all issues are resolved',
+              output:
+                'Verification complete. All 3 issues resolved. Cluster is healthy: 14 pods running, 0 pending queries, no resource warnings.',
+              status: 'completed',
+              startTime: '2025-12-03T09:42:00Z',
+              endTime: '2025-12-03T09:45:00Z',
+              durationMs: 180000,
+              targetName: 'cluster-scanner',
+              targetType: 'Agent',
+              tokenUsage: { prompt: 280, completion: 120, total: 400 },
+              events: [
+                {
+                  id: 'evt-verify-1',
+                  type: 'QueryExecutionStart',
+                  timestamp: '2025-12-03T09:42:00.000Z',
+                  message: 'Starting verification',
+                  data: {},
+                },
+                {
+                  id: 'evt-verify-2',
+                  type: 'ToolCallStart',
+                  timestamp: '2025-12-03T09:42:30.000Z',
+                  message: 'Calling tool: kubectl_get_pods',
+                  data: { toolName: 'kubectl_get_pods' },
+                },
+                {
+                  id: 'evt-verify-3',
+                  type: 'ToolCallComplete',
+                  timestamp: '2025-12-03T09:43:30.000Z',
+                  durationMs: 60000,
+                  message: 'Pod check completed',
+                  data: { toolName: 'kubectl_get_pods', healthyPods: 14 },
+                },
+                {
+                  id: 'evt-verify-4',
+                  type: 'QueryExecutionComplete',
+                  timestamp: '2025-12-03T09:45:00.000Z',
+                  durationMs: 180000,
+                  message: 'All issues verified as resolved',
+                  data: { allHealthy: true },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     id: 'session-abc123',
     memoryName: 'weather-agent-memory',

@@ -19,7 +19,9 @@ import {
   RotateCcw,
   Search,
   Shield,
+  SkipForward,
   Users,
+  Workflow as WorkflowIcon,
   Wrench,
   Zap,
 } from 'lucide-react';
@@ -48,6 +50,8 @@ import {
   type Session,
   type SessionEvent,
   type SessionQuery,
+  type Workflow,
+  type WorkflowStep,
   sessionsService,
 } from '@/lib/services/sessions';
 
@@ -55,6 +59,8 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '../ui/empty';
 
 type SelectedItem =
   | { type: 'session'; session: Session }
+  | { type: 'workflow'; session: Session; workflow: Workflow }
+  | { type: 'step'; session: Session; workflow: Workflow; step: WorkflowStep }
   | { type: 'query'; session: Session; query: SessionQuery }
   | {
       type: 'event';
@@ -77,6 +83,91 @@ function formatTimestamp(timestamp: string | undefined): string {
 }
 
 function getStatusBadge(status: SessionQuery['status']) {
+  switch (status) {
+    case 'completed':
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <CheckCircle className="mr-1 h-3 w-3" />
+          Completed
+        </Badge>
+      );
+    case 'running':
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          Running
+        </Badge>
+      );
+    case 'error':
+      return (
+        <Badge variant="destructive">
+          <AlertCircle className="mr-1 h-3 w-3" />
+          Error
+        </Badge>
+      );
+    case 'pending':
+      return (
+        <Badge variant="outline">
+          <Clock className="mr-1 h-3 w-3" />
+          Pending
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function getStepStatusBadge(status: WorkflowStep['status']) {
+  switch (status) {
+    case 'completed':
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <CheckCircle className="mr-1 h-3 w-3" />
+          Completed
+        </Badge>
+      );
+    case 'running':
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          Running
+        </Badge>
+      );
+    case 'error':
+      return (
+        <Badge variant="destructive">
+          <AlertCircle className="mr-1 h-3 w-3" />
+          Error
+        </Badge>
+      );
+    case 'pending':
+      return (
+        <Badge variant="outline">
+          <Clock className="mr-1 h-3 w-3" />
+          Pending
+        </Badge>
+      );
+    case 'skipped':
+      return (
+        <Badge variant="outline" className="text-gray-500">
+          <SkipForward className="mr-1 h-3 w-3" />
+          Skipped
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function getWorkflowStatusBadge(status: Workflow['status']) {
   switch (status) {
     case 'completed':
       return (
@@ -365,6 +456,193 @@ function SessionDetailPanel({
   onInterrupt?: (query: SessionQuery) => void;
   onAuthRequest?: (event: SessionEvent) => void;
 }) {
+  if (item.type === 'workflow') {
+    const { workflow } = item;
+    const completedSteps = workflow.steps.filter(
+      s => s.status === 'completed',
+    ).length;
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Workflow Details</h3>
+            {getWorkflowStatusBadge(workflow.status)}
+          </div>
+          <dl className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Name
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{workflow.name}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Description
+              </dt>
+              <dd className="mt-1 text-sm">{workflow.description}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Progress
+              </dt>
+              <dd className="mt-1 text-sm">
+                {completedSteps} / {workflow.steps.length} steps
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Duration
+              </dt>
+              <dd className="mt-1 text-sm">
+                {formatDuration(workflow.durationMs)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Started
+              </dt>
+              <dd className="mt-1 text-sm">
+                {formatTimestamp(workflow.startTime)}
+              </dd>
+            </div>
+            {workflow.endTime && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Ended
+                </dt>
+                <dd className="mt-1 text-sm">
+                  {formatTimestamp(workflow.endTime)}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+        <div>
+          <h4 className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+            Steps Overview
+          </h4>
+          <div className="space-y-2">
+            {workflow.steps.map((step, index) => (
+              <div
+                key={step.id}
+                className="flex items-center gap-3 rounded-lg border bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium dark:bg-gray-700">
+                  {index + 1}
+                </span>
+                <span className="flex-1 text-sm">{step.name}</span>
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    step.status === 'completed'
+                      ? 'bg-green-500'
+                      : step.status === 'running'
+                        ? 'animate-pulse bg-blue-500'
+                        : step.status === 'error'
+                          ? 'bg-red-500'
+                          : step.status === 'skipped'
+                            ? 'bg-gray-400'
+                            : 'bg-gray-300'
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (item.type === 'step') {
+    const { step, workflow } = item;
+    const stepIndex = workflow.steps.findIndex(s => s.id === step.id) + 1;
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                {stepIndex}
+              </span>
+              <h3 className="text-lg font-semibold">Step Details</h3>
+            </div>
+            {getStepStatusBadge(step.status)}
+          </div>
+          <dl className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Name
+              </dt>
+              <dd className="mt-1 text-sm font-medium">{step.name}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Description
+              </dt>
+              <dd className="mt-1 text-sm">{step.description}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Duration
+              </dt>
+              <dd className="mt-1 text-sm">
+                {formatDuration(step.durationMs)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Queries
+              </dt>
+              <dd className="mt-1 text-sm">{step.queries.length}</dd>
+            </div>
+            {step.startTime && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Started
+                </dt>
+                <dd className="mt-1 text-sm">
+                  {formatTimestamp(step.startTime)}
+                </dd>
+              </div>
+            )}
+            {step.endTime && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Ended
+                </dt>
+                <dd className="mt-1 text-sm">
+                  {formatTimestamp(step.endTime)}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+        {step.input && Object.keys(step.input).length > 0 && (
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              Input
+            </h4>
+            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <pre className="overflow-x-auto text-xs">
+                {JSON.stringify(step.input, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+        {step.output && Object.keys(step.output).length > 0 && (
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              Output
+            </h4>
+            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <pre className="overflow-x-auto text-xs">
+                {JSON.stringify(step.output, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (item.type === 'session') {
     const { session } = item;
     return (
@@ -719,6 +997,221 @@ function QueryTreeItem({
   );
 }
 
+function StepQueryTreeItem({
+  session,
+  query,
+  selectedItem,
+  onSelect,
+}: {
+  session: Session;
+  query: SessionQuery;
+  selectedItem: SelectedItem | null;
+  onSelect: (item: SelectedItem) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isSelected =
+    selectedItem?.type === 'query' && selectedItem.query.id === query.id;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="flex items-center">
+        <CollapsibleTrigger className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </CollapsibleTrigger>
+        <button
+          onClick={() => onSelect({ type: 'query', session, query })}
+          className={`ml-1 flex flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 ${
+            isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+          }`}>
+          <Search className="h-4 w-4 text-gray-500" />
+          <span className="flex-1 truncate">{query.name}</span>
+          <span
+            className={`h-2 w-2 rounded-full ${
+              query.status === 'completed'
+                ? 'bg-green-500'
+                : query.status === 'running'
+                  ? 'animate-pulse bg-blue-500'
+                  : query.status === 'error'
+                    ? 'bg-red-500'
+                    : 'bg-gray-400'
+            }`}
+          />
+        </button>
+      </div>
+      <CollapsibleContent>
+        <div className="ml-7 space-y-0.5 border-l border-gray-200 pl-3 dark:border-gray-700">
+          {query.events.map(event => {
+            const isEventSelected =
+              selectedItem?.type === 'event' &&
+              selectedItem.event.id === event.id;
+            return (
+              <button
+                key={event.id}
+                onClick={() =>
+                  onSelect({ type: 'event', session, query, event })
+                }
+                className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  isEventSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+                }`}>
+                <span className={getEventColor(event.type)}>
+                  {getEventIcon(event.type)}
+                </span>
+                <span className="flex-1 truncate">
+                  {getEventLabel(event.type)}
+                </span>
+                {event.durationMs !== undefined && (
+                  <span className="text-gray-400">
+                    {formatDuration(event.durationMs)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function WorkflowStepTreeItem({
+  session,
+  workflow,
+  step,
+  stepIndex,
+  selectedItem,
+  onSelect,
+}: {
+  session: Session;
+  workflow: Workflow;
+  step: WorkflowStep;
+  stepIndex: number;
+  selectedItem: SelectedItem | null;
+  onSelect: (item: SelectedItem) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isSelected =
+    selectedItem?.type === 'step' && selectedItem.step.id === step.id;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="flex items-center">
+        <CollapsibleTrigger className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </CollapsibleTrigger>
+        <button
+          onClick={() => onSelect({ type: 'step', session, workflow, step })}
+          className={`ml-1 flex flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 ${
+            isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+          }`}>
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-xs font-medium dark:bg-gray-700">
+            {stepIndex}
+          </span>
+          <span className="flex-1 truncate">{step.name}</span>
+          <span
+            className={`h-2 w-2 rounded-full ${
+              step.status === 'completed'
+                ? 'bg-green-500'
+                : step.status === 'running'
+                  ? 'animate-pulse bg-blue-500'
+                  : step.status === 'error'
+                    ? 'bg-red-500'
+                    : step.status === 'skipped'
+                      ? 'bg-gray-400'
+                      : 'bg-gray-300'
+            }`}
+          />
+        </button>
+      </div>
+      <CollapsibleContent>
+        <div className="ml-7 space-y-0.5 border-l border-gray-200 pl-3 dark:border-gray-700">
+          {step.queries.map(query => (
+            <StepQueryTreeItem
+              key={query.id}
+              session={session}
+              query={query}
+              selectedItem={selectedItem}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function WorkflowTreeItem({
+  session,
+  workflow,
+  selectedItem,
+  onSelect,
+}: {
+  session: Session;
+  workflow: Workflow;
+  selectedItem: SelectedItem | null;
+  onSelect: (item: SelectedItem) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+  const isSelected =
+    selectedItem?.type === 'workflow' &&
+    selectedItem.workflow.id === workflow.id;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="flex items-center">
+        <CollapsibleTrigger className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </CollapsibleTrigger>
+        <button
+          onClick={() => onSelect({ type: 'workflow', session, workflow })}
+          className={`ml-1 flex flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 ${
+            isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+          }`}>
+          <WorkflowIcon className="h-4 w-4 text-purple-500" />
+          <span className="flex-1 truncate">{workflow.name}</span>
+          <span
+            className={`h-2 w-2 rounded-full ${
+              workflow.status === 'completed'
+                ? 'bg-green-500'
+                : workflow.status === 'running'
+                  ? 'animate-pulse bg-blue-500'
+                  : workflow.status === 'error'
+                    ? 'bg-red-500'
+                    : 'bg-gray-300'
+            }`}
+          />
+        </button>
+      </div>
+      <CollapsibleContent>
+        <div className="ml-3 space-y-0.5 border-l border-gray-200 pl-3 dark:border-gray-700">
+          {workflow.steps.map((step, index) => (
+            <WorkflowStepTreeItem
+              key={step.id}
+              session={session}
+              workflow={workflow}
+              step={step}
+              stepIndex={index + 1}
+              selectedItem={selectedItem}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function SessionTreeItem({
   session,
   selectedItem,
@@ -731,6 +1224,12 @@ function SessionTreeItem({
   const [isOpen, setIsOpen] = useState(true);
   const isSelected =
     selectedItem?.type === 'session' && selectedItem.session.id === session.id;
+
+  const hasWorkflow = !!session.workflow;
+  const itemCount = hasWorkflow
+    ? session.workflow!.steps.length
+    : session.queries.length;
+  const itemLabel = hasWorkflow ? 'steps' : 'queries';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -752,21 +1251,30 @@ function SessionTreeItem({
             {session.memoryName ?? session.id}
           </span>
           <span className="text-xs text-gray-400">
-            {session.queries.length} queries
+            {itemCount} {itemLabel}
           </span>
         </button>
       </div>
       <CollapsibleContent>
         <div className="ml-3 space-y-0.5 border-l border-gray-200 pl-3 dark:border-gray-700">
-          {session.queries.map(query => (
-            <QueryTreeItem
-              key={query.id}
+          {hasWorkflow ? (
+            <WorkflowTreeItem
               session={session}
-              query={query}
+              workflow={session.workflow!}
               selectedItem={selectedItem}
               onSelect={onSelect}
             />
-          ))}
+          ) : (
+            session.queries.map(query => (
+              <QueryTreeItem
+                key={query.id}
+                session={session}
+                query={query}
+                selectedItem={selectedItem}
+                onSelect={onSelect}
+              />
+            ))
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>
