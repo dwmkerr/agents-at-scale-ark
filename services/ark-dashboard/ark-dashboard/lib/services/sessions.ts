@@ -30,7 +30,11 @@ export type SessionEventType =
   | 'A2ATaskStart'
   | 'A2ATaskComplete'
   | 'A2ATaskError'
-  | 'A2ATaskPendingAuth';
+  | 'A2ATaskPendingAuth'
+  | 'SkillInvoke'
+  | 'SkillComplete'
+  | 'MessageUpdate'
+  | 'TodoUpdate';
 
 export interface SessionEvent {
   id: string;
@@ -1395,6 +1399,349 @@ const MOCK_SESSIONS: Session[] = [
               reason:
                 'User authentication required to access Salesforce CRM data',
             },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'session-a2a-setup-ark',
+    memoryName: 'ark-setup-session',
+    createdAt: '2025-12-03T15:20:00Z',
+    lastActivity: '2025-12-03T15:29:33Z',
+    totalTokens: 8450,
+    queries: [
+      {
+        id: 'query-setup-ark-001',
+        name: 'setup-ark-query',
+        input: 'can you setup ark',
+        output:
+          'Ark has been successfully set up. Docker verified, Kind cluster created, ark-cli built and installed.',
+        status: 'completed',
+        startTime: '2025-12-03T15:20:00Z',
+        endTime: '2025-12-03T15:29:33Z',
+        durationMs: 573000,
+        targetName: 'claude-code-agent',
+        targetType: 'Agent',
+        tokenUsage: { prompt: 4200, completion: 4250, total: 8450 },
+        events: [
+          {
+            id: 'evt-ark-001',
+            type: 'A2ATaskStart',
+            timestamp: '2025-12-03T15:20:00.000Z',
+            message: 'Executing: "can you setup ark"',
+            data: { sessionId: '078ac71c', taskName: 'Setup Ark' },
+          },
+          {
+            id: 'evt-ark-002',
+            type: 'MessageUpdate',
+            timestamp: '2025-12-03T15:20:01.000Z',
+            message:
+              "I'll help you set up Ark from source. Let me invoke the ark-setup skill...",
+            data: { role: 'assistant' },
+          },
+          {
+            id: 'evt-ark-003',
+            type: 'SkillInvoke',
+            timestamp: '2025-12-03T15:20:02.000Z',
+            message: 'Invoking skill: ark-setup',
+            data: { skill: 'ark-setup', skillName: 'Ark Setup' },
+          },
+          {
+            id: 'evt-ark-004',
+            type: 'MessageUpdate',
+            timestamp: '2025-12-03T15:20:03.000Z',
+            message: 'The "Ark Setup" skill is running',
+            data: { role: 'system', type: 'skill-status' },
+          },
+          {
+            id: 'evt-ark-005',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:20:05.000Z',
+            message: 'Todo list updated',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'in_progress',
+                },
+                { content: 'Clone Ark repository', status: 'pending' },
+                { content: 'Create Kind cluster', status: 'pending' },
+                { content: 'Build ark-cli', status: 'pending' },
+                { content: 'Install Ark', status: 'pending' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-006',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:20:06.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'docker info',
+              description: 'Verify Docker is accessible',
+            },
+          },
+          {
+            id: 'evt-ark-007',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:20:08.000Z',
+            durationMs: 2000,
+            message: 'Tool completed: Bash',
+            data: {
+              toolName: 'Bash',
+              result: 'Docker available - Containers: 14, Running: 7',
+            },
+          },
+          {
+            id: 'evt-ark-008',
+            type: 'MessageUpdate',
+            timestamp: '2025-12-03T15:20:09.000Z',
+            message:
+              'Great! Docker is available. Proceeding with repository clone.',
+            data: { role: 'assistant' },
+          },
+          {
+            id: 'evt-ark-009',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:20:10.000Z',
+            message: 'Todo list updated',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'completed',
+                },
+                { content: 'Clone Ark repository', status: 'in_progress' },
+                { content: 'Create Kind cluster', status: 'pending' },
+                { content: 'Build ark-cli', status: 'pending' },
+                { content: 'Install Ark', status: 'pending' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-010',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:20:11.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command:
+                'git clone https://github.com/mckinsey/agents-at-scale-ark.git',
+              description: 'Clone Ark repository',
+            },
+          },
+          {
+            id: 'evt-ark-011',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:20:15.000Z',
+            durationMs: 4000,
+            message: 'Tool completed: Bash',
+            data: { toolName: 'Bash', result: 'Repository already exists' },
+          },
+          {
+            id: 'evt-ark-012',
+            type: 'MessageUpdate',
+            timestamp: '2025-12-03T15:20:16.000Z',
+            message: 'Repository already cloned. Creating Kind cluster...',
+            data: { role: 'assistant' },
+          },
+          {
+            id: 'evt-ark-013',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:20:17.000Z',
+            message: 'Todo list updated',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'completed',
+                },
+                { content: 'Clone Ark repository', status: 'completed' },
+                { content: 'Create Kind cluster', status: 'in_progress' },
+                { content: 'Build ark-cli', status: 'pending' },
+                { content: 'Install Ark', status: 'pending' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-014',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:20:18.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'kind create cluster --name ark-cluster',
+              description: 'Create Kind cluster',
+            },
+          },
+          {
+            id: 'evt-ark-015',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:23:00.000Z',
+            durationMs: 162000,
+            message: 'Tool completed: Bash',
+            data: {
+              toolName: 'Bash',
+              result: 'Creating cluster "ark-cluster" ✓ Cluster ready',
+            },
+          },
+          {
+            id: 'evt-ark-016',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:23:05.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'kubectl cluster-info',
+              description: 'Verify kubectl connection',
+            },
+          },
+          {
+            id: 'evt-ark-017',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:23:08.000Z',
+            durationMs: 3000,
+            message: 'Tool completed: Bash',
+            data: {
+              toolName: 'Bash',
+              result:
+                'Kubernetes control plane running at https://172.18.0.2:6443',
+            },
+          },
+          {
+            id: 'evt-ark-018',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:23:10.000Z',
+            message: 'Todo list updated',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'completed',
+                },
+                { content: 'Clone Ark repository', status: 'completed' },
+                { content: 'Create Kind cluster', status: 'completed' },
+                { content: 'Build ark-cli', status: 'in_progress' },
+                { content: 'Install Ark', status: 'pending' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-019',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:23:15.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'cd tools/ark-cli && npm install && npm run build',
+              description: 'Build ark-cli',
+            },
+          },
+          {
+            id: 'evt-ark-020',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:25:00.000Z',
+            durationMs: 105000,
+            message: 'Tool completed: Bash',
+            data: { toolName: 'Bash', result: 'ark-cli built successfully' },
+          },
+          {
+            id: 'evt-ark-021',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:25:05.000Z',
+            message: 'Todo list updated',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'completed',
+                },
+                { content: 'Clone Ark repository', status: 'completed' },
+                { content: 'Create Kind cluster', status: 'completed' },
+                { content: 'Build ark-cli', status: 'completed' },
+                { content: 'Install Ark', status: 'in_progress' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-022',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:25:10.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'node dist/index.js install --yes --wait-for-ready 5m',
+              description: 'Install Ark with CLI',
+            },
+          },
+          {
+            id: 'evt-ark-023',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:28:30.000Z',
+            durationMs: 200000,
+            message: 'Tool completed: Bash',
+            data: {
+              toolName: 'Bash',
+              result: '✓ connected to cluster ✓ Ark installed successfully',
+            },
+          },
+          {
+            id: 'evt-ark-024',
+            type: 'ToolCallStart',
+            timestamp: '2025-12-03T15:28:35.000Z',
+            message: 'Calling tool: Bash',
+            data: {
+              toolName: 'Bash',
+              command: 'kubectl get pods -n ark-system',
+              description: 'Check ark-system pods',
+            },
+          },
+          {
+            id: 'evt-ark-025',
+            type: 'ToolCallComplete',
+            timestamp: '2025-12-03T15:28:38.000Z',
+            durationMs: 3000,
+            message: 'Tool completed: Bash',
+            data: {
+              toolName: 'Bash',
+              result: 'ark-controller-9cb477769-6n4d2   1/1   Running',
+            },
+          },
+          {
+            id: 'evt-ark-026',
+            type: 'TodoUpdate',
+            timestamp: '2025-12-03T15:28:40.000Z',
+            message: 'Todo list updated - All tasks complete',
+            data: {
+              todos: [
+                {
+                  content: 'Verify Docker-in-Docker is available',
+                  status: 'completed',
+                },
+                { content: 'Clone Ark repository', status: 'completed' },
+                { content: 'Create Kind cluster', status: 'completed' },
+                { content: 'Build ark-cli', status: 'completed' },
+                { content: 'Install Ark', status: 'completed' },
+              ],
+            },
+          },
+          {
+            id: 'evt-ark-027',
+            type: 'SkillComplete',
+            timestamp: '2025-12-03T15:29:30.000Z',
+            durationMs: 567000,
+            message: 'Skill completed: ark-setup',
+            data: { skill: 'ark-setup' },
+          },
+          {
+            id: 'evt-ark-028',
+            type: 'A2ATaskComplete',
+            timestamp: '2025-12-03T15:29:33.000Z',
+            durationMs: 573000,
+            message: 'A2A task completed successfully',
+            data: { taskName: 'Setup Ark', status: 'success' },
           },
         ],
       },

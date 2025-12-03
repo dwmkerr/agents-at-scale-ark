@@ -6,6 +6,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   Clock,
   Database,
   GitBranch,
@@ -20,6 +21,7 @@ import {
   Search,
   Shield,
   SkipForward,
+  Sparkles,
   Users,
   Workflow as WorkflowIcon,
   Wrench,
@@ -207,6 +209,11 @@ function getWorkflowStatusBadge(status: Workflow['status']) {
 }
 
 function getEventIcon(eventType: string) {
+  if (eventType.includes('Skill')) return <Sparkles className="h-3.5 w-3.5" />;
+  if (eventType.includes('Todo'))
+    return <ClipboardList className="h-3.5 w-3.5" />;
+  if (eventType.includes('MessageUpdate'))
+    return <MessageSquare className="h-3.5 w-3.5" />;
   if (eventType.includes('A2ATask')) return <Link2 className="h-3.5 w-3.5" />;
   if (eventType.includes('PendingAuth'))
     return <KeyRound className="h-3.5 w-3.5" />;
@@ -223,12 +230,20 @@ function getEventColor(eventType: string): string {
   if (eventType.includes('Error')) return 'text-red-500';
   if (eventType.includes('PendingAuth')) return 'text-orange-500';
   if (eventType.includes('Complete')) return 'text-green-500';
-  if (eventType.includes('Start')) return 'text-blue-500';
+  if (eventType.includes('Start') || eventType.includes('Invoke'))
+    return 'text-blue-500';
+  if (eventType.includes('Skill')) return 'text-purple-500';
+  if (eventType.includes('Todo')) return 'text-amber-500';
+  if (eventType.includes('Message')) return 'text-cyan-500';
   return 'text-gray-500';
 }
 
 function getEventLabel(eventType: string): string {
   if (eventType === 'A2ATaskPendingAuth') return 'A2A Task - Auth Required';
+  if (eventType === 'SkillInvoke') return 'Skill Invoked';
+  if (eventType === 'SkillComplete') return 'Skill Complete';
+  if (eventType === 'MessageUpdate') return 'Message';
+  if (eventType === 'TodoUpdate') return 'Todo Updated';
   return eventType
     .replace(/Start$/, '')
     .replace(/Complete$/, '')
