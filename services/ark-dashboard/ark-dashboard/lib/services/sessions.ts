@@ -26,7 +26,11 @@ export type SessionEventType =
   | 'MemoryAddMessagesStart'
   | 'MemoryAddMessagesComplete'
   | 'MemoryGetMessagesStart'
-  | 'MemoryGetMessagesComplete';
+  | 'MemoryGetMessagesComplete'
+  | 'A2ATaskStart'
+  | 'A2ATaskComplete'
+  | 'A2ATaskError'
+  | 'A2ATaskPendingAuth';
 
 export interface SessionEvent {
   id: string;
@@ -803,6 +807,91 @@ const MOCK_SESSIONS: Session[] = [
             durationMs: 120000,
             message: 'Query failed: visualization tool unavailable',
             data: { error: 'Unable to generate visualization' },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'session-agentforce-001',
+    memoryName: 'salesforce-crm-memory',
+    createdAt: '2025-12-03T11:00:00Z',
+    lastActivity: '2025-12-03T11:05:30Z',
+    totalTokens: 1250,
+    queries: [
+      {
+        id: 'query-agentforce-001',
+        name: 'customer-360-query',
+        input:
+          'Get a complete 360 view of customer Acme Corp including all interactions, support tickets, and purchase history',
+        status: 'running',
+        startTime: '2025-12-03T11:00:00Z',
+        targetName: 'agentforce-connector',
+        targetType: 'Agent',
+        events: [
+          {
+            id: 'evt-af-001-1',
+            type: 'QueryExecutionStart',
+            timestamp: '2025-12-03T11:00:00.000Z',
+            message: 'Query execution started',
+            data: {
+              queryName: 'customer-360-query',
+              sessionId: 'session-agentforce-001',
+            },
+          },
+          {
+            id: 'evt-af-001-2',
+            type: 'AgentExecutionStart',
+            timestamp: '2025-12-03T11:00:00.100Z',
+            message: 'Agent started: agentforce-connector',
+            data: {
+              agentName: 'agentforce-connector',
+              model: 'gpt-4o',
+            },
+          },
+          {
+            id: 'evt-af-001-3',
+            type: 'LLMCallStart',
+            timestamp: '2025-12-03T11:00:00.200Z',
+            message: 'Planning customer data aggregation',
+            data: { model: 'gpt-4o' },
+          },
+          {
+            id: 'evt-af-001-4',
+            type: 'LLMCallComplete',
+            timestamp: '2025-12-03T11:00:02.500Z',
+            durationMs: 2300,
+            message: 'LLM call completed - identified A2A task needed',
+            data: { model: 'gpt-4o', completionTokens: 156 },
+          },
+          {
+            id: 'evt-af-001-5',
+            type: 'A2ATaskStart',
+            timestamp: '2025-12-03T11:00:03.000Z',
+            message: 'Starting A2A task: Aggregate Customer Details',
+            data: {
+              taskName: 'Aggregate Customer Details',
+              a2aServer: 'agentforce-salesforce',
+              serverAddr: 'https://agentforce.salesforce.com/a2a',
+              protocol: 'A2A/1.0',
+              customerId: 'ACME-001',
+            },
+          },
+          {
+            id: 'evt-af-001-6',
+            type: 'A2ATaskPendingAuth',
+            timestamp: '2025-12-03T11:00:05.000Z',
+            message: 'Authentication required for Salesforce Agentforce',
+            data: {
+              taskName: 'Aggregate Customer Details',
+              a2aServer: 'agentforce-salesforce',
+              authType: 'oauth2_sso',
+              authProvider: 'Salesforce',
+              authUrl: 'https://login.salesforce.com/oauth2/authorize',
+              scopes: ['api', 'refresh_token', 'openid'],
+              reason:
+                'User authentication required to access Salesforce CRM data',
+            },
           },
         ],
       },

@@ -9,12 +9,16 @@ import {
   Clock,
   Database,
   GitBranch,
+  KeyRound,
+  Link2,
   Loader2,
+  LogIn,
   MessageSquare,
   Pause,
   RefreshCw,
   RotateCcw,
   Search,
+  Shield,
   Users,
   Wrench,
   Zap,
@@ -112,6 +116,9 @@ function getStatusBadge(status: SessionQuery['status']) {
 }
 
 function getEventIcon(eventType: string) {
+  if (eventType.includes('A2ATask')) return <Link2 className="h-3.5 w-3.5" />;
+  if (eventType.includes('PendingAuth'))
+    return <KeyRound className="h-3.5 w-3.5" />;
   if (eventType.includes('Tool')) return <Wrench className="h-3.5 w-3.5" />;
   if (eventType.includes('LLM')) return <Zap className="h-3.5 w-3.5" />;
   if (eventType.includes('Agent')) return <Bot className="h-3.5 w-3.5" />;
@@ -123,16 +130,19 @@ function getEventIcon(eventType: string) {
 
 function getEventColor(eventType: string): string {
   if (eventType.includes('Error')) return 'text-red-500';
+  if (eventType.includes('PendingAuth')) return 'text-orange-500';
   if (eventType.includes('Complete')) return 'text-green-500';
   if (eventType.includes('Start')) return 'text-blue-500';
   return 'text-gray-500';
 }
 
 function getEventLabel(eventType: string): string {
+  if (eventType === 'A2ATaskPendingAuth') return 'A2A Task - Auth Required';
   return eventType
     .replace(/Start$/, '')
     .replace(/Complete$/, '')
     .replace(/Error$/, '')
+    .replace(/PendingAuth$/, '')
     .replace(/([A-Z])/g, ' $1')
     .trim();
 }
@@ -228,12 +238,132 @@ function InterruptDialog({
   );
 }
 
+function AuthenticationDialog({
+  open,
+  onOpenChange,
+  event,
+  onSignIn,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  event: SessionEvent | null;
+  onSignIn: () => void;
+}) {
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const authData = event?.data as {
+    taskName?: string;
+    authProvider?: string;
+    authUrl?: string;
+    scopes?: string[];
+    reason?: string;
+    a2aServer?: string;
+  } | null;
+
+  const handleSignIn = async () => {
+    setIsSigningIn(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    onSignIn();
+    setIsSigningIn(false);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-500" />
+            Authentication Requested
+          </DialogTitle>
+          <DialogDescription>
+            The A2A task requires authentication to continue.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg border bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-3 flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">
+                {authData?.taskName ?? 'A2A Task'}
+              </span>
+            </div>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500 dark:text-gray-400">Provider</dt>
+                <dd className="font-medium">
+                  {authData?.authProvider ?? 'Unknown'}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500 dark:text-gray-400">Server</dt>
+                <dd className="font-mono text-xs">
+                  {authData?.a2aServer ?? '-'}
+                </dd>
+              </div>
+              {authData?.scopes && (
+                <div>
+                  <dt className="mb-1 text-gray-500 dark:text-gray-400">
+                    Requested Scopes
+                  </dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {authData.scopes.map(scope => (
+                      <Badge
+                        key={scope}
+                        variant="secondary"
+                        className="text-xs">
+                        {scope}
+                      </Badge>
+                    ))}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+          {authData?.reason && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {authData.reason}
+            </p>
+          )}
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              You will be redirected to{' '}
+              {authData?.authProvider ?? 'the provider'} to sign in. After
+              authentication, the task will continue automatically.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSignIn} disabled={isSigningIn}>
+            {isSigningIn ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              <>
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign in with SSO
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SessionDetailPanel({
   item,
   onInterrupt,
+  onAuthRequest,
 }: {
   item: SelectedItem;
   onInterrupt?: (query: SessionQuery) => void;
+  onAuthRequest?: (event: SessionEvent) => void;
 }) {
   if (item.type === 'session') {
     const { session } = item;
@@ -394,6 +524,8 @@ function SessionDetailPanel({
 
   if (item.type === 'event') {
     const { event } = item;
+    const isPendingAuth = event.type === 'A2ATaskPendingAuth';
+
     return (
       <div className="space-y-6">
         <div>
@@ -421,7 +553,38 @@ function SessionDetailPanel({
                 Start
               </Badge>
             )}
+            {isPendingAuth && (
+              <Badge
+                variant="secondary"
+                className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                <KeyRound className="mr-1 h-3 w-3" />
+                Action Required
+              </Badge>
+            )}
           </div>
+          {isPendingAuth && (
+            <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-950">
+              <div className="flex items-start gap-3">
+                <Shield className="mt-0.5 h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-orange-800 dark:text-orange-200">
+                    Authentication Required
+                  </h4>
+                  <p className="mt-1 text-sm text-orange-700 dark:text-orange-300">
+                    This A2A task requires you to sign in to continue. Click the
+                    button below to authenticate.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => onAuthRequest?.(event)}>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign in with SSO
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           <dl className="grid grid-cols-2 gap-4">
             <div>
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -619,6 +782,24 @@ export function SessionsSection() {
   const [queryToInterrupt, setQueryToInterrupt] = useState<SessionQuery | null>(
     null,
   );
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [eventToAuth, setEventToAuth] = useState<SessionEvent | null>(null);
+
+  const handleAuthRequest = (event: SessionEvent) => {
+    setEventToAuth(event);
+    setAuthDialogOpen(true);
+  };
+
+  const handleSignIn = () => {
+    if (eventToAuth) {
+      const taskName =
+        (eventToAuth.data as { taskName?: string })?.taskName ?? 'A2A Task';
+      toast.success('Authentication Successful', {
+        description: `Successfully authenticated. "${taskName}" will now continue.`,
+      });
+    }
+    setEventToAuth(null);
+  };
 
   const handleInterrupt = (query: SessionQuery) => {
     setQueryToInterrupt(query);
@@ -730,6 +911,7 @@ export function SessionsSection() {
                 <SessionDetailPanel
                   item={selectedItem}
                   onInterrupt={handleInterrupt}
+                  onAuthRequest={handleAuthRequest}
                 />
               ) : (
                 <p className="text-center text-gray-500">
@@ -745,6 +927,12 @@ export function SessionsSection() {
         onOpenChange={setInterruptDialogOpen}
         queryName={queryToInterrupt?.name ?? ''}
         onRestart={handleRestart}
+      />
+      <AuthenticationDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        event={eventToAuth}
+        onSignIn={handleSignIn}
       />
     </>
   );
