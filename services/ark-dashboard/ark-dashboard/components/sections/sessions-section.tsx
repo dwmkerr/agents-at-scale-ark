@@ -45,7 +45,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { DASHBOARD_SECTIONS } from '@/lib/constants';
 import {
@@ -1296,6 +1304,23 @@ function SessionTreeItem({
   );
 }
 
+type StatusFilter = 'all' | 'running' | 'completed' | 'error';
+
+function getSessionStatus(session: Session): 'running' | 'completed' | 'error' {
+  if (session.workflow) {
+    return session.workflow.status === 'running'
+      ? 'running'
+      : session.workflow.status === 'error'
+        ? 'error'
+        : 'completed';
+  }
+  const hasRunning = session.queries.some(q => q.status === 'running');
+  const hasError = session.queries.some(q => q.status === 'error');
+  if (hasRunning) return 'running';
+  if (hasError) return 'error';
+  return 'completed';
+}
+
 export function SessionsSection() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1307,6 +1332,8 @@ export function SessionsSection() {
   );
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [eventToAuth, setEventToAuth] = useState<SessionEvent | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const handleAuthRequest = (event: SessionEvent) => {
     setEventToAuth(event);
@@ -1380,6 +1407,25 @@ export function SessionsSection() {
     );
   }
 
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch =
+      searchQuery === '' ||
+      (session.memoryName ?? session.id)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      session.workflow?.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      session.queries.some(q =>
+        q.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+
+    const matchesStatus =
+      statusFilter === 'all' || getSessionStatus(session) === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
   if (sessions.length === 0) {
     return (
       <div className="p-8">
@@ -1399,28 +1445,60 @@ export function SessionsSection() {
     <>
       <div className="flex h-[calc(100vh-12rem)]">
         <div className="w-96 border-r dark:border-gray-800">
-          <div className="flex items-center justify-between border-b p-3 dark:border-gray-800">
-            <h2 className="text-sm font-semibold">Sessions</h2>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => loadSessions(true)}
-              disabled={refreshing}>
-              <RefreshCw
-                className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
-              />
-            </Button>
-          </div>
-          <ScrollArea className="h-[calc(100%-3.5rem)]">
-            <div className="space-y-1 p-2">
-              {sessions.map(session => (
-                <SessionTreeItem
-                  key={session.id}
-                  session={session}
-                  selectedItem={selectedItem}
-                  onSelect={setSelectedItem}
+          <div className="border-b p-3 dark:border-gray-800">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Sessions</h2>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => loadSessions(true)}
+                disabled={refreshing}>
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
                 />
-              ))}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search sessions..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="h-9 pl-8"
+                />
+              </div>
+              <Select
+                value={statusFilter}
+                onValueChange={v => setStatusFilter(v as StatusFilter)}>
+                <SelectTrigger className="h-9 w-28">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="running">Running</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="error">Error</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <ScrollArea className="h-[calc(100%-7rem)]">
+            <div className="space-y-1 p-2">
+              {filteredSessions.length === 0 ? (
+                <p className="py-4 text-center text-sm text-gray-500">
+                  No sessions match your filters
+                </p>
+              ) : (
+                filteredSessions.map(session => (
+                  <SessionTreeItem
+                    key={session.id}
+                    session={session}
+                    selectedItem={selectedItem}
+                    onSelect={setSelectedItem}
+                  />
+                ))
+              )}
             </div>
           </ScrollArea>
         </div>

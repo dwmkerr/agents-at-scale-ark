@@ -101,7 +101,7 @@ export interface Session {
 const MOCK_SESSIONS: Session[] = [
   {
     id: 'session-workflow-001',
-    memoryName: 'ark-issue-resolver-memory',
+    memoryName: 'resolve-issues-run-30',
     createdAt: '2025-12-03T09:00:00Z',
     lastActivity: '2025-12-03T09:45:00Z',
     totalTokens: 15680,
