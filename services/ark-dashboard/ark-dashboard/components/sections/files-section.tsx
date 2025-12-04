@@ -12,6 +12,7 @@ import {
   Folder,
   FolderOpen,
   RefreshCw,
+  Search,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -24,7 +25,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { type FileItem, filesService } from '@/lib/services/files';
 
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '../ui/empty';
@@ -296,10 +305,42 @@ spec:
   );
 }
 
+type FileTypeFilter =
+  | 'all'
+  | 'folder'
+  | 'yaml'
+  | 'json'
+  | 'text'
+  | 'pdf'
+  | 'csv';
+
+function getFileTypeCategory(file: FileItem): FileTypeFilter {
+  if (file.type === 'folder') return 'folder';
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'yaml':
+    case 'yml':
+      return 'yaml';
+    case 'json':
+      return 'json';
+    case 'md':
+    case 'txt':
+      return 'text';
+    case 'pdf':
+      return 'pdf';
+    case 'csv':
+      return 'csv';
+    default:
+      return 'text';
+  }
+}
+
 export function FilesSection() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<FileTypeFilter>('all');
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -336,7 +377,19 @@ export function FilesSection() {
     toast.info('Refreshed');
   };
 
-  const rootFiles = files
+  const filteredFiles = files.filter(file => {
+    const matchesSearch =
+      searchQuery === '' ||
+      file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      file.path.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesType =
+      typeFilter === 'all' || getFileTypeCategory(file) === typeFilter;
+
+    return matchesSearch && matchesType;
+  });
+
+  const rootFiles = filteredFiles
     .filter(f => f.parentId === null)
     .sort((a, b) => {
       if (a.type === 'folder' && b.type !== 'folder') return -1;
@@ -386,20 +439,55 @@ export function FilesSection() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="w-80 flex-shrink-0 border-r">
-          <ScrollArea className="h-full">
+          <div className="border-b p-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search files..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="h-9 pl-8"
+                />
+              </div>
+              <Select
+                value={typeFilter}
+                onValueChange={v => setTypeFilter(v as FileTypeFilter)}>
+                <SelectTrigger className="h-9 w-24">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="folder">Folders</SelectItem>
+                  <SelectItem value="yaml">YAML</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <ScrollArea className="h-[calc(100%-4rem)]">
             <div className="p-3">
               <div className="mb-2 px-2 text-xs font-medium text-gray-500">
                 FILES
               </div>
-              {rootFiles.map(file => (
-                <FileTreeItem
-                  key={file.id}
-                  file={file}
-                  allFiles={files}
-                  selectedFile={selectedFile}
-                  onSelect={setSelectedFile}
-                />
-              ))}
+              {rootFiles.length === 0 ? (
+                <p className="py-4 text-center text-sm text-gray-500">
+                  No files match your filters
+                </p>
+              ) : (
+                rootFiles.map(file => (
+                  <FileTreeItem
+                    key={file.id}
+                    file={file}
+                    allFiles={filteredFiles}
+                    selectedFile={selectedFile}
+                    onSelect={setSelectedFile}
+                  />
+                ))
+              )}
             </div>
           </ScrollArea>
         </div>
