@@ -45,19 +45,46 @@ Update `03-verifiable-prototype.md` with:
 Ordered list of minimal implementation steps.
 
 ### Status
-Current progress - which steps are done, in progress, or pending.
+Current progress - which steps are done, in progress, or pending. Use checkboxes:
+- [x] Completed step
+- [ ] Pending step
 
 ### Implementation Notes
-Brief notes on key decisions made during implementation.
+Brief notes on key decisions made during implementation. Include:
+- Files created or modified
+- Architecture decisions made
+- Any deviations from the original architecture
 
 ### Verification
-How to manually verify the prototype works:
-- Commands to run
-- Expected outputs
-- What to check in the dashboard/API
+Concrete steps to manually verify the prototype works. Include:
+- **Prerequisites**: Setup commands (start services, set env vars)
+- **Step-by-step verification**: Numbered steps with bash snippets, curl commands, or dashboard instructions
+- **Expected outputs**: What the user should see at each step
+- **Troubleshooting**: Common issues and fixes
+
+Example verification step:
+```bash
+# Create a test question
+curl -X POST http://localhost:8080/questions \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"ark://agents/test","recipient":"ark://users/dave","content":"Test?"}'
+
+# Expected: JSON response with question ID and status "pending"
+```
+
+## Iteration
+
+Prototypes are iterative. After user testing:
+1. Gather feedback on what works and what doesn't
+2. Update `03-verifiable-prototype.md` with findings
+3. If architecture needs changes, note them and update `02-architecture.md`
+4. Implement next iteration
+
+The prototype may reveal that the architecture needs adjustment - this is expected and valuable.
 
 ## Notes
 
 - Code quality will be finalized by the ark-technical-lead agent
 - Focus on demonstrating functionality, not production polish
 - Keep changes as small as possible while still being functional
+- Never commit unless the user specifically asks
