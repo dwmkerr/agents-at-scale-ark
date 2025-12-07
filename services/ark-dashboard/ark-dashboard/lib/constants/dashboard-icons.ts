@@ -5,6 +5,7 @@ import {
   CheckCircle,
   ClipboardList,
   Database,
+  HelpCircle,
   Key,
   Lock,
   type LucideIcon,
@@ -64,6 +65,12 @@ export const DASHBOARD_SECTIONS: Record<string, DashboardSection> = {
     key: 'queries',
     title: 'Queries',
     icon: Search,
+    group: 'operations',
+  },
+  questions: {
+    key: 'questions',
+    title: 'Questions',
+    icon: HelpCircle,
     group: 'operations',
   },
   evaluations: {
