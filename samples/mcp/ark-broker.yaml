@@ -1,0 +1,40 @@
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: ark-broker
+  namespace: default
+spec:
+  transport:
+    type: stdio
+  command: /app/ark-broker
+  args:
+    - "-data-dir"
+    - "/data"
+    - "-port"
+    - "8080"
+---
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Agent
+metadata:
+  name: approval-agent
+  namespace: default
+spec:
+  model:
+    name: default
+  instructions: |
+    You are an agent that handles deployment approvals.
+    When asked to deploy something, use the ask_question tool from ark-broker
+    to get approval from the user before proceeding.
+  mcpServers:
+    - ark-broker
+---
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: Query
+metadata:
+  name: test-deployment-approval
+  namespace: default
+spec:
+  input: "Deploy the application to production"
+  targets:
+    - type: agent
+      name: approval-agent
