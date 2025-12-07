@@ -449,6 +449,7 @@ spec:
                 enum:
                 - pending
                 - running
+                - waiting
                 - error
                 - done
                 - canceled
@@ -505,6 +506,19 @@ spec:
                   totalTokens:
                     format: int64
                     type: integer
+                type: object
+              waitingFor:
+                properties:
+                  question:
+                    properties:
+                      id:
+                        type: string
+                    required:
+                    - id
+                    type: object
+                  since:
+                    format: date-time
+                    type: string
                 type: object
             type: object
         type: object

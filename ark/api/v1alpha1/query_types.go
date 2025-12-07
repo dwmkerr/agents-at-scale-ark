@@ -123,9 +123,18 @@ type TokenUsage struct {
 	TotalTokens      int64 `json:"totalTokens,omitempty"`
 }
 
+type QuestionRef struct {
+	ID string `json:"id"`
+}
+
+type WaitingFor struct {
+	Since    *metav1.Time `json:"since,omitempty"`
+	Question QuestionRef  `json:"question,omitempty"`
+}
+
 type QueryStatus struct {
 	// +kubebuilder:default="pending"
-	// +kubebuilder:validation:Enum=pending;running;error;done;canceled
+	// +kubebuilder:validation:Enum=pending;running;waiting;error;done;canceled
 	Phase string `json:"phase,omitempty"`
 	// +kubebuilder:validation:Optional
 	// Conditions represent the latest available observations of a query's state
@@ -134,6 +143,8 @@ type QueryStatus struct {
 	TokenUsage TokenUsage         `json:"tokenUsage,omitempty"`
 	// +kubebuilder:validation:Optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
+	// +kubebuilder:validation:Optional
+	WaitingFor *WaitingFor `json:"waitingFor,omitempty"`
 }
 
 // +kubebuilder:object:root=true
