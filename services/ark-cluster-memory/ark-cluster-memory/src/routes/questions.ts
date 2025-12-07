@@ -5,6 +5,36 @@ export function createQuestionsRouter(questions: QuestionStore): Router {
   const router = Router();
 
   router.get('/questions', (req, res) => {
+    const watch = req.query.watch === 'true';
+
+    if (watch) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const onQuestionCreated = (question: any) => {
+        res.write(`event: question_created\n`);
+        res.write(`data: ${JSON.stringify(question)}\n\n`);
+      };
+
+      const onQuestionAnswered = (question: any) => {
+        res.write(`event: question_answered\n`);
+        res.write(`data: ${JSON.stringify(question)}\n\n`);
+      };
+
+      questions.eventEmitter.on('question_created', onQuestionCreated);
+      questions.eventEmitter.on('question_answered', onQuestionAnswered);
+
+      req.on('close', () => {
+        questions.eventEmitter.off('question_created', onQuestionCreated);
+        questions.eventEmitter.off('question_answered', onQuestionAnswered);
+      });
+
+      res.write(`event: connected\n`);
+      res.write(`data: {}\n\n`);
+      return;
+    }
+
     try {
       const filter = {
         sender: req.query.sender as string | undefined,
@@ -90,32 +120,6 @@ export function createQuestionsRouter(questions: QuestionStore): Router {
       const err = error as Error;
       res.status(400).json({ error: err.message });
     }
-  });
-
-  router.get('/questions/events', (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const onQuestionCreated = (question: any) => {
-      res.write(`event: question_created\n`);
-      res.write(`data: ${JSON.stringify(question)}\n\n`);
-    };
-
-    const onQuestionAnswered = (question: any) => {
-      res.write(`event: question_answered\n`);
-      res.write(`data: ${JSON.stringify(question)}\n\n`);
-    };
-
-    questions.eventEmitter.on('question_created', onQuestionCreated);
-    questions.eventEmitter.on('question_answered', onQuestionAnswered);
-
-    req.on('close', () => {
-      questions.eventEmitter.off('question_created', onQuestionCreated);
-      questions.eventEmitter.off('question_answered', onQuestionAnswered);
-    });
-
-    res.write(`data: Connected to questions event stream\n\n`);
   });
 
   router.delete('/questions', (req, res) => {

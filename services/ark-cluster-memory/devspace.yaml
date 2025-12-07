@@ -56,3 +56,8 @@ dev:
         uploadExcludeFile: .dockerignore
     ssh:
       enabled: true
+    ports:
+      # REST API
+      - port: "8082:8080"
+      # MCP server
+      - port: "8083:8081"

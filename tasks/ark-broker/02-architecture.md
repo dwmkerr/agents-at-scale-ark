@@ -258,12 +258,16 @@ Output:
 | GET | /questions | List questions (filter by recipient, status, sender) |
 | GET | /questions/:id | Get a specific question |
 | PATCH | /questions/:id | Answer a question with `{ "response": "..." }` |
-| GET | /questions/events | SSE endpoint for real-time updates |
 
-### SSE Events
+### Watch Mode (SSE)
 
-The `/questions/events` endpoint streams question updates:
+Add `?watch=true` to stream real-time updates (Kubernetes-style):
 
+```bash
+curl -N "http://localhost:8082/questions?watch=true"
+```
+
+Events:
 ```
 event: question_created
 data: {"id":"q-abc123","sender":"ark://agents/test","content":"...","status":"pending"}
@@ -423,12 +427,12 @@ kind: MCPServer
 metadata:
   name: ark-broker
 spec:
-  transport: sse
+  transport: http
   address:
     valueFrom:
       serviceRef:
         name: ark-cluster-memory
-        port: "8081"
+        port: mcp
   description: "Broker for agent-user questions"
   timeout: "30m"
 ```

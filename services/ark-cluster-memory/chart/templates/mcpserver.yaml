@@ -6,12 +6,12 @@ metadata:
   labels:
     {{- include "ark-cluster-memory.labels" . | nindent 4 }}
 spec:
-  transport: sse
+  transport: http
   address:
     valueFrom:
       serviceRef:
         name: {{ include "ark-cluster-memory.fullname" . }}
-        port: {{ .Values.broker.mcpPort | quote }}
+        port: mcp
   description: "Broker for agent-user questions"
   timeout: {{ .Values.broker.mcpTimeout | quote }}
 {{- end }}

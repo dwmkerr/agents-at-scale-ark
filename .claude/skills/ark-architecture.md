@@ -17,6 +17,11 @@ Design architecture for Ark features following existing patterns and principles.
 - **Incremental delivery** - Design so features can be shipped in stages
 - **Reversibility** - Identify and question decisions that lock in future options
 
+## Conventions
+
+- **Watch endpoints**: Use `?watch=true` query param for SSE streaming (Kubernetes-style)
+- **Service ports**: Use named ports (e.g., `port: mcp`) rather than port numbers
+
 ## Output
 
 Architecture documents should include:
