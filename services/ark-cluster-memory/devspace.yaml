@@ -38,6 +38,8 @@ deployments:
         persistence:
           enabled: true
           size: 1Gi
+        broker:
+          enabled: true
 
 dev:
   ark-cluster-memory:

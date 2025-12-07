@@ -72,15 +72,38 @@ curl -X POST http://localhost:8080/questions \
 # Expected: JSON response with question ID and status "pending"
 ```
 
-## Iteration
+## Checkpoint Loop
 
-Prototypes are iterative. After user testing:
-1. Gather feedback on what works and what doesn't
-2. Update `03-verifiable-prototype.md` with findings
-3. If architecture needs changes, note them and update `02-architecture.md`
-4. Implement next iteration
+Prototypes use a checkpoint loop. Each checkpoint is a journal entry in `03-verifiable-prototype.md`:
 
-The prototype may reveal that the architecture needs adjustment - this is expected and valuable.
+```markdown
+## Checkpoint: 2024-01-15 10:30
+
+### Goal
+What this iteration aimed to achieve.
+
+### Verification
+Steps to test (bash, curl, dashboard instructions).
+
+### Results
+User's testing experience and observations.
+
+### Feedback
+What worked, what didn't, questions raised.
+
+### Next Steps
+Changes to make for next iteration.
+```
+
+The loop:
+1. **Build** → Implement iteration
+2. **Document** → Add checkpoint with goal and verification steps
+3. **Test** → User tests and records results/feedback
+4. **Respond** → Add next steps, update architecture if needed
+5. **Commit** → Ask user if ready to commit with message `checkpoint/01-name`
+6. **Repeat** → Implement next steps, create new checkpoint
+
+The checkpoints form a development journal showing how the prototype evolved. Commits keep the journal in version control.
 
 ## Notes
 

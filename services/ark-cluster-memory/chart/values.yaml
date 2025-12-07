@@ -44,6 +44,18 @@ streaming:
   # Enable streaming support via ConfigMap (creates 'ark-config-streaming' when enabled)
   enabled: true
 
+# Questions/Broker configuration
+broker:
+  enabled: false
+  # Port for the MCP server
+  mcpPort: 8081
+  # Filename for questions data
+  questionsFileName: questions.json
+  # Create MCPServer resource
+  createMCPServer: true
+  # Timeout for MCP operations (long-running questions)
+  mcpTimeout: "30m"
+
 # Persistence configuration
 persistence:
   enabled: false

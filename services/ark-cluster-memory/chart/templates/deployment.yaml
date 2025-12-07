@@ -31,6 +31,11 @@ spec:
             - name: http
               containerPort: {{ .Values.memory.port }}
               protocol: TCP
+            {{- if .Values.broker.enabled }}
+            - name: mcp
+              containerPort: {{ .Values.broker.mcpPort }}
+              protocol: TCP
+            {{- end }}
           env:
             - name: PORT
               value: {{ .Values.memory.port | quote }}
@@ -41,6 +46,16 @@ spec:
               value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.memoryFileName }}"
             - name: STREAM_FILE_PATH
               value: "{{ .Values.persistence.mountPath }}/{{ .Values.persistence.streamFileName }}"
+            {{- end }}
+            {{- if .Values.broker.enabled }}
+            - name: ENABLE_MCP
+              value: "true"
+            - name: MCP_PORT
+              value: {{ .Values.broker.mcpPort | quote }}
+            {{- if .Values.persistence.enabled }}
+            - name: QUESTIONS_FILE_PATH
+              value: "{{ .Values.persistence.mountPath }}/{{ .Values.broker.questionsFileName }}"
+            {{- end }}
             {{- end }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:

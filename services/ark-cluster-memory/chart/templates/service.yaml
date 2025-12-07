@@ -11,5 +11,11 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    {{- if .Values.broker.enabled }}
+    - port: {{ .Values.broker.mcpPort }}
+      targetPort: mcp
+      protocol: TCP
+      name: mcp
+    {{- end }}
   selector:
     {{- include "ark-cluster-memory.selectorLabels" . | nindent 4 }}

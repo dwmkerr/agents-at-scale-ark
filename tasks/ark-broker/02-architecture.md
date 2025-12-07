@@ -385,3 +385,52 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
 2. **Question ID format**: `q-` prefix with UUID.
 
 3. **Query patching scope**: ark-cluster-memory has its own Role (similar to ark-api) with permissions on all Ark resources in the namespace.
+
+## Open Questions
+
+1. **MCP load balancing**: MCP connections are stateful (long-running, progress notifications). Kubernetes services load balance across pods, which could break MCP sessions if:
+   - Multiple ark-cluster-memory replicas exist
+   - A pod restarts mid-session
+
+   Options to consider:
+   - **Single replica**: Keep ark-cluster-memory at 1 replica (simplest, but no HA)
+   - **Sticky sessions**: Use session affinity on the MCP service
+   - **Pod-direct addressing**: MCPServer resource points to specific pod (executor connects directly)
+   - **Stateless MCP**: Store MCP session state in shared storage (questions.json already shared via PVC)
+
+   For prototype: Single replica is fine. Production needs further design.
+
+## Deployment
+
+### DevSpace
+
+Regular `devspace dev` installs the MCPServer resource (disabled by default in chart, enabled in devspace.yaml).
+
+```bash
+devspace dev
+```
+
+This will:
+1. Deploy ark-cluster-memory with MCP server enabled (port 8081)
+2. Install MCPServer resource pointing to ark-cluster-memory service
+3. Tools are discovered automatically by Ark
+
+### MCPServer Resource
+
+```yaml
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: ark-broker
+spec:
+  transport: sse
+  address:
+    valueFrom:
+      serviceRef:
+        name: ark-cluster-memory
+        port: "8081"
+  description: "Broker for agent-user questions"
+  timeout: "30m"
+```
+
+Tools (`ask_question`, `list_pending_questions`) are discovered automatically - no need to list them in the spec.

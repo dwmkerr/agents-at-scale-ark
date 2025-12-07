@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
-import app, { memory, stream } from './server.js';
+import app, { memory, stream, questions } from './server.js';
 import { setupSwagger } from './swagger.js';
+import { startMCPServer } from './mcp-server.js';
 
 // Get version from package.json
 const require = createRequire(import.meta.url);
@@ -11,6 +12,7 @@ setupSwagger(app, version);
 
 const PORT = process.env.PORT || '8080';
 const HOST = process.env.HOST || '0.0.0.0';
+const ENABLE_MCP = process.env.ENABLE_MCP === 'true';
 
 const server = app.listen(parseInt(PORT), HOST, () => {
   console.log(`ARK Cluster Memory service running on http://${HOST}:${PORT}`);
@@ -20,7 +22,17 @@ const server = app.listen(parseInt(PORT), HOST, () => {
   if (process.env.STREAM_FILE_PATH) {
     console.log(`Stream persistence enabled at: ${process.env.STREAM_FILE_PATH}`);
   }
+  if (process.env.QUESTIONS_FILE_PATH) {
+    console.log(`Questions persistence enabled at: ${process.env.QUESTIONS_FILE_PATH}`);
+  }
 });
+
+if (ENABLE_MCP) {
+  const MCP_PORT = parseInt(process.env.MCP_PORT || '8081');
+  startMCPServer(questions, MCP_PORT).catch((error) => {
+    console.error('Failed to start MCP server:', error);
+  });
+}
 
 // Memory will be saved on graceful shutdown only
 let saveInterval: ReturnType<typeof setInterval> | undefined;
@@ -33,9 +45,10 @@ const gracefulShutdown = (): void => {
     clearInterval(saveInterval);
   }
 
-  // Save memory and streams before exit
+  // Save memory, streams, and questions before exit
   memory.saveMemory();
   stream.saveStreams();
+  questions.saveQuestions();
 
   server.close(() => {
     console.log('Process terminated');

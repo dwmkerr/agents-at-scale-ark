@@ -7,306 +7,283 @@ description: Prototype plan for the ark broker feature
 
 ## Plan
 
-1. **Query CRD Changes**
-   - Add `waiting` to phase enum in QueryStatus
-   - Add `waitingFor` field with `since` timestamp and `question.id`
+1. **Question Storage in ark-cluster-memory**
+   - Add QuestionStore class (following MemoryStore pattern)
+   - Add questions.json file persistence
+   - Add event emitter for real-time updates
 
-2. **ark-broker MCP Server**
-   - Create new Go service in `mcp/ark-broker/`
-   - Implement questions.json file storage (read/write/update)
-   - Implement REST API with GET/POST/PATCH endpoints
-   - Implement MCP server with `ask_question` and `list_pending_questions` tools
-   - Use MCP progress notifications for long-running ask_question
+2. **REST API for Questions**
+   - GET /questions - list questions (filter by status, sender, recipient)
+   - GET /questions/:id - get specific question
+   - POST /questions - create question
+   - PATCH /questions/:id - answer question
+   - GET /questions/events - SSE endpoint
 
-3. **Dashboard Integration**
-   - Add Questions page at `services/ark-dashboard/ark-dashboard/app/(dashboard)/questions/page.tsx`
-   - Implement SSE (Server-Sent Events) endpoint for real-time updates
-   - Create simple list view showing pending questions
-   - Create detail view with answer form
+3. **MCP Server**
+   - Add MCP SDK dependency
+   - Create MCP server on port 8081
+   - Implement ask_question tool (blocks with progress notifications)
+   - Implement list_pending_questions tool
+
+4. **Dashboard Questions Page**
+   - Add Questions page below Queries in navigation
+   - SSE connection for real-time updates
+   - List view with pending/answered sections
+   - Detail view with answer form
+
+5. **Query CRD Changes** (if time permits)
+   - Add `waiting` phase
+   - Add `waitingFor` status field
 
 ## Status
 
-- [x] Create prototype plan
-- [x] Query CRD changes
-- [x] ark-broker MCP server structure
-- [x] questions.json storage
+- [x] QuestionStore class
+- [x] questions.json persistence
 - [x] REST API endpoints
-- [x] SSE endpoint for real-time updates
-- [x] MCP tools (ask_question, list_pending_questions)
-- [x] Dashboard Questions page
-- [x] Navigation integration
-- [x] Sample YAML files created
-- [x] Verification guide completed
+- [x] SSE endpoint
+- [x] MCP server setup
+- [x] ask_question tool
+- [x] list_pending_questions tool
+- [ ] Dashboard Questions page
+- [ ] Query CRD changes
 
 ## Implementation Notes
 
-### What Was Already Implemented
+### Files Created
 
-The prototype was already fully implemented on the `spike/ark-broker` branch before this agent started work. All three major components were complete:
+1. **src/question-store.ts** - QuestionStore class following MemoryStore pattern
+   - File-based persistence with questions.json
+   - EventEmitter for real-time updates
+   - Methods: createQuestion, answerQuestion, getQuestions, getQuestion, waitForAnswer
+   - Auto-load on startup, auto-save on changes
 
-1. **Query CRD Changes** (in `/ark/api/v1alpha1/query_types.go`):
-   - `waiting` added to phase enum (line 137)
-   - `WaitingFor` struct with `Since` and `Question` fields (lines 130-133)
-   - `waitingFor` field added to QueryStatus (line 147)
+2. **src/routes/questions.ts** - REST API routes
+   - GET /questions - list with filters (sender, recipient, status)
+   - GET /questions/:id - get specific question
+   - POST /questions - create new question
+   - PATCH /questions/:id - answer question
+   - GET /questions/events - SSE endpoint for real-time updates
+   - DELETE /questions - purge all questions
 
-2. **ark-broker MCP Server** (in `/mcp/ark-broker/`):
-   - Complete Go implementation with 5 files
-   - `storage.go`: JSON file storage with pub/sub for real-time updates
-   - `api.go`: REST API with CORS support and SSE endpoint
-   - `mcp.go`: MCP server with ask_question and list_pending_questions tools
-   - `types.go`: Question data structures
-   - `main.go`: Server initialization
+3. **src/mcp-server.ts** - MCP server implementation
+   - Uses @modelcontextprotocol/sdk
+   - Runs on stdio transport
+   - Tools: ask_question (blocking with progress), list_pending_questions
+   - Progress notifications every 5 seconds while waiting
 
-3. **Dashboard Questions Page** (in `/services/ark-dashboard/ark-dashboard/`):
-   - Questions page at `app/(dashboard)/questions/page.tsx`
-   - Questions section component with SSE integration
-   - Navigation already includes Questions in Operations section
-   - Real-time updates via EventSource connection
+4. **src/types.ts** - Added Question, CreateQuestionInput, QuestionFilter interfaces
 
-### Architecture Decisions
+### Files Modified
 
-1. **MCP Server in Go**: Following existing MCP server patterns in the codebase
-2. **questions.json Storage**: Simple file-based storage with in-memory pub/sub for SSE
-3. **SSE for Dashboard**: Lightweight real-time updates without WebSocket complexity
-4. **Minimal CRD Changes**: Only adding required fields to Query status
-5. **CORS Support**: API server includes CORS headers for browser access
+1. **package.json** - Added @modelcontextprotocol/sdk dependency
+2. **src/server.ts** - Imported QuestionStore, mounted questions routes, exported questions
+3. **src/main.ts** - Added ENABLE_MCP env var, questions persistence logging, graceful shutdown
 
-### Key Files to Create/Modify
+### Architecture Notes
 
-**CRD Changes:**
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/ark/api/v1alpha1/query_types.go`
+- MCP server is optional (enabled via ENABLE_MCP=true)
+- Questions stored in /data/questions.json (via QUESTIONS_FILE_PATH env var)
+- SSE endpoint supports real-time dashboard updates
+- MCP ask_question tool blocks until answered (supports long-running operations)
+- Progress notifications keep MCP client informed while waiting
 
-**New MCP Server:**
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/` (new directory)
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/main.go`
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/storage.go`
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/api.go`
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/mcp.go`
+## Checkpoints
 
-**Dashboard:**
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard/app/(dashboard)/questions/page.tsx`
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard/components/sections/questions-section.tsx`
+### Checkpoint: 2024-12-07 - MCP Server Registration
 
-**Samples:**
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/samples/mcp/ark-broker.yaml` - Example agent using ark-broker for deployment approvals
+#### Goal
+Run `devspace dev` and verify the MCPServer is registered and tools are discovered.
 
-## Verification
-
-All components are implemented. Follow these steps to verify the prototype works end-to-end.
-
-### Prerequisites
-
-1. **Deploy Ark to your cluster**
+#### Verification
 ```bash
-cd /Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark
+# Deploy with devspace
 devspace dev
+
+# Check MCPServer is created
+kubectl get mcpserver ark-broker -o yaml
+
+# Verify tools are discovered (check status.toolCount)
+kubectl get mcpserver ark-broker -o jsonpath='{.status.toolCount}'
+# Expected: 2 (ask_question, list_pending_questions)
+
+# Check conditions
+kubectl get mcpserver
+# Expected: Available=True
 ```
 
-2. **Build and run ark-broker locally**
+#### Results
+
+- MCP server starts on port 8081 ✓
+- Health endpoint works ✓
+- MCP endpoint responds correctly to curl with proper headers ✓
+- Session ID returned in `mcp-session-id` header ✓
+- MCPServer resource created and resolves address ✓
+- **Blocker**: Ark controller fails with `session not found` error
+
+Controller error:
+```
+failed to connect MCP client for http://ark-cluster-memory.default.svc.cluster.local:8081/mcp:
+calling "initialize": sending "initialize": failed to send: session not found
+```
+
+#### Feedback
+
+TypeScript MCP SDK Streamable HTTP server works correctly (verified with curl), but Go MCP SDK client in Ark controller has session handling incompatibility.
+
+#### Next Steps
+
+1. Investigate how filesystem-mcp (TypeScript) works with Ark - does it have the same issue?
+2. Check Go MCP SDK session handling
+3. Consider implementing MCP server in Go to match controller expectations
+4. Or align TypeScript implementation with what Go client expects
+
+---
+
+### Option: Local Development
+
+For local testing without Kubernetes:
+
 ```bash
-cd /Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker
-mkdir -p data
-go run . -data-dir ./data -port 8080
-```
+cd services/ark-cluster-memory/ark-cluster-memory
+npm install
 
-Keep this running in a separate terminal. You should see:
-```
-Starting ark-broker on port 8080
-Questions storage: ./data/questions.json
-REST API: http://localhost:8080/questions
-SSE Events: http://localhost:8080/questions/events
-```
+export PORT=8080
+export QUESTIONS_FILE_PATH=/tmp/ark-questions.json
+export ENABLE_MCP=false  # REST API only for local testing
 
-3. **Configure dashboard to connect to broker**
-```bash
-cd /Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard
-export NEXT_PUBLIC_BROKER_API_URL=http://localhost:8080
 npm run dev
 ```
 
-### Step 1: Verify Query CRD Changes
-
-The `waiting` phase and `waitingFor` fields are already in the CRD schema.
+### Step 1: Create a Question via REST API
 
 ```bash
-# Check CRD includes new fields
-kubectl get crd queries.ark.mckinsey.com -o yaml | grep -A 10 "waitingFor"
-```
-
-Expected output should show the `waitingFor` schema with `since` and `question` fields.
-
-### Step 2: Verify ark-broker REST API
-
-Test the REST API endpoints:
-
-```bash
-# List all questions (should be empty initially)
-curl http://localhost:8080/questions
-
 # Create a test question
 curl -X POST http://localhost:8080/questions \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "ark://agents/test-agent",
-    "recipient": "ark://users/john",
-    "content": "Should I proceed with the deployment?",
+    "recipient": "ark://users/dave",
+    "content": "Should I proceed with deployment?",
     "channels": []
   }'
 
-# List questions again (should show the new question)
+# Expected output: JSON with question ID and status "pending"
+# Example:
+# {
+#   "id": "q-abc123-...",
+#   "sender": "ark://agents/test-agent",
+#   "recipient": "ark://users/dave",
+#   "channels": [],
+#   "content": "Should I proceed with deployment?",
+#   "status": "pending",
+#   "createdAt": "2024-01-15T10:30:00.000Z"
+# }
+```
+
+### Step 2: List Questions
+
+```bash
+# List all questions
 curl http://localhost:8080/questions
 
-# Get a specific question (replace q-abc123 with actual ID from response)
-curl http://localhost:8080/questions/q-abc123
+# Expected: { "questions": [...] }
 
-# Answer the question (replace q-abc123 with actual ID)
-curl -X PATCH http://localhost:8080/questions/q-abc123 \
+# Filter by status
+curl "http://localhost:8080/questions?status=pending"
+
+# Filter by recipient
+curl "http://localhost:8080/questions?recipient=ark://users/dave"
+```
+
+### Step 3: Get Specific Question
+
+```bash
+# Replace QUESTION_ID with actual ID from step 1
+curl http://localhost:8080/questions/QUESTION_ID
+
+# Expected: Full question object
+```
+
+### Step 4: Answer a Question
+
+```bash
+# Replace QUESTION_ID with actual ID
+curl -X PATCH http://localhost:8080/questions/QUESTION_ID \
   -H "Content-Type: application/json" \
   -d '{"response": "Yes, proceed with deployment"}'
 
-# Verify the question is now answered
-curl http://localhost:8080/questions/q-abc123
+# Expected: Updated question with status "answered", response, and answeredAt timestamp
+# {
+#   "id": "q-abc123-...",
+#   "sender": "ark://agents/test-agent",
+#   "recipient": "ark://users/dave",
+#   "channels": [],
+#   "content": "Should I proceed with deployment?",
+#   "status": "answered",
+#   "response": "Yes, proceed with deployment",
+#   "createdAt": "2024-01-15T10:30:00.000Z",
+#   "answeredAt": "2024-01-15T10:35:00.000Z"
+# }
 ```
 
-### Step 3: Verify SSE Real-Time Updates
-
-In one terminal, subscribe to question events:
+### Step 5: Test SSE Endpoint
 
 ```bash
+# In one terminal, subscribe to events
 curl -N http://localhost:8080/questions/events
+
+# In another terminal, create and answer questions (steps 1 and 4)
+# Expected: SSE events in first terminal:
+# event: question_created
+# data: {"id":"q-...","content":"...","status":"pending"}
+#
+# event: question_answered
+# data: {"id":"q-...","response":"Yes","answeredAt":"..."}
 ```
 
-In another terminal, create a question:
+### Step 6: Test Persistence
 
 ```bash
+# Create a question
 curl -X POST http://localhost:8080/questions \
   -H "Content-Type: application/json" \
-  -d '{
-    "sender": "ark://agents/test",
-    "recipient": "ark://users/test",
-    "content": "Test SSE?",
-    "channels": []
-  }'
+  -d '{"sender":"ark://agents/test","recipient":"ark://users/dave","content":"Test persistence"}'
+
+# Check the file
+cat /tmp/ark-questions.json
+# Expected: Array with the question
+
+# Restart the service (Ctrl+C and npm run dev again)
+
+# List questions - should still be there
+curl http://localhost:8080/questions
 ```
 
-You should see the question appear in the SSE stream immediately.
+### Step 7: Test MCP Server (Future)
 
-### Step 4: Verify Dashboard Questions Page
+MCP server testing requires:
+1. An MCP client (e.g., executor-langchain with MCP support)
+2. Set ENABLE_MCP=true
+3. Configure client to connect via stdio
 
-1. **Open the dashboard**: Navigate to http://localhost:3000
-
-2. **Go to Questions page**: Click "Questions" in the Operations section of the sidebar
-
-3. **Verify empty state**: If no questions exist, you should see "No Questions" message
-
-4. **Create a question via API**:
-```bash
-curl -X POST http://localhost:8080/questions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "ark://agents/code-reviewer",
-    "recipient": "ark://users/john",
-    "content": "I found a potential security issue in the authentication module. Should I create a ticket or fix it immediately?",
-    "channels": []
-  }'
-```
-
-5. **Verify real-time update**: The question should appear in the dashboard immediately (via SSE) without refreshing
-
-6. **Click the question**: Click on the question card to see the detail view
-
-7. **Answer the question**:
-   - Type an answer in the textarea (e.g., "Please create a ticket first and tag it as security-critical")
-   - Click "Submit Answer"
-   - Verify success toast appears
-   - Verify you're returned to the questions list
-   - Verify the question now shows in the "Answered" section
-
-8. **Check browser DevTools**:
-   - Open Network tab
-   - Look for `questions/events` request
-   - Verify it's an EventSource connection with status "pending"
-
-### Step 5: Verify MCP Tools (Simulated)
-
-The MCP server is implemented but requires an MCP client to test. To verify the implementation:
-
-1. **Check the code**:
-```bash
-cd /Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker
-cat mcp.go
-```
-
-2. **Verify ask_question tool**:
-   - Creates a question via storage
-   - Polls for answer every 5 seconds
-   - Sends progress notifications
-   - Returns answer when received
-
-3. **Verify list_pending_questions tool**:
-   - Lists all questions with status "pending"
-
-### Step 6: End-to-End Flow Test
-
-Simulate the complete flow:
-
-1. **Create a question** (simulating an agent asking):
-```bash
-curl -X POST http://localhost:8080/questions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "ark://agents/deployment-agent",
-    "recipient": "ark://users/alice",
-    "content": "Deployment to production requires manual approval. Proceed?",
-    "channels": []
-  }'
-```
-
-2. **Verify in dashboard**:
-   - Open http://localhost:3000/questions
-   - See the question appear immediately
-   - Count shows "1 Pending, 0 Answered"
-
-3. **Answer the question**:
-   - Click the question card
-   - Type answer: "Approved - proceed with deployment"
-   - Click Submit Answer
-
-4. **Verify the answer**:
-```bash
-curl http://localhost:8080/questions | jq '.[] | select(.status == "answered")'
-```
-
-5. **Check the questions.json file**:
-```bash
-cat /Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/mcp/ark-broker/data/questions.json
-```
-
-You should see both pending and answered questions with timestamps.
-
-### Expected Results
-
-✅ Query CRD includes `waiting` phase and `waitingFor` fields
-✅ ark-broker REST API responds to GET/POST/PATCH requests
-✅ SSE endpoint streams question updates in real-time
-✅ Dashboard Questions page displays questions with real-time updates
-✅ Questions can be answered via dashboard UI
-✅ Questions are persisted to questions.json file
-✅ Navigation includes Questions link under Operations
+This will be tested when integrated with an executor.
 
 ### Troubleshooting
 
-**Dashboard can't connect to broker**:
-- Verify broker is running on port 8080
-- Check CORS headers in API responses
-- Verify NEXT_PUBLIC_BROKER_API_URL environment variable
+**Service won't start:**
+- Check if port 8080 is already in use: `lsof -i :8080`
+- Ensure Node.js >= 22.0.0: `node --version`
+- Check for TypeScript compilation errors: `npm run build`
 
-**SSE not working**:
-- Check browser console for errors
-- Verify EventSource connection in Network tab
-- Ensure broker has CORS headers for SSE endpoint
+**Questions not persisting:**
+- Verify QUESTIONS_FILE_PATH is set
+- Check directory permissions for /tmp or configured path
+- Look for "[QUESTION SAVE]" log messages
 
-**Questions not persisting**:
-- Check data directory permissions
-- Verify questions.json file is writable
-- Check broker logs for storage errors
+**SSE connection closes immediately:**
+- Some tools (like curl) may need -N flag for no-buffering
+- Browser DevTools Network tab can show SSE events more reliably
+
+**404 on /questions:**
+- Verify service is running: `curl http://localhost:8080/health`
+- Check logs for route mounting errors

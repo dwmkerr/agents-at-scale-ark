@@ -51,6 +51,8 @@ CRD schemas, database tables, or data structures with field descriptions.
 - For REST APIs: Show JSON payloads, not TypeScript/Go types
 - For data files: Show JSON structure, not code
 
+**Critical**: Before showing any CRD examples, ALWAYS read the actual CRD definition from the codebase (ark/api/v1alpha1/*_types.go) to verify the exact field names and structure. Do not assume or guess CRD schemas.
+
 ### API Design
 Endpoints and payloads. Show example requests/responses, not implementation code.
 

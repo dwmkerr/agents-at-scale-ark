@@ -42,3 +42,28 @@ export interface StreamResponse {
   choices?: StreamChoice[];
   error?: StreamError;
 }
+
+export interface Question {
+  id: string;
+  sender: string;
+  recipient: string;
+  channels: string[];
+  content: string;
+  status: 'pending' | 'answered';
+  response?: string;
+  createdAt: string;
+  answeredAt?: string;
+}
+
+export interface CreateQuestionInput {
+  sender: string;
+  recipient: string;
+  channels?: string[];
+  content: string;
+}
+
+export interface QuestionFilter {
+  sender?: string;
+  recipient?: string;
+  status?: 'pending' | 'answered';
+}

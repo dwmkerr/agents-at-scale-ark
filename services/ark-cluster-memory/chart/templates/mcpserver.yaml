@@ -1,0 +1,17 @@
+{{- if and .Values.broker.enabled .Values.broker.createMCPServer }}
+apiVersion: ark.mckinsey.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: ark-broker
+  labels:
+    {{- include "ark-cluster-memory.labels" . | nindent 4 }}
+spec:
+  transport: sse
+  address:
+    valueFrom:
+      serviceRef:
+        name: {{ include "ark-cluster-memory.fullname" . }}
+        port: {{ .Values.broker.mcpPort | quote }}
+  description: "Broker for agent-user questions"
+  timeout: {{ .Values.broker.mcpTimeout | quote }}
+{{- end }}
