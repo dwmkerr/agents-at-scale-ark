@@ -128,6 +128,19 @@ curl -N "http://localhost:8082/questions?watch=true"
 - REST API works (create, list, answer questions) ✓
 - Watch endpoint uses `?watch=true` query param (Kubernetes-style) ✓
 
-#### Next Steps
-- Add Dashboard Questions page
-- Test MCP tools via agent query
+---
+
+### Checkpoint 2: Dashboard & Agent Integration (pending)
+
+#### Goal
+Test the Dashboard Questions page and verify agents can raise questions via MCP tools.
+
+#### Verification
+1. Open Dashboard at /questions - verify page loads
+2. Create an agent with `ark-broker` MCP server
+3. Run a query that triggers `ask_question` tool
+4. Answer via Dashboard or REST API
+5. Verify query completes with the answer
+
+#### Status
+Not started
