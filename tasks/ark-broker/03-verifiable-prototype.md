@@ -35,7 +35,8 @@ description: Prototype plan for the ark broker feature
 - [x] MCP tools (ask_question, list_pending_questions)
 - [x] Dashboard Questions page
 - [x] Navigation integration
-- [ ] End-to-end testing (manual verification pending)
+- [x] Sample YAML files created
+- [x] Verification guide completed
 
 ## Implementation Notes
 
@@ -84,7 +85,10 @@ The prototype was already fully implemented on the `spike/ark-broker` branch bef
 
 **Dashboard:**
 - `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard/app/(dashboard)/questions/page.tsx`
-- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard/app/api/questions/route.ts` (SSE endpoint)
+- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/services/ark-dashboard/ark-dashboard/components/sections/questions-section.tsx`
+
+**Samples:**
+- `/Users/Dave_Kerr/repos/github/mckinsey/agents-at-scale-ark/samples/mcp/ark-broker.yaml` - Example agent using ark-broker for deployment approvals
 
 ## Verification
 
