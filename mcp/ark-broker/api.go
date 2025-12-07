@@ -20,6 +20,7 @@ func NewAPIServer(storage *Storage) *APIServer {
 	}
 
 	server.router.HandleFunc("/questions", server.listQuestions).Methods("GET")
+	server.router.HandleFunc("/questions", server.createQuestion).Methods("POST")
 	server.router.HandleFunc("/questions/{id}", server.getQuestion).Methods("GET")
 	server.router.HandleFunc("/questions/{id}", server.answerQuestion).Methods("PATCH")
 	server.router.HandleFunc("/questions/events", server.streamQuestionEvents).Methods("GET")
@@ -46,6 +47,30 @@ func (s *APIServer) listQuestions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(questions)
+}
+
+func (s *APIServer) createQuestion(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Sender    string   `json:"sender"`
+		Recipient string   `json:"recipient"`
+		Content   string   `json:"content"`
+		Channels  []string `json:"channels"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	question, err := s.storage.CreateQuestion(req.Sender, req.Recipient, req.Content, req.Channels)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(question)
 }
 
 func (s *APIServer) getQuestion(w http.ResponseWriter, r *http.Request) {
