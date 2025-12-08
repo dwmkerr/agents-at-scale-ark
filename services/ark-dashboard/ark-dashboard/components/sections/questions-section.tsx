@@ -14,6 +14,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { formatAge } from '@/lib/utils/time';
+import { apiClient } from '@/lib/api/client';
 
 interface Question {
   id: string;
@@ -27,7 +28,9 @@ interface Question {
   answeredAt?: string;
 }
 
-const BROKER_API_URL = process.env.NEXT_PUBLIC_BROKER_API_URL || 'http://localhost:8080';
+interface QuestionsResponse {
+  questions: Question[];
+}
 
 export function QuestionsSection() {
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -38,12 +41,8 @@ export function QuestionsSection() {
 
   const loadQuestions = async () => {
     try {
-      const response = await fetch(`${BROKER_API_URL}/questions`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch questions');
-      }
-      const data = await response.json();
-      setQuestions(data || []);
+      const data = await apiClient.get<QuestionsResponse>('/api/v1/questions');
+      setQuestions(data.questions || []);
     } catch (error) {
       toast.error('Failed to Load Questions', {
         description: error instanceof Error ? error.message : 'An unexpected error occurred',
@@ -56,7 +55,7 @@ export function QuestionsSection() {
   useEffect(() => {
     loadQuestions();
 
-    const eventSource = new EventSource(`${BROKER_API_URL}/questions/events`);
+    const eventSource = new EventSource('/api/v1/questions?watch=true');
 
     eventSource.onmessage = (event) => {
       const question = JSON.parse(event.data) as Question;
@@ -87,19 +86,10 @@ export function QuestionsSection() {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${BROKER_API_URL}/questions/${selectedQuestion.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ response: answerText }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit answer');
-      }
-
-      const updatedQuestion = await response.json();
+      const updatedQuestion = await apiClient.patch<Question>(
+        `/api/v1/questions/${selectedQuestion.id}`,
+        { response: answerText }
+      );
       setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
       setSelectedQuestion(null);
       setAnswerText('');

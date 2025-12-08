@@ -1,6 +1,6 @@
-node_modules
-.next
-out
+ark-dashboard/node_modules
+ark-dashboard/.next
+ark-dashboard/out
 .git
 *.log
 .DS_Store
