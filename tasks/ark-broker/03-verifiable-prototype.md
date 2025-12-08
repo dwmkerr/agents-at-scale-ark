@@ -154,27 +154,17 @@ The original architecture didn't include ark-api proxy routes for the questions 
 - Dashboard questions page loads and displays questions ✓
 - Questions can be answered via Dashboard UI ✓
 - End-to-end agent flow verified: agent asks question → answer via dashboard → query completes ✓
-- See `99-issues.md` for usability issues noted
 
-#### Issue Discovered: Query "Waiting" Phase
-When an agent calls the `ask_question` MCP tool, the tool blocks waiting for an answer. During this time:
-- The MCP tool call is pending
-- The query is implicitly "waiting" but this isn't reflected in the Query status
-- Need to consider adding a `waiting` phase to the Query CRD to make this state visible
+#### Findings
 
-This needs to be addressed before the next checkpoint.
+During this checkpoint, several findings were documented in `99-findings/`:
 
----
+1. **Usability issues** (`01-user-experience.md`): Agent creation UX is poor, tool calls not visible in query stream, proposed solution to enhance query detail page.
 
-### Checkpoint 3: Query Waiting Phase (pending)
+2. **Resumable queries with MCP Tasks** (`02-resumable-queries.md`): Investigation into whether queries can survive restarts while waiting for human input. Key findings:
+   - MCP spec (2025-11-25) added "Tasks" primitive for async/long-running operations
+   - LLM calls are stateless - we can replay conversation history to resume
+   - Ark memory already stores tool calls correctly
+   - True resumability requires: MCP Tasks implementation in ark-broker, Query `waiting` phase, task ID persistence, controller resume logic
 
-#### Goal
-Add visibility into when a query is waiting for human input.
-
-#### Considerations
-- Should the Query have a `waiting` phase?
-- How does the executor signal it's waiting on an MCP tool?
-- Should `waitingFor` field show what the query is blocked on?
-
-#### Status
-Not started - requires design decision on Query CRD changes
+These findings are tracked separately and may inform future work beyond the current prototype scope.
