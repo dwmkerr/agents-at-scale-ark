@@ -145,28 +145,36 @@ The original architecture didn't include ark-api proxy routes for the questions 
 
 #### Verification
 1. Open Dashboard at /questions - verify page loads ✓
-2. Create an agent with `ark-broker` MCP server
-3. Run a query that triggers `ask_question` tool
+2. Create an agent with `ark-broker` MCP server ✓
+3. Run a query that triggers `ask_question` tool ✓
 4. Answer via Dashboard or REST API ✓
-5. Verify query completes with the answer
+5. Verify query completes with the answer ✓
 
 #### Results
 - Dashboard questions page loads and displays questions ✓
 - Questions can be answered via Dashboard UI ✓
+- End-to-end agent flow verified: agent asks question → answer via dashboard → query completes ✓
 - See `99-issues.md` for usability issues noted
+
+#### Issue Discovered: Query "Waiting" Phase
+When an agent calls the `ask_question` MCP tool, the tool blocks waiting for an answer. During this time:
+- The MCP tool call is pending
+- The query is implicitly "waiting" but this isn't reflected in the Query status
+- Need to consider adding a `waiting` phase to the Query CRD to make this state visible
+
+This needs to be addressed before the next checkpoint.
 
 ---
 
-### Checkpoint 3: End-to-End Agent Flow (pending)
+### Checkpoint 3: Query Waiting Phase (pending)
 
 #### Goal
-Verify an agent can use the `ask_question` MCP tool and receive answers.
+Add visibility into when a query is waiting for human input.
 
-#### Verification
-1. Create an agent with `ark-broker` MCP server attached
-2. Run a query that triggers `ask_question` tool
-3. Answer via Dashboard
-4. Verify query completes with the answer
+#### Considerations
+- Should the Query have a `waiting` phase?
+- How does the executor signal it's waiting on an MCP tool?
+- Should `waitingFor` field show what the query is blocked on?
 
 #### Status
-Not started
+Not started - requires design decision on Query CRD changes
