@@ -1466,69 +1466,70 @@ class TestQueriesEndpoint(unittest.TestCase):
         from ark_api.main import app
         self.client = TestClient(app)
     
-    @patch('ark_api.api.v1.queries.with_ark_client')
-    def test_list_queries_success(self, mock_ark_client):
+    @patch('ark_api.api.v1.queries.client.CustomObjectsApi')
+    @patch('ark_api.api.v1.queries.client.ApiClient')
+    def test_list_queries_success(self, mock_api_client, mock_custom_api):
         """Test successful query listing."""
-        # Setup async context manager mock
-        mock_client = AsyncMock()
-        mock_ark_client.return_value.__aenter__.return_value = mock_client
-        
-        # Mock query objects
-        mock_query1 = Mock()
-        mock_query1.to_dict.return_value = {
-            "metadata": {"name": "test-query", "namespace": "default"},
-            "spec": {
-                "input": "What is the weather today?"
-            },
-            "status": {
-                "phase": "done", 
-                "response": "It's sunny and 72°F",
-                "conditions": [
-                    {
-                        "type": "Completed",
-                        "status": "True",
-                        "reason": "QuerySucceeded",
-                        "message": "Query completed successfully",
-                        "lastTransitionTime": "2025-01-15T10:30:00Z",
-                        "observedGeneration": 1
+        # Setup API client mock
+        mock_api_client_instance = AsyncMock()
+        mock_api_client.return_value = mock_api_client_instance
+
+        # Setup CustomObjectsApi mock
+        mock_custom_instance = AsyncMock()
+        mock_custom_api.return_value = mock_custom_instance
+
+        # Mock the K8s list response
+        mock_custom_instance.list_namespaced_custom_object = AsyncMock(return_value={
+            "metadata": {"resourceVersion": "12345"},
+            "items": [
+                {
+                    "metadata": {"name": "test-query", "namespace": "default"},
+                    "spec": {"input": "What is the weather today?"},
+                    "status": {
+                        "phase": "done",
+                        "response": "It's sunny and 72°F",
+                        "conditions": [
+                            {
+                                "type": "Completed",
+                                "status": "True",
+                                "reason": "QuerySucceeded",
+                                "message": "Query completed successfully",
+                                "lastTransitionTime": "2025-01-15T10:30:00Z",
+                                "observedGeneration": 1
+                            }
+                        ]
                     }
-                ]
-            }
-        }
-        
-        mock_query2 = Mock()
-        mock_query2.to_dict.return_value = {
-            "metadata": {"name": "another-query", "namespace": "default"},
-            "spec": {
-                "input": "Tell me a joke"
-            },
-            "status": {
-                "phase": "running",
-                "conditions": [
-                    {
-                        "type": "Completed",
-                        "status": "False",
-                        "reason": "QueryRunning",
-                        "message": "Query is currently running",
-                        "lastTransitionTime": "2025-01-15T10:25:00Z",
-                        "observedGeneration": 1
+                },
+                {
+                    "metadata": {"name": "another-query", "namespace": "default"},
+                    "spec": {"input": "Tell me a joke"},
+                    "status": {
+                        "phase": "running",
+                        "conditions": [
+                            {
+                                "type": "Completed",
+                                "status": "False",
+                                "reason": "QueryRunning",
+                                "message": "Query is currently running",
+                                "lastTransitionTime": "2025-01-15T10:25:00Z",
+                                "observedGeneration": 1
+                            }
+                        ]
                     }
-                ]
-            }
-        }
-        
-        # Mock the API response
-        mock_client.queries.a_list = AsyncMock(return_value=[mock_query1, mock_query2])
-        
+                }
+            ]
+        })
+
         # Make the request
         response = self.client.get("/v1/queries?namespace=default")
-        
+
         # Assert response
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 2)
         self.assertEqual(len(data["items"]), 2)
-        
+        self.assertEqual(data["resourceVersion"], "12345")
+
         # Check first query
         self.assertEqual(data["items"][0]["name"], "test-query")
         self.assertEqual(data["items"][0]["input"], "What is the weather today?")
@@ -1539,7 +1540,7 @@ class TestQueriesEndpoint(unittest.TestCase):
         self.assertEqual(data["items"][0]["status"]["conditions"][0]["type"], "Completed")
         self.assertEqual(data["items"][0]["status"]["conditions"][0]["status"], "True")
         self.assertEqual(data["items"][0]["status"]["conditions"][0]["reason"], "QuerySucceeded")
-        
+
         # Check second query
         self.assertEqual(data["items"][1]["name"], "another-query")
         self.assertEqual(data["items"][1]["input"], "Tell me a joke")
@@ -1550,25 +1551,34 @@ class TestQueriesEndpoint(unittest.TestCase):
         self.assertEqual(data["items"][1]["status"]["conditions"][0]["type"], "Completed")
         self.assertEqual(data["items"][1]["status"]["conditions"][0]["status"], "False")
         self.assertEqual(data["items"][1]["status"]["conditions"][0]["reason"], "QueryRunning")
-    
-    @patch('ark_api.api.v1.queries.with_ark_client')
-    def test_list_queries_empty(self, mock_ark_client):
+
+    @patch('ark_api.api.v1.queries.client.CustomObjectsApi')
+    @patch('ark_api.api.v1.queries.client.ApiClient')
+    def test_list_queries_empty(self, mock_api_client, mock_custom_api):
         """Test listing queries when none exist in the namespace."""
-        # Setup async context manager mock
-        mock_client = AsyncMock()
-        mock_ark_client.return_value.__aenter__.return_value = mock_client
-        
+        # Setup API client mock
+        mock_api_client_instance = AsyncMock()
+        mock_api_client.return_value = mock_api_client_instance
+
+        # Setup CustomObjectsApi mock
+        mock_custom_instance = AsyncMock()
+        mock_custom_api.return_value = mock_custom_instance
+
         # Mock empty response
-        mock_client.queries.a_list = AsyncMock(return_value=[])
-        
+        mock_custom_instance.list_namespaced_custom_object = AsyncMock(return_value={
+            "metadata": {"resourceVersion": "100"},
+            "items": []
+        })
+
         # Make the request
         response = self.client.get("/v1/queries?namespace=test-namespace")
-        
+
         # Assert response
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 0)
         self.assertEqual(data["items"], [])
+        self.assertEqual(data["resourceVersion"], "100")
     
     @patch('ark_api.api.v1.queries.with_ark_client')
     def test_create_query_simple(self, mock_ark_client):

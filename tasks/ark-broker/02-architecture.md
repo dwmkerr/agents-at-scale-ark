@@ -438,3 +438,23 @@ spec:
 ```
 
 Tools (`ask_question`, `list_pending_questions`) are discovered automatically - no need to list them in the spec.
+
+## Addendum: Watch Pattern with ResourceVersion
+
+The watch endpoint uses Kubernetes-style `resourceVersion` to avoid flooding clients with existing data on connect:
+
+1. **List returns resourceVersion**: `GET /questions` includes a monotonic counter that increments on every create/update/delete
+2. **Watch accepts resourceVersion**: `GET /questions?watch=true&resourceVersion=X` streams only changes after that version
+3. **Dashboard flow**: Initial fetch gets data + resourceVersion, then SSE watch uses that resourceVersion
+4. **Benefit**: Clients receive only new events, not ADDED events for all existing resources
+
+Example:
+```bash
+# Initial fetch
+curl http://localhost:8082/questions
+# Response includes: { "resourceVersion": "42", "items": [...] }
+
+# Watch from that point forward
+curl -N "http://localhost:8082/questions?watch=true&resourceVersion=42"
+# Only streams changes after version 42
+```

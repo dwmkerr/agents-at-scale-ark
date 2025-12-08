@@ -58,6 +58,28 @@ async function middleware(request: NextRequest) {
     if (request.body) {
       fetchOptions.body = request.body;
     }
+
+    // For SSE watch requests, use streaming with no timeout
+    const isSSE = request.nextUrl.searchParams.get('watch') === 'true';
+    if (isSSE) {
+      // Use undici-compatible fetch options for streaming
+      const sseResponse = await fetch(targetUrl, {
+        ...fetchOptions,
+        // @ts-expect-error - undici-specific option for disabling body timeout
+        bodyTimeout: 0,
+      });
+
+      return new Response(sseResponse.body, {
+        status: sseResponse.status,
+        statusText: sseResponse.statusText,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
     const backendResponse = await fetch(targetUrl, fetchOptions);
 
     return new Response(backendResponse.body, {

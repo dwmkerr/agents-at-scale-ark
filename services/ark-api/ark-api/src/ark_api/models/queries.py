@@ -85,9 +85,15 @@ class QueryResponse(BaseModel):
 
 
 class QueryListResponse(BaseModel):
-    """Response for listing queries."""
+    """Response for listing queries.
+
+    Includes resourceVersion - a monotonic counter from K8s that increments on
+    every create/update/delete. Pass this to ?watch=true&resourceVersion=X to
+    watch for changes from this point forward without replaying history.
+    """
     items: List[QueryResponse]
     count: int
+    resourceVersion: Optional[str] = None
 
 
 class QueryCreateRequest(BaseModel):

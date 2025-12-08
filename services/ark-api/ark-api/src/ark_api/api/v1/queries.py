@@ -1,10 +1,15 @@
 """API routes for Query resources."""
 
+import asyncio
+import json
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Query
-from typing import Optional
+from fastapi.responses import StreamingResponse
+from typing import Optional, AsyncGenerator
 from ark_sdk.models.query_v1alpha1 import QueryV1alpha1
 from ark_sdk.models.query_v1alpha1_spec import QueryV1alpha1Spec
+from kubernetes_asyncio import client, watch
 
 from ark_sdk.client import with_ark_client
 
@@ -15,7 +20,11 @@ from ...models.queries import (
     QueryUpdateRequest,
     QueryDetailResponse
 )
+from ...core.constants import GROUP
+from ...core.namespace import get_current_context
 from .exceptions import handle_k8s_errors
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/queries",
@@ -80,19 +89,103 @@ def query_to_detail_response(query: dict) -> QueryDetailResponse:
     )
 
 
-@router.get("", response_model=QueryListResponse)
+async def watch_queries_stream(namespace: str, resource_version: Optional[str] = None) -> AsyncGenerator[str, None]:
+    """Stream query changes as SSE events using K8s watch API.
+
+    Args:
+        namespace: K8s namespace to watch
+        resource_version: Start watching from this point. This is a monotonic
+            counter that K8s increments on every create/update/delete. Pass the
+            resourceVersion from a list response to only receive new changes,
+            avoiding a flood of ADDED events for existing queries.
+    """
+    api_client = client.ApiClient()
+    custom_api = client.CustomObjectsApi(api_client)
+    w = watch.Watch()
+
+    try:
+        watch_kwargs = {
+            "group": GROUP,
+            "version": "v1alpha1",
+            "namespace": namespace,
+            "plural": "queries",
+        }
+        if resource_version:
+            watch_kwargs["resource_version"] = resource_version
+
+        async for event in w.stream(
+            custom_api.list_namespaced_custom_object,
+            **watch_kwargs,
+        ):
+            event_type = event['type']
+            query_obj = event['object']
+
+            query_response = query_to_response(query_obj)
+            event_data = {
+                "type": event_type.lower(),
+                "query": query_response.model_dump(mode='json')
+            }
+
+            yield f"data: {json.dumps(event_data)}\n\n"
+
+    except asyncio.CancelledError:
+        logger.info("Watch stream cancelled by client")
+    except Exception as e:
+        logger.error(f"Watch stream error: {e}")
+        error_data = {"type": "error", "message": str(e)}
+        yield f"data: {json.dumps(error_data)}\n\n"
+    finally:
+        w.stop()
+        await api_client.close()
+
+
+@router.get("")
 @handle_k8s_errors(operation="list", resource_type="query")
-async def list_queries(namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)")) -> QueryListResponse:
-    """List all queries in a namespace."""
-    async with with_ark_client(namespace, VERSION) as ark_client:
-        result = await ark_client.queries.a_list()
-        
-        queries = [query_to_response(item.to_dict()) for item in result]
-        
+async def list_queries(
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
+    watch_param: bool = Query(False, alias="watch", description="Watch for changes via SSE"),
+    resource_version: Optional[str] = Query(None, alias="resourceVersion", description="For watch: start from this version (from a previous list response)")
+):
+    """List all queries in a namespace.
+
+    Returns resourceVersion which can be passed to ?watch=true&resourceVersion=X
+    to stream only changes from that point forward.
+    """
+    ns = namespace or get_current_context()["namespace"]
+
+    if watch_param:
+        return StreamingResponse(
+            watch_queries_stream(ns, resource_version),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            }
+        )
+
+    # Use raw K8s client to get resourceVersion from list metadata
+    api_client = client.ApiClient()
+    custom_api = client.CustomObjectsApi(api_client)
+
+    try:
+        result = await custom_api.list_namespaced_custom_object(
+            group=GROUP,
+            version="v1alpha1",
+            namespace=ns,
+            plural="queries",
+        )
+
+        queries = [query_to_response(item) for item in result.get("items", [])]
+        rv = result.get("metadata", {}).get("resourceVersion")
+
         return QueryListResponse(
             items=queries,
-            count=len(queries)
+            count=len(queries),
+            resourceVersion=rv
         )
+    finally:
+        await api_client.close()
 
 
 @router.post("", response_model=QueryDetailResponse)

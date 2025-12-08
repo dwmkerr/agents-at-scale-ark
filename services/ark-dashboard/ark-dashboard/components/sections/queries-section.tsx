@@ -88,6 +88,52 @@ export const QueriesSection = forwardRef<{ openAddEditor: () => void }>(
       }
     }, [listQueriesError, listQueriesData, listQueriesErrorObject]);
 
+    // Start SSE watch after initial load, using resourceVersion to avoid event flood
+    useEffect(() => {
+      // resourceVersion not yet in generated types - cast to access it
+      const resourceVersion = (listQueriesData as { resourceVersion?: string } | undefined)?.resourceVersion;
+      if (!resourceVersion) return;
+
+      const url = `/api/v1/queries?watch=true&resourceVersion=${resourceVersion}`;
+      const eventSource = new EventSource(url);
+
+      eventSource.onmessage = event => {
+        try {
+          const data = JSON.parse(event.data) as {
+            type: string;
+            query: QueryResponse;
+          };
+
+          if (data.type === 'error') {
+            console.error('SSE error:', data);
+            return;
+          }
+
+          setQueries(prev => {
+            const query = data.query;
+            if (data.type === 'deleted') {
+              return prev.filter(q => q.name !== query.name);
+            }
+            const existing = prev.find(q => q.name === query.name);
+            if (existing) {
+              return prev.map(q => (q.name === query.name ? query : q));
+            }
+            return [query, ...prev];
+          });
+        } catch (e) {
+          console.error('Failed to parse SSE event:', e);
+        }
+      };
+
+      eventSource.onerror = () => {
+        console.error('SSE connection error, will retry...');
+      };
+
+      return () => {
+        eventSource.close();
+      };
+    }, [listQueriesData]);
+
     const truncate = (text: string, maxLen = 120) =>
       text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
 

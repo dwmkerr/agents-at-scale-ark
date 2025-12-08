@@ -168,3 +168,43 @@ During this checkpoint, several findings were documented in `99-findings/`:
    - True resumability requires: MCP Tasks implementation in ark-broker, Query `waiting` phase, task ID persistence, controller resume logic
 
 These findings are tracked separately and may inform future work beyond the current prototype scope.
+
+---
+
+### Checkpoint 3: Live Query Watching
+
+#### Goal
+Add SSE-based real-time updates to the Queries page so you can watch queries appear and change status without refreshing.
+
+#### Implementation
+
+**ark-api (queries.py):**
+- Added `?watch=true` query parameter to `GET /v1/queries`
+- Uses K8s watch API via `kubernetes_asyncio` to stream query changes
+- Returns SSE events with format: `{"type": "added|modified|deleted", "query": {...}}`
+
+**ark-dashboard (queries-section.tsx):**
+- Added EventSource connection to `/api/v1/queries?watch=true`
+- Auto-updates query list on add/modify/delete events
+- Keeps initial fetch via React Query for first load
+
+#### Verification
+
+```bash
+# 1. Open dashboard at /queries and keep it open
+
+# 2. In another terminal, create a query
+curl -X POST http://localhost:8080/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{"name": "test-watch", "input": "Hello", "targets": [{"type": "agent", "name": "default"}]}'
+
+# 3. Watch the query appear in the dashboard without refreshing
+
+# 4. The query status should update as it progresses (pending → running → done)
+```
+
+#### Results
+- [ ] SSE endpoint streams K8s watch events
+- [ ] Dashboard queries page updates in real-time
+- [ ] New queries appear without refresh
+- [ ] Status changes reflect immediately

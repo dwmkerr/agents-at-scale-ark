@@ -51,6 +51,9 @@ The checkpoints form a development journal showing how the prototype evolved. Co
 ### 4. Production
 Finalize code quality, add tests, documentation. Handled by ark-technical-lead agent.
 
+### 5. Integration
+Breaking the changes up into small incremental pull requests that can be tested and reviewed.
+
 ## Agents
 
 | Agent | Role |

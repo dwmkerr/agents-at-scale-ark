@@ -124,7 +124,7 @@ type TokenUsage struct {
 }
 
 type QuestionRef struct {
-	ID string `json:"id"`
+	URI string `json:"uri"`
 }
 
 type WaitingFor struct {
