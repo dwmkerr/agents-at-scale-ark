@@ -130,7 +130,7 @@ curl -N "http://localhost:8082/questions?watch=true"
 
 ---
 
-### Checkpoint 2: Dashboard & Agent Integration (in progress)
+### Checkpoint 2: Dashboard & Agent Integration (complete)
 
 #### Goal
 Test the Dashboard Questions page and verify agents can raise questions via MCP tools.
@@ -144,11 +144,29 @@ The original architecture didn't include ark-api proxy routes for the questions 
 **Fix applied:** Added `/v1/questions` proxy routes in ark-api that forward to ark-cluster-memory's broker service. This follows the same pattern as the memories API.
 
 #### Verification
-1. Open Dashboard at /questions - verify page loads
+1. Open Dashboard at /questions - verify page loads ✓
 2. Create an agent with `ark-broker` MCP server
 3. Run a query that triggers `ask_question` tool
-4. Answer via Dashboard or REST API
+4. Answer via Dashboard or REST API ✓
 5. Verify query completes with the answer
 
+#### Results
+- Dashboard questions page loads and displays questions ✓
+- Questions can be answered via Dashboard UI ✓
+- See `99-issues.md` for usability issues noted
+
+---
+
+### Checkpoint 3: End-to-End Agent Flow (pending)
+
+#### Goal
+Verify an agent can use the `ask_question` MCP tool and receive answers.
+
+#### Verification
+1. Create an agent with `ark-broker` MCP server attached
+2. Run a query that triggers `ask_question` tool
+3. Answer via Dashboard
+4. Verify query completes with the answer
+
 #### Status
-In progress - ark-api proxy routes added, dashboard updated to use `/v1/questions`
+Not started
