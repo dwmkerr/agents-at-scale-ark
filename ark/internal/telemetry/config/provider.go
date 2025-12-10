@@ -5,8 +5,10 @@ package config
 import (
 	"context"
 	"os"
+	"strings"
 
 	otelapi "go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -47,17 +49,47 @@ func NewProvider() *Provider {
 
 	headers := os.Getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
-	log.Info("initializing OTEL telemetry", "endpoint", endpoint, "service", serviceName, "headers", headers)
+	protocol := os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+	if protocol == "" {
+		protocol = "grpc"
+	}
 
-	// Auto-configure OTLP exporter from environment variables:
-	// OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS, OTEL_SERVICE_NAME
-	exporter, err := otlptracehttp.New(context.Background())
+	log.Info("initializing OTEL telemetry", "endpoint", endpoint, "service", serviceName, "protocol", protocol, "headers", headers)
+
+	var primaryExporter trace.SpanExporter
+	var err error
+
+	if strings.EqualFold(protocol, "grpc") {
+		primaryExporter, err = otlptracegrpc.New(
+			context.Background(),
+			otlptracegrpc.WithEndpoint(endpoint),
+			otlptracegrpc.WithInsecure(),
+		)
+	} else {
+		primaryExporter, err = otlptracehttp.New(context.Background())
+	}
 	if err != nil {
 		log.Error(err, "failed to create OTLP exporter, falling back to no-op telemetry")
 		return newNoopProvider()
 	}
 
-	// Create trace provider
+	var exporter trace.SpanExporter = primaryExporter
+
+	brokerEndpoint := os.Getenv("ARK_BROKER_OTLP_ENDPOINT")
+	if brokerEndpoint != "" {
+		log.Info("ARK_BROKER_OTLP_ENDPOINT set, forking spans to broker", "brokerEndpoint", brokerEndpoint)
+		brokerExporter, err := otlptracehttp.New(
+			context.Background(),
+			otlptracehttp.WithEndpoint(brokerEndpoint),
+			otlptracehttp.WithInsecure(),
+		)
+		if err != nil {
+			log.Error(err, "failed to create broker OTLP exporter, continuing without broker")
+		} else {
+			exporter = newForkingExporter(primaryExporter, brokerExporter)
+		}
+	}
+
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),
 		trace.WithResource(resource.NewWithAttributes(

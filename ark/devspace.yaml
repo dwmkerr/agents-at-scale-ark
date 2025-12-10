@@ -47,6 +47,9 @@ dev:
     command:
       ["sh", "-c", "cd /app && GOTOOLCHAIN=auto go run cmd/main.go --leader-elect=false"]
     namespace: ark-system
+    env:
+      - name: ARK_BROKER_OTLP_ENDPOINT
+        value: "ark-cluster-memory.default.svc.cluster.local:80"
     logs:
       lastLines: 50
     # File synchronization for hot reload

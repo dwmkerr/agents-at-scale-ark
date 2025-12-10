@@ -21,6 +21,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "protobufjs": "^7.5.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.3"
@@ -31,6 +32,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.0.0",
+    "@types/protobufjs": "^6.0.0",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.18.1",

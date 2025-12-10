@@ -3,18 +3,22 @@ import cors from 'cors';
 import { MemoryStore } from './memory-store.js';
 import { StreamStore } from './stream-store.js';
 import { QuestionStore } from './question-store.js';
+import { SessionStore } from './session-store.js';
 import { createMemoryRouter } from './routes/memory.js';
 import { createStreamRouter } from './routes/stream.js';
 import { createQuestionsRouter } from './routes/questions.js';
+import { createSessionsRouter } from './routes/sessions.js';
 
 const app = express();
 const memory = new MemoryStore();
 const stream = new StreamStore();
 const questions = new QuestionStore();
+const sessions = new SessionStore();
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.raw({ type: 'application/x-protobuf', limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -118,6 +122,7 @@ app.get('/stream-statistics', (req, res) => {
 app.use('/', createMemoryRouter(memory));
 app.use('/stream', createStreamRouter(stream));
 app.use('/', createQuestionsRouter(questions));
+app.use('/', createSessionsRouter(sessions));
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -131,4 +136,4 @@ app.use((req, res) => {
 });
 
 export default app;
-export { memory, stream, questions };
+export { memory, stream, questions, sessions };
