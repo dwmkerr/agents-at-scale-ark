@@ -115,11 +115,18 @@ Rationale:
 
 | Endpoint | Format | Purpose |
 |----------|--------|---------|
-| `GET /events` (SSE) | Raw OTLP stream | Real-time, no processing |
-| `GET /sessions/:id` | Grouped by session/query, raw spans inside | Easy navigation |
-| `v1/completions` | Fully custom with interleaved chunks/events | Completion-specific |
+| `GET /traces` | All traces, raw OTLP | Full visibility, debugging, system events |
+| `GET /traces?watch=true` | SSE stream of all spans | Real-time trace streaming |
+| `GET /sessions` | Traces with `session.id`, grouped | User session tracking |
+| `GET /sessions?watch=true` | SSE stream of session spans | Real-time session updates |
+| `GET /sessions/:id` | Single session's traces/queries | Session detail view |
+| `GET /sessions/:id?watch=true` | SSE stream for one session | Real-time single session |
 
 No "broker internal format" - just views that transform as needed for their purpose.
+
+**Key distinction:**
+- `/traces` returns ALL ingested OTLP data (including system events like `controller.startup`)
+- `/sessions` returns only traces that have a `session.id` attribute (user queries)
 
 ### Session View (for `/sessions/:id`)
 
@@ -146,6 +153,19 @@ The grouping uses indexes built on ingest (session.id, query.name attributes). S
 
 ## API Design
 
+### API Summary
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/traces` | POST | OTLP receiver - ingest spans |
+| `/traces` | GET | List all traces (raw OTLP) |
+| `/traces?watch=true` | GET | SSE stream of all incoming spans |
+| `/sessions` | GET | List sessions (traces with `session.id`) |
+| `/sessions?watch=true` | GET | SSE stream of session-related spans |
+| `/sessions/:id` | GET | Get single session with queries/spans |
+| `/sessions/:id?watch=true` | GET | SSE stream for one session |
+| `/sessions` | DELETE | Purge all sessions and traces |
+
 ### OTEL Receiver
 
 **POST /v1/traces** - Receive OTLP spans
@@ -164,6 +184,40 @@ Response:
 {
   "partialSuccess": {}
 }
+```
+
+### Traces API (REST + Watch)
+
+**GET /traces** - List all traces or watch for new spans
+
+Returns all ingested OTLP traces regardless of session context. System events like `controller.startup` appear here.
+
+Query parameters:
+- `limit` - Maximum traces to return (default 100)
+- `cursor` - Pagination cursor (traceId)
+- `since` - Filter by start time (ISO timestamp)
+- `watch` - If `true`, stream new spans via SSE
+- `resourceVersion` - When watching, only stream changes after this version
+
+List response:
+```json
+{
+  "resourceVersion": "156",
+  "traces": [
+    {
+      "traceId": "abc123def456",
+      "spans": [/* raw OTLP spans */],
+      "startTime": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "cursor": "next-trace-id"
+}
+```
+
+Watch response (SSE):
+```
+event: span
+data: { /* raw OTLP span */ }
 ```
 
 ### Sessions API (REST + Watch)
@@ -340,8 +394,29 @@ Sessions are identified by the `session.id` attribute on query spans:
 
 Keep it simple - same pattern as existing cluster-memory:
 
-1. **In-memory** - All active sessions and spans held in memory
-2. **Flush to disk** - Periodic flush to JSON files (e.g., `sessions.json`, `spans.json`)
+**Data Model:**
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Traces Store   │     │ Sessions Store  │     │  Session Index  │
+│  (all spans)    │     │ (registry)      │     │ (in-memory)     │
+│                 │     │                 │     │                 │
+│ traceId → spans │     │ sessionId → {}  │     │ sessionId →     │
+│                 │     │                 │     │   [traceIds]    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+1. **Traces** (`traces.json`) - All OTLP spans indexed by traceId. This is the primary store.
+2. **Sessions** (`sessions.json`) - Registry of sessions that exist. Created when a span with `session.id` arrives.
+3. **Session Index** (in-memory) - Maps sessionId → traceIds for fast `/sessions` queries.
+
+**On span arrival:**
+1. Always store in traces by traceId
+2. If span has `session.id`: ensure session exists in registry, add traceId to session index
+
+**Persistence:**
+1. **In-memory** - All traces and sessions held in memory for fast access
+2. **Flush to disk** - Periodic flush to JSON files
 3. **PVC backing** - Disk is typically a PVC in Kubernetes
 
 This can be swapped for a database later if needed. Start simple.

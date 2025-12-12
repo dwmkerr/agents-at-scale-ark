@@ -7,9 +7,9 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  Folder,
-  FolderOpen,
+  GitBranch,
   RefreshCw,
+  Search,
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -318,11 +318,7 @@ export function SessionsSection({ active }: SessionsSectionProps) {
                         <ChevronRight className="h-3 w-3" />
                       )}
                     </button>
-                    {isExpanded ? (
-                      <FolderOpen className="h-4 w-4 flex-shrink-0 text-yellow-500" />
-                    ) : (
-                      <Folder className="h-4 w-4 flex-shrink-0 text-yellow-600" />
-                    )}
+                    <GitBranch className="h-4 w-4 flex-shrink-0 text-gray-500" />
                     <span className="flex-1 truncate font-mono text-xs">
                       {session.id.length > 20
                         ? `${session.id.slice(0, 20)}...`
@@ -374,7 +370,7 @@ export function SessionsSection({ active }: SessionsSectionProps) {
                                     <ChevronRight className="h-3 w-3" />
                                   )}
                                 </button>
-                                <span className="text-base">🔍</span>
+                                <Search className="h-4 w-4 text-gray-500" />
                                 <span className="flex-1 truncate font-mono text-xs">
                                   {queryName}
                                 </span>
@@ -542,39 +538,57 @@ function QueryDetails({
   query: { traceId: string; spans: OTLPSpan[] };
   getSpanType: (span: OTLPSpan) => string;
 }) {
-  const spansByType = query.spans.reduce(
-    (acc, span) => {
-      const type = getSpanType(span);
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
   const hasErrors = query.spans.some(s => s.status?.code === 2);
   const errorCount = query.spans.filter(s => s.status?.code === 2).length;
+
+  const rootSpan = query.spans.find(s => s.name.startsWith('query.'));
+  const input = rootSpan
+    ? (getAttr(rootSpan, 'input') ?? getAttr(rootSpan, 'input.value'))
+    : undefined;
+  const output = rootSpan
+    ? (getAttr(rootSpan, 'output') ?? getAttr(rootSpan, 'output.value'))
+    : undefined;
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-              chain
-            </span>
-            <h2 className="text-lg font-semibold">{queryName}</h2>
-            {hasErrors ? (
-              <span className="flex items-center gap-1 text-sm text-red-500">
-                <AlertCircle className="h-4 w-4" />
-                {errorCount} error{errorCount > 1 ? 's' : ''}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-sm text-green-500">
-                <CheckCircle2 className="h-4 w-4" />
-                OK
-              </span>
-            )}
+      <div className="flex items-center gap-2">
+        <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+          chain
+        </span>
+        <h2 className="text-lg font-semibold">{queryName}</h2>
+        {hasErrors ? (
+          <span className="flex items-center gap-1 text-sm text-red-500">
+            <AlertCircle className="h-4 w-4" />
+            {errorCount} error{errorCount > 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-sm text-green-500">
+            <CheckCircle2 className="h-4 w-4" />
+            OK
+          </span>
+        )}
+        <span className="text-sm text-gray-400">
+          {query.spans.length} span{query.spans.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Input / Output side by side */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <h4 className="mb-2 text-sm font-medium text-gray-500">Input</h4>
+          <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+            <p className="text-sm whitespace-pre-wrap">
+              {input ? String(input) : '-'}
+            </p>
+          </div>
+        </div>
+        <div>
+          <h4 className="mb-2 text-sm font-medium text-gray-500">Output</h4>
+          <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+            <p className="text-sm whitespace-pre-wrap">
+              {output ? String(output) : '-'}
+            </p>
           </div>
         </div>
       </div>
@@ -585,25 +599,9 @@ function QueryDetails({
         <div className="font-mono text-xs break-all">{query.traceId}</div>
       </div>
 
-      {/* Span Summary */}
-      <div>
-        <h3 className="mb-2 text-sm font-medium">Span Summary</h3>
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(spansByType).map(([type, count]) => (
-            <span
-              key={type}
-              className={`rounded px-2 py-1 text-xs font-medium ${getSpanTypeColorLocal(type)}`}>
-              {type}: {count}
-            </span>
-          ))}
-        </div>
-      </div>
-
       {/* All Spans */}
       <div>
-        <h3 className="mb-2 text-sm font-medium">
-          All Spans ({query.spans.length})
-        </h3>
+        <h3 className="mb-2 text-sm font-medium">Spans</h3>
         <div className="max-h-64 space-y-1 overflow-auto">
           {query.spans.map(span => {
             const spanType = getSpanType(span);
@@ -717,15 +715,7 @@ function spanToJson(span: OTLPSpan): Record<string, unknown> {
   };
 }
 
-function SpanHeader({
-  span,
-  showRaw,
-  onToggleRaw,
-}: {
-  span: OTLPSpan;
-  showRaw: boolean;
-  onToggleRaw: () => void;
-}) {
+function SpanHeader({ span }: { span: OTLPSpan }) {
   const spanType = getSpanTypeLocal(span.name);
   const hasError = span.status?.code === 2;
   const duration = formatDurationLocal(
@@ -734,38 +724,29 @@ function SpanHeader({
   );
 
   return (
-    <div className="flex items-start justify-between">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded px-2 py-0.5 text-xs font-medium ${getSpanTypeColorLocal(spanType)}`}>
-            {spanType}
-          </span>
-          <h2 className="text-lg font-semibold">{span.name}</h2>
-          {hasError ? (
-            <span className="flex items-center gap-1 text-sm text-red-500">
-              <AlertCircle className="h-4 w-4" />
-              ERROR
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-sm text-green-500">
-              <CheckCircle2 className="h-4 w-4" />
-              OK
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-          {duration && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {duration}
-            </span>
-          )}
-        </div>
-      </div>
-      <Button variant="outline" size="sm" onClick={onToggleRaw}>
-        {showRaw ? 'Formatted' : 'Raw JSON'}
-      </Button>
+    <div className="flex items-center gap-2">
+      <span
+        className={`rounded px-2 py-0.5 text-xs font-medium ${getSpanTypeColorLocal(spanType)}`}>
+        {spanType}
+      </span>
+      <h2 className="text-lg font-semibold">{span.name}</h2>
+      {hasError ? (
+        <span className="flex items-center gap-1 text-sm text-red-500">
+          <AlertCircle className="h-4 w-4" />
+          ERROR
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-sm text-green-500">
+          <CheckCircle2 className="h-4 w-4" />
+          OK
+        </span>
+      )}
+      {duration && (
+        <span className="flex items-center gap-1 text-sm text-gray-500">
+          <Clock className="h-3 w-3" />
+          {duration}
+        </span>
+      )}
     </div>
   );
 }
@@ -792,62 +773,40 @@ function RawJsonView({ span }: { span: OTLPSpan }) {
   );
 }
 
-function CollapsibleSection({
-  title,
-  children,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+function InputOutputView({ span }: { span: OTLPSpan }) {
+  const input = getAttr(span, 'input') ?? getAttr(span, 'input.value');
+  const output = getAttr(span, 'output') ?? getAttr(span, 'output.value');
+
+  if (!input && !output) return null;
+
   return (
-    <div className="rounded-lg border">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 p-3 hover:bg-gray-50 dark:hover:bg-gray-900">
-        {open ? (
-          <ChevronDown className="h-4 w-4" />
-        ) : (
-          <ChevronRight className="h-4 w-4" />
-        )}
-        <span className="font-medium">{title}</span>
-      </button>
-      {open && <div className="border-t p-3">{children}</div>}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <h4 className="mb-2 text-sm font-medium text-gray-500">Input</h4>
+        <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+          <p className="text-sm whitespace-pre-wrap">
+            {input ? String(input) : '-'}
+          </p>
+        </div>
+      </div>
+      <div>
+        <h4 className="mb-2 text-sm font-medium text-gray-500">Output</h4>
+        <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+          <p className="text-sm whitespace-pre-wrap">
+            {output ? String(output) : '-'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
 function ChainSpanView({ span }: { span: OTLPSpan }) {
-  const input = getAttr(span, 'input') ?? getAttr(span, 'input.value');
-  const output = getAttr(span, 'output') ?? getAttr(span, 'output.value');
-
-  return (
-    <div className="space-y-4">
-      {input && (
-        <CollapsibleSection title="Input">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(input)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      {output && (
-        <CollapsibleSection title="Output">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(output)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      <SpanIdsView span={span} />
-    </div>
-  );
+  return <InputOutputView span={span} />;
 }
 
 function AgentSpanView({ span }: { span: OTLPSpan }) {
   const agentName = getAttr(span, 'agent.name') ?? getAttr(span, 'name');
-  const input = getAttr(span, 'input') ?? getAttr(span, 'input.value');
-  const output = getAttr(span, 'output') ?? getAttr(span, 'output.value');
 
   return (
     <div className="space-y-4">
@@ -857,64 +816,36 @@ function AgentSpanView({ span }: { span: OTLPSpan }) {
           <div className="font-mono text-sm">{String(agentName)}</div>
         </div>
       )}
-      {input && (
-        <CollapsibleSection title="Input">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(input)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      {output && (
-        <CollapsibleSection title="Output">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(output)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      <SpanIdsView span={span} />
+      <InputOutputView span={span} />
     </div>
   );
 }
 
 function LlmSpanView({ span }: { span: OTLPSpan }) {
   const model = getAttr(span, 'model') ?? getAttr(span, 'llm.model');
-  const input = getAttr(span, 'input') ?? getAttr(span, 'input.value');
-  const output = getAttr(span, 'output') ?? getAttr(span, 'output.value');
   const tokens =
     getAttr(span, 'llm.token_count.total') ??
     getAttr(span, 'llm.usage.total_tokens');
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {model && (
-          <div className="rounded-lg border p-3">
-            <div className="mb-1 text-xs text-gray-500">Model</div>
-            <div className="font-mono text-sm">{String(model)}</div>
-          </div>
-        )}
-        {tokens && (
-          <div className="rounded-lg border p-3">
-            <div className="mb-1 text-xs text-gray-500">Total Tokens</div>
-            <div className="font-mono text-sm">{String(tokens)}</div>
-          </div>
-        )}
-      </div>
-      {input && (
-        <CollapsibleSection title="Input (Prompt)">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(input)}
-          </pre>
-        </CollapsibleSection>
+      {(model || tokens) && (
+        <div className="flex gap-4">
+          {model && (
+            <div className="rounded-lg border p-3">
+              <div className="mb-1 text-xs text-gray-500">Model</div>
+              <div className="font-mono text-sm">{String(model)}</div>
+            </div>
+          )}
+          {tokens && (
+            <div className="rounded-lg border p-3">
+              <div className="mb-1 text-xs text-gray-500">Tokens</div>
+              <div className="font-mono text-sm">{String(tokens)}</div>
+            </div>
+          )}
+        </div>
       )}
-      {output && (
-        <CollapsibleSection title="Output (Completion)">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(output)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      <SpanIdsView span={span} />
+      <InputOutputView span={span} />
     </div>
   );
 }
@@ -932,63 +863,36 @@ function ToolSpanView({ span }: { span: OTLPSpan }) {
           <div className="font-mono text-sm">{String(toolName)}</div>
         </div>
       )}
-      {input && (
-        <CollapsibleSection title="Parameters">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(input)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      {output && (
-        <CollapsibleSection title="Result">
-          <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-sm whitespace-pre-wrap dark:bg-gray-900">
-            {String(output)}
-          </pre>
-        </CollapsibleSection>
-      )}
-      <SpanIdsView span={span} />
-    </div>
-  );
-}
-
-function SpanIdsView({ span }: { span: OTLPSpan }) {
-  return (
-    <div className="grid grid-cols-1 gap-3">
-      <div className="rounded-lg border p-3">
-        <div className="mb-1 text-xs text-gray-500">Span ID</div>
-        <div className="font-mono text-xs break-all">{span.spanId}</div>
-      </div>
-      <div className="rounded-lg border p-3">
-        <div className="mb-1 text-xs text-gray-500">Trace ID</div>
-        <div className="font-mono text-xs break-all">{span.traceId}</div>
-      </div>
-      {span.parentSpanId && (
-        <div className="rounded-lg border p-3">
-          <div className="mb-1 text-xs text-gray-500">Parent Span ID</div>
-          <div className="font-mono text-xs break-all">{span.parentSpanId}</div>
+      {(input || output) && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-gray-500">
+              Parameters
+            </h4>
+            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <p className="text-sm whitespace-pre-wrap">
+                {input ? String(input) : '-'}
+              </p>
+            </div>
+          </div>
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-gray-500">Result</h4>
+            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <p className="text-sm whitespace-pre-wrap">
+                {output ? String(output) : '-'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function GenericSpanView({ span }: { span: OTLPSpan }) {
-  return (
-    <div className="space-y-4">
-      <RawJsonView span={span} />
-    </div>
-  );
-}
-
 function SpanDetails({ span }: { span: OTLPSpan }) {
-  const [showRaw, setShowRaw] = useState(false);
   const spanType = getSpanTypeLocal(span.name);
 
-  const renderContent = () => {
-    if (showRaw) {
-      return <RawJsonView span={span} />;
-    }
-
+  const renderDetails = () => {
     switch (spanType) {
       case 'chain':
         return <ChainSpanView span={span} />;
@@ -999,19 +903,21 @@ function SpanDetails({ span }: { span: OTLPSpan }) {
       case 'tool':
         return <ToolSpanView span={span} />;
       default:
-        return <GenericSpanView span={span} />;
+        return null;
     }
   };
 
+  const details = renderDetails();
+
   return (
     <div className="space-y-4">
-      <SpanHeader
-        span={span}
-        showRaw={showRaw}
-        onToggleRaw={() => setShowRaw(!showRaw)}
-      />
+      <SpanHeader span={span} />
       <SpanErrorBanner span={span} />
-      {renderContent()}
+      {details}
+      <div>
+        <h4 className="mb-2 text-sm font-medium text-gray-500">Raw Event</h4>
+        <RawJsonView span={span} />
+      </div>
     </div>
   );
 }

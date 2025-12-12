@@ -13,8 +13,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { formatAge } from '@/lib/utils/time';
 import { apiClient } from '@/lib/api/client';
+import { formatAge } from '@/lib/utils/time';
 
 interface Question {
   id: string;
@@ -35,7 +35,9 @@ interface QuestionsResponse {
 export function QuestionsSection() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
+    null,
+  );
   const [answerText, setAnswerText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,7 +47,10 @@ export function QuestionsSection() {
       setQuestions(data.questions || []);
     } catch (error) {
       toast.error('Failed to Load Questions', {
-        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
       });
     } finally {
       setLoading(false);
@@ -57,12 +62,12 @@ export function QuestionsSection() {
 
     const eventSource = new EventSource('/api/v1/questions?watch=true');
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = event => {
       const question = JSON.parse(event.data) as Question;
       setQuestions(prev => {
         const existing = prev.find(q => q.id === question.id);
         if (existing) {
-          return prev.map(q => q.id === question.id ? question : q);
+          return prev.map(q => (q.id === question.id ? question : q));
         } else {
           return [question, ...prev];
         }
@@ -88,15 +93,20 @@ export function QuestionsSection() {
     try {
       const updatedQuestion = await apiClient.patch<Question>(
         `/api/v1/questions/${selectedQuestion.id}`,
-        { response: answerText }
+        { response: answerText },
       );
-      setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
+      setQuestions(prev =>
+        prev.map(q => (q.id === updatedQuestion.id ? updatedQuestion : q)),
+      );
       setSelectedQuestion(null);
       setAnswerText('');
       toast.success('Answer submitted successfully');
     } catch (error) {
       toast.error('Failed to Submit Answer', {
-        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
       });
     } finally {
       setSubmitting(false);
@@ -116,32 +126,38 @@ export function QuestionsSection() {
               ← Back to Questions
             </Button>
           </div>
-          <div className="rounded-lg border bg-card p-6">
+          <div className="bg-card rounded-lg border p-6">
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">Question ID</div>
+              <div className="text-muted-foreground text-sm">Question ID</div>
               <div className="font-mono text-sm">{selectedQuestion.id}</div>
             </div>
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">From</div>
+              <div className="text-muted-foreground text-sm">From</div>
               <div className="text-sm">{selectedQuestion.sender}</div>
             </div>
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">To</div>
+              <div className="text-muted-foreground text-sm">To</div>
               <div className="text-sm">{selectedQuestion.recipient}</div>
             </div>
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">Created</div>
-              <div className="text-sm">{formatAge(selectedQuestion.createdAt)}</div>
+              <div className="text-muted-foreground text-sm">Created</div>
+              <div className="text-sm">
+                {formatAge(selectedQuestion.createdAt)}
+              </div>
             </div>
             <div className="mb-6">
               <div className="mb-2 text-sm font-medium">Question</div>
-              <div className="rounded border bg-muted p-4">{selectedQuestion.content}</div>
+              <div className="bg-muted rounded border p-4">
+                {selectedQuestion.content}
+              </div>
             </div>
             {selectedQuestion.status === 'answered' ? (
               <div>
                 <div className="mb-2 text-sm font-medium">Answer</div>
-                <div className="rounded border bg-muted p-4">{selectedQuestion.response}</div>
-                <div className="mt-2 text-sm text-muted-foreground">
+                <div className="bg-muted rounded border p-4">
+                  {selectedQuestion.response}
+                </div>
+                <div className="text-muted-foreground mt-2 text-sm">
                   Answered {formatAge(selectedQuestion.answeredAt || '')}
                 </div>
               </div>
@@ -149,14 +165,16 @@ export function QuestionsSection() {
               <div>
                 <div className="mb-2 text-sm font-medium">Your Answer</div>
                 <textarea
-                  className="w-full rounded border p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="focus:ring-primary w-full rounded border p-3 focus:ring-2 focus:outline-none"
                   rows={5}
                   value={answerText}
                   onChange={e => setAnswerText(e.target.value)}
                   placeholder="Type your answer here..."
                 />
                 <div className="mt-4 flex justify-end">
-                  <Button onClick={handleSubmitAnswer} disabled={submitting || !answerText.trim()}>
+                  <Button
+                    onClick={handleSubmitAnswer}
+                    disabled={submitting || !answerText.trim()}>
                     {submitting ? 'Submitting...' : 'Submit Answer'}
                   </Button>
                 </div>
@@ -176,7 +194,8 @@ export function QuestionsSection() {
             <EmptyMedia />
             <EmptyTitle>No Questions</EmptyTitle>
             <EmptyDescription>
-              No questions have been asked yet. Questions will appear here when agents need user input.
+              No questions have been asked yet. Questions will appear here when
+              agents need user input.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -198,7 +217,8 @@ export function QuestionsSection() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="text-lg font-semibold">
-            {pendingQuestions.length} Pending, {answeredQuestions.length} Answered
+            {pendingQuestions.length} Pending, {answeredQuestions.length}{' '}
+            Answered
           </div>
           <Button variant="outline" onClick={() => loadQuestions()}>
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -208,21 +228,27 @@ export function QuestionsSection() {
 
         {pendingQuestions.length > 0 && (
           <div className="mb-8">
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Pending Questions</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-medium">
+              Pending Questions
+            </h2>
             <div className="space-y-2">
               {pendingQuestions.map(question => (
                 <div
                   key={question.id}
-                  className="cursor-pointer rounded-lg border bg-card p-4 hover:bg-accent"
+                  className="bg-card hover:bg-accent cursor-pointer rounded-lg border p-4"
                   onClick={() => setSelectedQuestion(question)}>
                   <div className="mb-2 flex items-start justify-between">
-                    <div className="font-mono text-sm text-muted-foreground">{question.id}</div>
+                    <div className="text-muted-foreground font-mono text-sm">
+                      {question.id}
+                    </div>
                     <div className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
                       Pending
                     </div>
                   </div>
-                  <div className="mb-2 line-clamp-2 text-sm">{question.content}</div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="mb-2 line-clamp-2 text-sm">
+                    {question.content}
+                  </div>
+                  <div className="text-muted-foreground flex items-center gap-4 text-xs">
                     <span>From: {question.sender}</span>
                     <span>•</span>
                     <span>{formatAge(question.createdAt)}</span>
@@ -235,21 +261,27 @@ export function QuestionsSection() {
 
         {answeredQuestions.length > 0 && (
           <div>
-            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Answered Questions</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-medium">
+              Answered Questions
+            </h2>
             <div className="space-y-2">
               {answeredQuestions.map(question => (
                 <div
                   key={question.id}
-                  className="cursor-pointer rounded-lg border bg-card p-4 hover:bg-accent"
+                  className="bg-card hover:bg-accent cursor-pointer rounded-lg border p-4"
                   onClick={() => setSelectedQuestion(question)}>
                   <div className="mb-2 flex items-start justify-between">
-                    <div className="font-mono text-sm text-muted-foreground">{question.id}</div>
+                    <div className="text-muted-foreground font-mono text-sm">
+                      {question.id}
+                    </div>
                     <div className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200">
                       Answered
                     </div>
                   </div>
-                  <div className="mb-2 line-clamp-2 text-sm">{question.content}</div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="mb-2 line-clamp-2 text-sm">
+                    {question.content}
+                  </div>
+                  <div className="text-muted-foreground flex items-center gap-4 text-xs">
                     <span>From: {question.sender}</span>
                     <span>•</span>
                     <span>Answered {formatAge(question.answeredAt || '')}</span>

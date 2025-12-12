@@ -91,7 +91,9 @@ export const QueriesSection = forwardRef<{ openAddEditor: () => void }>(
     // Start SSE watch after initial load, using resourceVersion to avoid event flood
     useEffect(() => {
       // resourceVersion not yet in generated types - cast to access it
-      const resourceVersion = (listQueriesData as { resourceVersion?: string } | undefined)?.resourceVersion;
+      const resourceVersion = (
+        listQueriesData as { resourceVersion?: string } | undefined
+      )?.resourceVersion;
       if (!resourceVersion) return;
 
       const url = `/api/v1/queries?watch=true&resourceVersion=${resourceVersion}`;

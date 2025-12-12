@@ -99,7 +99,11 @@ export class SessionStore {
     const queryName = this.getAttributeValue(span.attributes, 'query.name');
     const traceId = span.traceId;
 
-    let targetSessionId = sessionId || this.traceToSession.get(traceId) || `session-${traceId.substring(0, 8)}`;
+    const targetSessionId = sessionId || this.traceToSession.get(traceId);
+
+    if (!targetSessionId) {
+      return;
+    }
 
     if (sessionId) this.traceToSession.set(traceId, sessionId);
 

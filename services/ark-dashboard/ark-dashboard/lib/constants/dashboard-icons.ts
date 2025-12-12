@@ -1,4 +1,5 @@
 import {
+  Activity,
   BarChart,
   Bot,
   Calendar,
@@ -89,6 +90,12 @@ export const DASHBOARD_SECTIONS: Record<string, DashboardSection> = {
     key: 'memory',
     title: 'Memory',
     icon: Database,
+    group: 'operations',
+  },
+  sessions: {
+    key: 'sessions',
+    title: 'Sessions',
+    icon: Activity,
     group: 'operations',
   },
   tasks: {
