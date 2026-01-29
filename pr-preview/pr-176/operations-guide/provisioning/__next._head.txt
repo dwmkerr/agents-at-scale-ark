@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[81896,["/pr-preview/pr-176/_next/static/chunks/7e646eaf6c010ce1.js","/pr-preview/pr-176/_next/static/chunks/c561c449ddf9a3ea.js"],"ViewportBoundary"]
+3:I[81896,["/pr-preview/pr-176/_next/static/chunks/7e646eaf6c010ce1.js","/pr-preview/pr-176/_next/static/chunks/c561c449ddf9a3ea.js"],"MetadataBoundary"]
+4:"$Sreact.suspense"
+5:I[4094,["/pr-preview/pr-176/_next/static/chunks/7e646eaf6c010ce1.js","/pr-preview/pr-176/_next/static/chunks/c561c449ddf9a3ea.js"],"IconMark"]
+0:{"buildId":"eIFHSTOcW6gAnI84HnXfk","rsc":["$","$1","h",{"children":[null,["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Provisioning"}],["$","meta","1",{"name":"description","content":"The McKinsey QuantumBlack Agentic Ecosystem"}],["$","link","2",{"rel":"icon","href":"/pr-preview/pr-176/favicon.ico?favicon.851eb152.ico","sizes":"200x175","type":"image/x-icon"}],["$","$L5","3",{}]]}]}]}],null]}],"loading":null,"isPartial":false}
