@@ -6,6 +6,8 @@ import {
   CheckCircle,
   ClipboardList,
   Database,
+  FolderOpen,
+  GitBranch,
   Key,
   Lock,
   type LucideIcon,
@@ -64,6 +66,18 @@ export const DASHBOARD_SECTIONS: Record<string, DashboardSection> = {
   },
 
   // Operations
+  files: {
+    key: 'files',
+    title: 'Files',
+    icon: FolderOpen,
+    group: 'operations',
+  },
+  sessions: {
+    key: 'sessions',
+    title: 'Sessions',
+    icon: GitBranch,
+    group: 'operations',
+  },
   queries: {
     key: 'queries',
     title: 'Queries',

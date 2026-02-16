@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, MessageCircle, Pencil, Trash2 } from 'lucide-react';
+import { Bot, ExternalLink, MessageCircle, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmationDialog } from '@/components/dialogs/confirmation-dialog';
@@ -17,6 +17,7 @@ import type {
   Team,
 } from '@/lib/services';
 import { getCustomIcon } from '@/lib/utils/icon-resolver';
+import { parseOrigin } from '@/lib/utils/origin';
 
 import { BaseCard, type BaseCardAction } from './base-card';
 
@@ -48,6 +49,10 @@ export function AgentCard({
   // Check if this is an A2A agent
   const isA2A = agent.isA2A || false;
 
+  // Parse origin annotation
+  const origin = parseOrigin(agent.annotations);
+  const isLocked = origin?.isLocked ?? false;
+
   // Get custom icon or default Bot icon
   const IconComponent = getCustomIcon(
     agent.annotations?.[ARK_ANNOTATIONS.DASHBOARD_ICON],
@@ -56,7 +61,7 @@ export function AgentCard({
 
   const actions: BaseCardAction[] = [];
 
-  if (onUpdate) {
+  if (onUpdate && !isLocked) {
     actions.push({
       icon: Pencil,
       label: 'Edit agent',
@@ -64,7 +69,7 @@ export function AgentCard({
     });
   }
 
-  if (onDelete) {
+  if (onDelete && !isLocked) {
     actions.push({
       icon: Trash2,
       label: 'Delete agent',
@@ -93,6 +98,17 @@ export function AgentCard({
               <Bot className="h-4 w-4" />
               {!isA2A && <span>Model: {modelName}</span>}
               {isA2A && <span>A2A Agent</span>}
+              {origin && (
+                <a
+                  href={origin.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                  <origin.icon className="h-3 w-3" />
+                  {origin.label}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
             </div>
             <AvailabilityStatusBadge
               status={agent.available}
