@@ -20,7 +20,6 @@ on:
       - 'fork-build/**'
     paths:
       - 'services/ark-dashboard/**'
-      - 'services/ark-api/openapi.json'
       - '.github/workflows/fork-build-dashboard.yaml'
 
 jobs:
@@ -52,15 +51,9 @@ jobs:
             echo "value=${BRANCH}-${SHA}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Stage ark-api openapi.json into dashboard build context
-        # Dashboard's npm run build expects services/ark-dashboard/out/openapi.json
-        # (see services/ark-dashboard/build.mk DASHBOARD_OPENAPI). Copy directly
-        # rather than running `make ark-dashboard-deps`, which transitively runs
-        # the ark-api test suite to regenerate the file.
-        run: |
-          mkdir -p services/ark-dashboard/out
-          cp services/ark-api/openapi.json services/ark-dashboard/out/openapi.json
-
+      # Dashboard's `next build` consumes the git-tracked
+       # lib/api/generated/types.ts, not openapi.json — no openapi
+       # staging step needed for an image build.
       - uses: docker/build-push-action@v6
         with:
           context: services/ark-dashboard
