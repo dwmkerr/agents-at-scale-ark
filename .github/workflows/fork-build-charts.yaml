@@ -1,0 +1,70 @@
+name: Fork — Build & Push charts to GHCR
+
+# Fork-only Helm chart publish for branch testing against external clusters.
+# The released 0.1.63 charts predate the SSO impersonation feature; the fork's
+# charts (main-based) include it. Publishes ark-api + ark-dashboard charts to
+# oci://ghcr.io/<owner>/charts so a demo can use impersonation-capable charts
+# alongside the fork-built images. Gated off upstream like the image workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chart version (OCI tag). Must be semver.'
+        required: false
+        type: string
+  push:
+    branches:
+      - 'fix/**'
+      - 'feat/**'
+      - 'fork-build/**'
+    paths:
+      - 'services/ark-api/chart/**'
+      - 'services/ark-dashboard/chart/**'
+      - '.github/workflows/fork-build-charts.yaml'
+
+jobs:
+  package-and-push:
+    if: github.repository != 'mckinsey/agents-at-scale-ark'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: azure/setup-helm@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.1.64-fork.2318" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to GHCR (helm)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package + push charts
+        run: |
+          VER="${{ steps.ver.outputs.value }}"
+          OWNER="${{ github.repository_owner }}"
+          for svc in ark-api ark-dashboard; do
+            helm package "services/$svc/chart" --version "$VER" --app-version "$VER" --destination /tmp
+            helm push "/tmp/$svc-$VER.tgz" "oci://ghcr.io/$OWNER/charts"
+          done
+
+      - name: Summary
+        run: |
+          VER="${{ steps.ver.outputs.value }}"
+          OWNER="${{ github.repository_owner }}"
+          {
+            echo "### Pushed charts"
+            echo '```'
+            echo "oci://ghcr.io/$OWNER/charts/ark-api:$VER"
+            echo "oci://ghcr.io/$OWNER/charts/ark-dashboard:$VER"
+            echo '```'
+            echo "Set them public: https://github.com/users/$OWNER/packages"
+          } >> "$GITHUB_STEP_SUMMARY"
