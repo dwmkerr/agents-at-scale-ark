@@ -1,0 +1,79 @@
+name: Fork — Build & Push ark-dashboard to GHCR
+
+# Fork-only image publish for branch testing against external clusters.
+# Pushes ghcr.io/<owner>/ark-dashboard:<branch-slug>-<sha> on push to fix/*
+# or fork-build/* branches and on manual dispatch. Skipped on the upstream
+# repo via the `if:` gate so it can never collide with the official
+# ghcr.io/mckinsey/agents-at-scale-ark images.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag override (default = branch slug + short sha)'
+        required: false
+        type: string
+  push:
+    branches:
+      - 'fix/**'
+      - 'feat/**'
+      - 'fork-build/**'
+    paths:
+      - 'services/ark-dashboard/**'
+      - 'services/ark-api/openapi.json'
+      - '.github/workflows/fork-build-dashboard.yaml'
+
+jobs:
+  build-and-push:
+    if: github.repository != 'mckinsey/agents-at-scale-ark'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="${GITHUB_REF_NAME//\//-}"
+            SHA="${GITHUB_SHA::7}"
+            echo "value=${BRANCH}-${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stage ark-api openapi.json into dashboard build context
+        # Dashboard's npm run build expects services/ark-dashboard/out/openapi.json
+        # (see services/ark-dashboard/build.mk DASHBOARD_OPENAPI). Copy directly
+        # rather than running `make ark-dashboard-deps`, which transitively runs
+        # the ark-api test suite to regenerate the file.
+        run: |
+          mkdir -p services/ark-dashboard/out
+          cp services/ark-api/openapi.json services/ark-dashboard/out/openapi.json
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/ark-dashboard
+          file: services/ark-dashboard/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ark-dashboard:${{ steps.tag.outputs.value }}
+            ghcr.io/${{ github.repository_owner }}/ark-dashboard:latest-fork
+
+      - name: Summary
+        run: |
+          echo "### Pushed image" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "ghcr.io/${{ github.repository_owner }}/ark-dashboard:${{ steps.tag.outputs.value }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
