@@ -32,6 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # QEMU registers binfmt_misc emulators so the amd64 runner can
+       # produce an arm64 layer alongside amd64. Upstream ships
+       # linux/amd64 + linux/arm64; matching that lets the same image run
+       # on Graviton (t4g.*) nodes.
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -58,7 +64,7 @@ jobs:
         with:
           context: services/ark-dashboard
           file: services/ark-dashboard/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/ark-dashboard:${{ steps.tag.outputs.value }}
