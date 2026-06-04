@@ -53,8 +53,13 @@ function sessionCallback({
   session,
   token,
 }: Parameters<SessionCallback>['0']): ReturnType<SessionCallback> {
-  if (session?.user && token?.id) {
-    session.user.id = String(token.id);
+  // NextAuth carries the user id on token.sub (not token.id); fall back to it
+  // so session.user is reliably complete and the user menu (incl. Sign out)
+  // renders when authenticated.
+  if (session?.user) {
+    const id = token?.id ?? token?.sub;
+    if (id) session.user.id = String(id);
+    if (token?.image) session.user.image = String(token.image);
   }
   return session;
 }

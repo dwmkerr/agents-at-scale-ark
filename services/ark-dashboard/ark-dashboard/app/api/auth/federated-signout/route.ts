@@ -20,16 +20,20 @@ export async function GET(request: NextRequest) {
 
   // Get or fetch the openid config from the OIDC provider's well-known configuration
   const openidConfig = await openidConfigManager.getConfig();
-  const fallbackEndpoint = `${process.env.OIDC_ISSUER_URL}/oidc/logout`;
 
+  // Not every OIDC provider supports RP-initiated logout. Dex, for example, is
+  // a stateless connector with no session to end, so it advertises no
+  // end_session_endpoint (dexidp/dex#1697). Fabricating a logout URL just 404s
+  // and leaves the local session intact. When there is no end_session_endpoint,
+  // there is nothing to terminate at the provider — clear the local session.
   if (!openidConfig.end_session_endpoint) {
-    console.warn('Unable to retrieve end session endpoint from OIDC provider');
-    // Fallback to the configured issuer with a common logout path
-    console.warn('Using fallback endpoint:', fallbackEndpoint);
+    console.warn(
+      'OIDC provider advertises no end_session_endpoint; performing local signout only',
+    );
+    return NextResponse.redirect(new URL('/signout', baseURL));
   }
 
-  const endpoint = openidConfig.end_session_endpoint || fallbackEndpoint;
-  const url = new URL(endpoint);
+  const url = new URL(openidConfig.end_session_endpoint);
 
   url.searchParams.append('id_token_hint', String(token.id_token));
   url.searchParams.append('post_logout_redirect_uri', redirectURL);
