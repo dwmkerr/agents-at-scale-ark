@@ -11,20 +11,16 @@ import { openidConfigManager } from '@/lib/auth/openid-config-manager';
 // does not always clear every chunk — leaving the session valid after "logout".
 const MAX_COOKIE_CHUNKS = 8;
 
-// Clear the session cookie (and any chunked variants) on a response, plus any
-// extra cookies named in LOGOUT_CLEAR_COOKIES (comma-separated) for deployments
-// that set additional auth/proxy cookies. Secure-prefixed cookies must be
-// deleted with the same Secure/Path attributes they were set with.
+// Clear the session cookie and any chunked variants on a response. The session
+// token is the only cookie that authenticates the user; deleting it logs them
+// out. Secure-prefixed cookies must be deleted with the same Secure/Path
+// attributes they were set with.
 function clearSessionCookies(res: NextResponse) {
   const names = [SESSION_COOKIE_NAME];
   for (let i = 0; i < MAX_COOKIE_CHUNKS; i++) {
     names.push(`${SESSION_COOKIE_NAME}.${i}`);
   }
-  const extra = (process.env.LOGOUT_CLEAR_COOKIES ?? '')
-    .split(',')
-    .map((c) => c.trim())
-    .filter(Boolean);
-  for (const name of [...names, ...extra]) {
+  for (const name of names) {
     res.cookies.set(name, '', {
       path: '/',
       maxAge: 0,
