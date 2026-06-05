@@ -5,16 +5,12 @@ import { NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME, useSecureCookies } from '@/lib/auth/auth-config';
 import { openidConfigManager } from '@/lib/auth/openid-config-manager';
 
-// Number of chunk indices to clear. NextAuth splits a session JWT larger than
-// ~4KB into `${name}.0`, `${name}.1`, ... Large OIDC tokens (id + access +
-// refresh, e.g. from Dex) routinely exceed this, and the client-side signOut()
-// does not always clear every chunk — leaving the session valid after "logout".
+// NextAuth splits a session JWT larger than ~4KB into `${name}.0`, `${name}.1`,
+// ... Large OIDC tokens (id + access + refresh) routinely exceed this, and the
+// client-side signOut() does not reliably clear every chunk — leaving the
+// session valid after "logout". Clear the base name and chunk variants.
 const MAX_COOKIE_CHUNKS = 8;
 
-// Clear the session cookie and any chunked variants on a response. The session
-// token is the only cookie that authenticates the user; deleting it logs them
-// out. Secure-prefixed cookies must be deleted with the same Secure/Path
-// attributes they were set with.
 function clearSessionCookies(res: NextResponse) {
   const names = [SESSION_COOKIE_NAME];
   for (let i = 0; i < MAX_COOKIE_CHUNKS; i++) {
@@ -55,9 +51,10 @@ export async function GET(request: NextRequest) {
   // and leaves the local session intact. When there is no end_session_endpoint,
   // there is nothing to terminate at the provider — clear the local session.
   if (!openidConfig.end_session_endpoint) {
-    console.warn(
-      'OIDC provider advertises no end_session_endpoint; performing local signout only',
-    );
+    console.warn('Unable to retrieve end session endpoint from OIDC provider');
+    console.warn('Provider does not support RP-initiated logout (e.g., Dex)');
+    console.warn('Performing local sign-out only');
+    // Perform local sign-out only when provider doesn't support federated logout
     return clearSessionCookies(
       NextResponse.redirect(new URL('/signout', baseURL)),
     );
