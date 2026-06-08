@@ -1,0 +1,84 @@
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: vi.fn(() => new URLSearchParams('')),
+}));
+
+const mockGetContext = vi.fn();
+
+vi.mock('@/lib/services/namespaces-hooks', () => ({
+  useGetContext: () => mockGetContext(),
+}));
+
+vi.mock('@/providers/UserProvider', () => ({
+  useUser: () => ({ user: { email: 'dwmkerr-agent@example.com' } }),
+}));
+
+import { ContextProvider } from '@/providers/ContextProvider';
+
+function renderWithData(data: unknown) {
+  mockGetContext.mockReturnValue({ data, isPending: false, error: null });
+  return render(
+    <ContextProvider>
+      <div data-testid="app">app</div>
+    </ContextProvider>,
+  );
+}
+
+describe('ContextProvider gate', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the app when essential access is present', () => {
+    renderWithData({
+      namespace: 'demo',
+      cluster: null,
+      read_only_mode: false,
+      permissions: {
+        status: 'ok',
+        reason: null,
+        rules: {
+          agents: ['list'],
+          models: ['list'],
+          queries: ['list'],
+          teams: ['list'],
+          tools: ['list'],
+        },
+      },
+    });
+    expect(screen.getByTestId('app')).toBeInTheDocument();
+  });
+
+  it('renders access denied when essential access is missing', () => {
+    renderWithData({
+      namespace: 'demo',
+      cluster: null,
+      read_only_mode: false,
+      permissions: { status: 'ok', reason: null, rules: {} },
+    });
+    expect(screen.queryByTestId('app')).not.toBeInTheDocument();
+    expect(screen.getByText(/No access to this namespace/i)).toBeInTheDocument();
+  });
+
+  it('renders cluster unavailable when authz could not be evaluated', () => {
+    renderWithData({
+      namespace: 'demo',
+      cluster: null,
+      read_only_mode: false,
+      permissions: {
+        status: 'unavailable',
+        reason: 'webhook authorizer unavailable',
+        rules: {},
+      },
+    });
+    expect(screen.queryByTestId('app')).not.toBeInTheDocument();
+    expect(screen.getByText(/Cluster unavailable/i)).toBeInTheDocument();
+  });
+
+  it('renders the app when permissions are absent (open mode)', () => {
+    renderWithData({ namespace: 'demo', cluster: null, read_only_mode: false });
+    expect(screen.getByTestId('app')).toBeInTheDocument();
+  });
+});

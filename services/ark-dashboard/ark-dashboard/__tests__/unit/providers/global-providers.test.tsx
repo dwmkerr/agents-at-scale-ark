@@ -12,6 +12,12 @@ vi.mock('@/providers/NamespaceProvider', () => ({
   ),
 }));
 
+vi.mock('@/providers/ContextProvider', () => ({
+  ContextProvider: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
 vi.mock('@/lib/analytics/provider', () => ({
   AnalyticsProvider: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>

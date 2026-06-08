@@ -14,10 +14,8 @@ import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api/client';
 import type { Namespace } from '@/lib/services';
-import {
-  useCreateNamespace,
-  useGetContext,
-} from '@/lib/services/namespaces-hooks';
+import { useCreateNamespace } from '@/lib/services/namespaces-hooks';
+import { useArkContext } from '@/providers/ContextProvider';
 
 interface NamespaceContext {
   availableNamespaces: Namespace[];
@@ -47,10 +45,7 @@ function NamespaceProvider({ children }: PropsWithChildren) {
   const [readOnlyMode, setReadOnlyMode] = useState(true);
   const [currentNamespace, setCurrentNamespace] = useState<string>('default');
 
-  // 1. If ?namespace is provided, try to validate it by passing to API
-  // 2. If no ?namespace OR validation fails, API will return pod's default namespace
-  // 3. Final fallback is 'default' if API call fails entirely
-  const { data, isPending, error } = useGetContext(namespaceFromQueryParams || undefined);
+  const { context: data, isPending, error } = useArkContext();
 
   useEffect(() => {
     apiClient.setDefaultParam('namespace', currentNamespace);

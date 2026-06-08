@@ -30,6 +30,18 @@ vi.mock('@/lib/services/namespaces-hooks', () => ({
   })),
 }));
 
+vi.mock('@/providers/ContextProvider', () => ({
+  useArkContext: () => {
+    const r = mockUseGetContext();
+    return {
+      context: r.data,
+      permissions: r.data?.permissions ?? null,
+      isPending: r.isPending,
+      error: r.error,
+    };
+  },
+}));
+
 vi.mock('@/lib/api/client', () => ({
   apiClient: {
     setDefaultParam: vi.fn(),

@@ -35,6 +35,18 @@ vi.mock('@/lib/services/namespaces-hooks', () => ({
   GET_ALL_NAMESPACES_QUERY_KEY: 'get-all-namespaces',
 }));
 
+vi.mock('@/providers/ContextProvider', () => ({
+  useArkContext: () => {
+    const r = mockGetContext();
+    return {
+      context: r?.data,
+      permissions: r?.data?.permissions ?? null,
+      isPending: r?.isPending,
+      error: r?.error,
+    };
+  },
+}));
+
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), {
     error: vi.fn(),
