@@ -70,6 +70,7 @@ OIDC_ISSUER_URL="https://your-oidc-provider.com"     # Required: OIDC issuer URL
 OIDC_CLIENT_ID="your-client-id"                      # Required: OIDC client ID
 OIDC_CLIENT_SECRET="your-client-secret"              # Optional: OIDC client secret
 OIDC_PROVIDER_NAME="Your Provider"                   # Optional: Display name for the OIDC provider in UI
+OIDC_END_SESSION_URL="https://idp.example.com/logout" # Optional: explicit RP-initiated logout endpoint (see Logout Behavior)
 
 # Authentication Mode
 AUTH_MODE="hybrid"                                    # Required: see Authentication Modes section below
@@ -267,6 +268,18 @@ Implements federated logout with the OIDC provider:
 This endpoint performs a complete logout by redirecting to the OIDC provider's `end_session_endpoint` to terminate the session on both the dashboard and the identity provider.
 
 > ⚠️ **OIDC Provider Compatibility Warning**: Some OIDC providers may not properly handle the `end_session_endpoint` call or may not support all the required parameters (`id_token_hint`, `post_logout_redirect_uri`, `client_id`). This can result in sessions getting stuck on the provider side, causing issues with proper signout. See [Federated Logout Issues](#federated-logout-issues) in the troubleshooting section for more details.
+
+#### Logout Behavior
+
+Logout never depends on the identity provider being reachable. Clearing the local session cookies is always the safe floor, following the same convention as Spring Security's `OidcClientInitiatedLogoutSuccessHandler` and oauth2-proxy. The endpoint resolves the end-session URL with the following precedence:
+
+1. **`OIDC_END_SESSION_URL` (explicit)**: If set, this URL is used for [OIDC RP-Initiated Logout 1.0](https://openid.net/specs/openid-connect-rpinitiated-1_0.html), appending `id_token_hint`, `post_logout_redirect_uri`, and `client_id`. Discovery is skipped. This is provider-agnostic and lets providers that do not advertise an `end_session_endpoint` still support federated logout — for example [Dex deliberately has none](https://github.com/dexidp/dex/issues/1697).
+2. **Discovered `end_session_endpoint`**: If `OIDC_END_SESSION_URL` is unset, the value from the provider's well-known configuration is used.
+3. **Local-only**: If neither is available — including when the discovery fetch fails or the provider advertises no `end_session_endpoint` — the dashboard clears its session cookies and redirects to `/signout`. It never surfaces `error=Configuration` or returns a 500.
+
+| Env Variable | Required | Description |
+| --- | --- | --- |
+| `OIDC_END_SESSION_URL` | Optional | Explicit RP-initiated logout endpoint. Takes precedence over the discovered `end_session_endpoint`. Use when the provider does not advertise one (e.g. Dex). |
 
 ### Authentication Flow
 

@@ -9,9 +9,11 @@ vi.mock('@/lib/auth/auth-config', () => ({
 vi.mock('@/lib/auth/openid-config-manager', () => ({
   openidConfigManager: { getConfig: vi.fn() },
 }));
+vi.mock('@/lib/constants/auth', () => ({ OIDC_END_SESSION_URL: '' }));
 
 import { getToken } from 'next-auth/jwt';
 import { openidConfigManager } from '@/lib/auth/openid-config-manager';
+import * as authConstants from '@/lib/constants/auth';
 import { GET } from './route';
 
 const SESSION = '__Secure-session-token';
@@ -28,6 +30,7 @@ describe('GET /api/auth/federated-signout', () => {
     process.env.BASE_URL = 'https://dashboard.example.com';
     process.env.AUTH_SECRET = 'test-secret';
     delete process.env.OIDC_CLIENT_ID;
+    vi.mocked(authConstants).OIDC_END_SESSION_URL = '';
   });
 
   it('clears the session cookie + chunks and redirects to /signout when there is no session', async () => {
@@ -55,6 +58,21 @@ describe('GET /api/auth/federated-signout', () => {
     expect(res.cookies.get(SESSION)?.value).toBe('');
   });
 
+  it('falls back to local /signout (clearing cookies) when discovery throws', async () => {
+    vi.mocked(getToken).mockResolvedValue({ id_token: 'id-tok' } as never);
+    vi.mocked(openidConfigManager.getConfig).mockRejectedValue(
+      new Error('discovery unreachable') as never,
+    );
+
+    const res = await GET(request());
+
+    expect(res.headers.get('location')).toBe(
+      'https://dashboard.example.com/signout',
+    );
+    expect(res.cookies.get(SESSION)?.value).toBe('');
+    expect(res.cookies.get(`${SESSION}.0`)?.value).toBe('');
+  });
+
   it('redirects to the provider end_session_endpoint and clears local cookies', async () => {
     process.env.OIDC_CLIENT_ID = 'client-123';
     vi.mocked(getToken).mockResolvedValue({ id_token: 'id-tok' } as never);
@@ -71,6 +89,28 @@ describe('GET /api/auth/federated-signout', () => {
       'https://dashboard.example.com/signout',
     );
     expect(loc.searchParams.get('client_id')).toBe('client-123');
+    expect(res.cookies.get(SESSION)?.value).toBe('');
+  });
+
+  it('uses OIDC_END_SESSION_URL even when discovery lacks one', async () => {
+    process.env.OIDC_CLIENT_ID = 'client-123';
+    vi.mocked(authConstants).OIDC_END_SESSION_URL =
+      'https://idp.example.com/override-logout';
+    vi.mocked(getToken).mockResolvedValue({ id_token: 'id-tok' } as never);
+    vi.mocked(openidConfigManager.getConfig).mockResolvedValue({} as never);
+
+    const res = await GET(request());
+
+    const loc = new URL(res.headers.get('location') as string);
+    expect(`${loc.origin}${loc.pathname}`).toBe(
+      'https://idp.example.com/override-logout',
+    );
+    expect(loc.searchParams.get('id_token_hint')).toBe('id-tok');
+    expect(loc.searchParams.get('post_logout_redirect_uri')).toBe(
+      'https://dashboard.example.com/signout',
+    );
+    expect(loc.searchParams.get('client_id')).toBe('client-123');
+    expect(openidConfigManager.getConfig).not.toHaveBeenCalled();
     expect(res.cookies.get(SESSION)?.value).toBe('');
   });
 });

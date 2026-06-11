@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { SESSION_COOKIE_NAME, useSecureCookies } from '@/lib/auth/auth-config';
 import { openidConfigManager } from '@/lib/auth/openid-config-manager';
+import { OIDC_END_SESSION_URL } from '@/lib/constants/auth';
 
 // NextAuth splits a session JWT larger than ~4KB into `${name}.0`, `${name}.1`,
 // ... Large OIDC tokens (id + access + refresh) routinely exceed this, and the
@@ -42,25 +43,38 @@ export async function GET(request: NextRequest) {
     return clearSessionCookies(NextResponse.redirect(new URL('/signout', baseURL)));
   }
 
-  // Get or fetch the openid config from the OIDC provider's well-known configuration
-  const openidConfig = await openidConfigManager.getConfig();
+  // Logout must never depend on the IdP being reachable, so local cookie
+  // clearing is the safe floor. Precedence: explicit OIDC_END_SESSION_URL env >
+  // discovered end_session_endpoint > local-only. Discovery is wrapped so a
+  // failed well-known fetch degrades to local sign-out instead of surfacing
+  // error=Configuration.
+  const localSignout = () =>
+    clearSessionCookies(NextResponse.redirect(new URL('/signout', baseURL)));
+
+  let endSessionEndpoint = OIDC_END_SESSION_URL;
+
+  if (!endSessionEndpoint) {
+    try {
+      const openidConfig = await openidConfigManager.getConfig();
+      endSessionEndpoint = openidConfig.end_session_endpoint ?? '';
+    } catch (error) {
+      console.warn('Failed to fetch OIDC config for federated logout', error);
+      console.warn('Performing local sign-out only');
+      return localSignout();
+    }
+  }
 
   // Not every OIDC provider supports RP-initiated logout. Dex, for example, is
   // a stateless connector with no session to end, so it advertises no
   // end_session_endpoint (dexidp/dex#1697). Fabricating a logout URL just 404s
-  // and leaves the local session intact. When there is no end_session_endpoint,
-  // there is nothing to terminate at the provider — clear the local session.
-  if (!openidConfig.end_session_endpoint) {
-    console.warn('Unable to retrieve end session endpoint from OIDC provider');
+  // and leaves the local session intact, so terminate locally instead.
+  if (!endSessionEndpoint) {
     console.warn('Provider does not support RP-initiated logout (e.g., Dex)');
     console.warn('Performing local sign-out only');
-    // Perform local sign-out only when provider doesn't support federated logout
-    return clearSessionCookies(
-      NextResponse.redirect(new URL('/signout', baseURL)),
-    );
+    return localSignout();
   }
 
-  const url = new URL(openidConfig.end_session_endpoint);
+  const url = new URL(endSessionEndpoint);
 
   url.searchParams.append('id_token_hint', String(token.id_token));
   url.searchParams.append('post_logout_redirect_uri', redirectURL);

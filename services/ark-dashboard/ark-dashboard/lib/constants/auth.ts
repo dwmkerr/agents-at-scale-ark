@@ -1,6 +1,11 @@
 //The OIDC endpoint to use to fetch openid configuration
 export const OIDC_CONFIG_URL = `${process.env.OIDC_ISSUER_URL}/.well-known/openid-configuration`;
 
+//Optional explicit RP-initiated logout endpoint. Takes precedence over the
+//discovered end_session_endpoint so providers that don't advertise one (e.g.
+//Dex, dexidp/dex#1697) can still support federated logout.
+export const OIDC_END_SESSION_URL = process.env.OIDC_END_SESSION_URL || '';
+
 //Paths we use for signing in and out
 export const SIGNIN_PATH = '/api/auth/signin';
 export const FEDERATED_SIGNOUT_PATH = '/api/auth/federated-signout';
