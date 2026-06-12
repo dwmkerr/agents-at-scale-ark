@@ -6,10 +6,16 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { AccessDenied } from '@/components/access/access-denied';
 import { ClusterUnavailable } from '@/components/access/cluster-unavailable';
+import { SessionExpired } from '@/components/access/session-expired';
+import { APIError } from '@/lib/api/client';
 import { hasEssentialAccess, missingEssential } from '@/lib/permissions';
 import type { ContextResponse, Permissions } from '@/lib/services/namespaces';
 import { useGetContext } from '@/lib/services/namespaces-hooks';
 import { useUser } from '@/providers/UserProvider';
+
+function isUnauthorized(error: unknown): error is APIError {
+  return error instanceof APIError && error.status === 401;
+}
 
 interface ContextValue {
   context?: ContextResponse;
@@ -37,7 +43,11 @@ function ContextProvider({ children }: PropsWithChildren) {
   );
 
   let gate: ReactNode = null;
-  if (permissions?.status === 'unavailable') {
+  if (isUnauthorized(error)) {
+    // A failed token (e.g. IdP key rotation, expired session) 401s /v1/context;
+    // prompt re-auth instead of falling through to a wall of broken cards.
+    gate = <SessionExpired />;
+  } else if (permissions?.status === 'unavailable') {
     gate = (
       <ClusterUnavailable
         namespace={data?.namespace}

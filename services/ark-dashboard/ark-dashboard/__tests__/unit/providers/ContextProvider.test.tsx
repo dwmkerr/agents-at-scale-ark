@@ -15,6 +15,7 @@ vi.mock('@/providers/UserProvider', () => ({
   useUser: () => ({ user: { email: 'dwmkerr-agent@example.com' } }),
 }));
 
+import { APIError } from '@/lib/api/client';
 import { ContextProvider } from '@/providers/ContextProvider';
 
 function renderWithData(data: unknown) {
@@ -29,6 +30,21 @@ function renderWithData(data: unknown) {
 describe('ContextProvider gate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('renders session-expired when the context call returns 401', () => {
+    mockGetContext.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      error: new APIError('Unauthorized', 401),
+    });
+    render(
+      <ContextProvider>
+        <div data-testid="app">app</div>
+      </ContextProvider>,
+    );
+    expect(screen.queryByTestId('app')).not.toBeInTheDocument();
+    expect(screen.getByText(/Session expired/i)).toBeInTheDocument();
   });
 
   it('renders the app when essential access is present', () => {
