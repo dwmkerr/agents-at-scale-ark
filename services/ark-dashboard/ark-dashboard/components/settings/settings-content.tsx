@@ -11,7 +11,6 @@ import { useNamespace } from '@/providers/NamespaceProvider';
 import { ApiKeysSettings } from './api-keys-settings';
 import { ExperimentalFeaturesSettings } from './experimental-features-settings';
 import { ManageMarketplaceSettings } from './manage-marketplace-settings';
-import { PermissionsSettings } from './permissions-settings';
 import { QueriesSettings } from './queries-settings';
 
 type SettingsContentProps = {
@@ -55,10 +54,6 @@ export function SettingsContent({ activePage }: SettingsContentProps) {
       queries: {
         title: 'Queries',
         component: <QueriesSettings />,
-      },
-      permissions: {
-        title: 'My Permissions',
-        component: <PermissionsSettings />,
       },
     }),
     [namespace],

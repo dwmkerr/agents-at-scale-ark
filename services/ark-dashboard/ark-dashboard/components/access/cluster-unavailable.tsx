@@ -18,7 +18,7 @@ export function ClusterUnavailable({
         <h1 className="mb-2 text-lg font-semibold">Cluster unavailable</h1>
         <p className="text-muted-foreground mb-4 text-sm">
           Couldn&apos;t evaluate your access for
-          {namespace ? <> namespace {namespace}</> : <> this namespace</>}. The
+          {namespace ? <> namespace &apos;{namespace}&apos;</> : <> this namespace</>}. The
           cluster authorization service may be unreachable.
         </p>
         {reason ? (

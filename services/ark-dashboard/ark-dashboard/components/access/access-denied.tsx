@@ -17,7 +17,7 @@ export function AccessDenied({ namespace, email, missing }: AccessDeniedProps) {
         <p className="text-muted-foreground mb-4 text-sm">
           {email ? <>Signed in as {email}. </> : null}
           You don&apos;t have permission to use Ark resources in
-          {namespace ? <> namespace {namespace}</> : <> this namespace</>}.
+          {namespace ? <> namespace &apos;{namespace}&apos;</> : <> this namespace</>}.
         </p>
         {missing && missing.length > 0 ? (
           <p className="text-muted-foreground mb-4 text-xs">

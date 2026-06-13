@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   Server,
   Settings,
+  ShieldCheck,
   Store,
   Sun,
   Workflow,
@@ -36,6 +37,7 @@ import {
   storedIsExperimentalDarkModeEnabledAtom,
 } from '@/atoms/experimental-features';
 import { NamespaceEditor } from '@/components/editors';
+import { PermissionsDialog } from '@/components/profile/permissions-dialog';
 import {
   Collapsible,
   CollapsibleContent,
@@ -176,6 +178,7 @@ export function AppSidebar() {
   const [loading, setLoading] = useState(true);
   const [namespaceEditorOpen, setNamespaceEditorOpen] = useState(false);
   const [morePopoverOpen, setMorePopoverOpen] = useState(false);
+  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
 
   const currentSection = pathname.split('/')[1];
   const isAgentBuilderSection = AGENT_BUILDER_SECTIONS.some(
@@ -501,6 +504,11 @@ export function AppSidebar() {
                       <UserDetails user={user} />
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setPermissionsDialogOpen(true)}>
+                      <ShieldCheck />
+                      <span>My Permissions</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={signout}>
                       <LogOut />
                       <span>Sign out</span>
@@ -517,6 +525,11 @@ export function AppSidebar() {
         open={namespaceEditorOpen}
         onOpenChange={setNamespaceEditorOpen}
         onSave={createNamespace}
+      />
+
+      <PermissionsDialog
+        open={permissionsDialogOpen}
+        onOpenChange={setPermissionsDialogOpen}
       />
     </div>
   );

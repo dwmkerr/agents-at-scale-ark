@@ -25,11 +25,10 @@ describe('settingsSections', () => {
     const privacy = settingsSections.find(s => s.sectionKey === 'privacy');
     expect(privacy).toBeDefined();
     expect(privacy!.sectionLabel).toBe('Privacy');
-    expect(privacy!.items).toHaveLength(3);
+    expect(privacy!.items).toHaveLength(2);
     expect(privacy!.items.map(i => i.key)).toEqual([
       'service-api-keys',
       'secrets',
-      'permissions',
     ]);
   });
 
