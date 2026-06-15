@@ -19,6 +19,11 @@ vi.mock('next/server', () => {
   }));
   MockNextResponse.next = vi.fn(() => ({ type: 'next' }));
   MockNextResponse.redirect = vi.fn(url => ({ type: 'redirect', url }));
+  MockNextResponse.json = vi.fn((body, init) => ({
+    type: 'json',
+    body,
+    status: init?.status,
+  }));
 
   return {
     NextResponse: MockNextResponse,
@@ -85,6 +90,22 @@ describe('middleware default export', () => {
           'https://example.com',
         ),
       );
+    });
+
+    it('should return 401 (not redirect) for unauthenticated API requests', async () => {
+      const request = createMockRequest('/api/v1/context');
+      request.auth = null;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await (middleware as any)(request);
+
+      // Must NOT start a competing OAuth flow that races the page sign-in.
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'unauthorized' },
+        { status: 401 },
+      );
+      expect(res.status).toBe(401);
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
     });
 
     it('should call middleware function when authenticated', async () => {

@@ -83,6 +83,17 @@ async function proxy(request: NextRequest) {
 export default auth(async (req: NextRequestWithAuth) => {
   //If no user session redirect to signin page
   if (!req.auth) {
+    const basePath = process.env.ARK_DASHBOARD_BASE_PATH || '';
+
+    // API/data requests must NOT redirect to the OAuth sign-in. A redirect here
+    // races the page-level sign-in: each flow mints its own OAuth state/PKCE
+    // cookie, the second clobbers the first, and the completing callback then
+    // fails state validation (CallbackRouteError -> error=Configuration). Return
+    // 401 so the client handles it; the page navigation is the single sign-in.
+    if (req.nextUrl.pathname.startsWith(`${basePath}/api/`)) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+
     //If the user is trying to access a page other than the signin page, set it as the callback url.
     if (req.nextUrl.pathname !== SIGNIN_PATH) {
       const baseURL = process.env.BASE_URL;
