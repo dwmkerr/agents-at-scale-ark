@@ -1,49 +1,8 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useArkContext } from '@/providers/ContextProvider';
 
-type PermissionsDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
-
-export function PermissionsDialog({
-  open,
-  onOpenChange,
-}: PermissionsDialogProps) {
-  const { context } = useArkContext();
-  const namespace = context?.namespace;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>My Permissions</DialogTitle>
-          <DialogDescription>
-            What you can do with Ark resources
-            {namespace ? (
-              <>
-                {' '}
-                in namespace <span className="font-medium">{namespace}</span>
-              </>
-            ) : null}
-            .
-          </DialogDescription>
-        </DialogHeader>
-        <PermissionsTable />
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PermissionsTable() {
+export function PermissionsTable() {
   const { context, permissions } = useArkContext();
   const namespace = context?.namespace;
 
@@ -59,7 +18,7 @@ function PermissionsTable() {
     return (
       <p className="text-muted-foreground text-sm">
         Couldn&apos;t evaluate your permissions
-        {namespace ? <> for namespace {namespace}</> : null}.
+        {namespace ? <> for namespace &apos;{namespace}&apos;</> : null}.
         {permissions.reason ? <> ({permissions.reason})</> : null}
       </p>
     );
