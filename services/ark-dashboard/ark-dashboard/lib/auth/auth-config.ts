@@ -128,6 +128,18 @@ const cookies: NextAuthConfig['cookies'] = {
   },
 };
 
+// All auth cookies, so sign-out can clear the OIDC-flow cookies (state, PKCE,
+// nonce, callback-url, CSRF) too — not just the session. A stale `state` cookie
+// left behind otherwise breaks the next sign-in with a CallbackRouteError.
+export const AUTH_COOKIE_NAMES = [
+  SESSION_COOKIE_NAME,
+  `${cookiePrefix}${COOKIE_CALLBACK_URL}`,
+  `${useSecureCookies ? '__Host-' : ''}${COOKIE_CSRF_TOKEN}`,
+  `${cookiePrefix}${COOKIE_PKCE_CODE_VERIFIER}`,
+  `${cookiePrefix}${COOKIE_STATE}`,
+  `${cookiePrefix}${COOKIE_NONCE}`,
+];
+
 const callbacks: NextAuthConfig['callbacks'] = {
   jwt: jwtCallback,
   session: sessionCallback,

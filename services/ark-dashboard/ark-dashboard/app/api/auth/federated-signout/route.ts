@@ -2,7 +2,11 @@ import { getToken } from 'next-auth/jwt';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { SESSION_COOKIE_NAME, useSecureCookies } from '@/lib/auth/auth-config';
+import {
+  AUTH_COOKIE_NAMES,
+  SESSION_COOKIE_NAME,
+  useSecureCookies,
+} from '@/lib/auth/auth-config';
 import { openidConfigManager } from '@/lib/auth/openid-config-manager';
 import { OIDC_END_SESSION_URL } from '@/lib/constants/auth';
 
@@ -13,7 +17,10 @@ import { OIDC_END_SESSION_URL } from '@/lib/constants/auth';
 const MAX_COOKIE_CHUNKS = 8;
 
 function clearSessionCookies(res: NextResponse) {
-  const names = [SESSION_COOKIE_NAME];
+  // Clear the session cookie (and its chunks) plus the OIDC-flow cookies
+  // (state, PKCE, nonce, callback-url, CSRF) — a leftover `state` cookie breaks
+  // the next sign-in with a CallbackRouteError.
+  const names = [...AUTH_COOKIE_NAMES];
   for (let i = 0; i < MAX_COOKIE_CHUNKS; i++) {
     names.push(`${SESSION_COOKIE_NAME}.${i}`);
   }

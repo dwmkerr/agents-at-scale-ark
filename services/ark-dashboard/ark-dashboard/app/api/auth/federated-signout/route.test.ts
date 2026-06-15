@@ -5,6 +5,14 @@ vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
 vi.mock('@/lib/auth/auth-config', () => ({
   SESSION_COOKIE_NAME: '__Secure-session-token',
   useSecureCookies: true,
+  AUTH_COOKIE_NAMES: [
+    '__Secure-session-token',
+    '__Secure-callback-url',
+    '__Host-csrf-token',
+    '__Secure-pkce.code_verifier',
+    '__Secure-state',
+    '__Secure-nonce',
+  ],
 }));
 vi.mock('@/lib/auth/openid-config-manager', () => ({
   openidConfigManager: { getConfig: vi.fn() },
