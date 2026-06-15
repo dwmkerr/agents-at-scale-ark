@@ -38,6 +38,10 @@ class APIClient {
     }
   }
 
+  getDefaultParam(key: string): string | undefined {
+    return this.defaultParams[key];
+  }
+
   private buildRequestUrl(
     endpoint: string,
     params?: Record<string, string | number | boolean>,

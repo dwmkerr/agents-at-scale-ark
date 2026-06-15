@@ -407,13 +407,19 @@ export const chatService = {
     const queryName = query.name;
     const self = this;
 
+    // Source the namespace from apiClient's default params so the broker chunks
+    // stream targets the same namespace as every other apiClient request; the
+    // broker defaults to its pod namespace (ark-system) when none is sent.
+    const namespace = apiClient.getDefaultParam('namespace');
+
     async function* generateChunks(): AsyncGenerator<Record<string, unknown>, void, unknown> {
-      const response = await fetch(
-        `/api/v1/broker/chunks?watch=true&query-id=${queryName}`,
-        {
-          signal: abortSignal,
-        },
-      );
+      let chunksUrl = `/api/v1/broker/chunks?watch=true&query-id=${queryName}`;
+      if (namespace) {
+        chunksUrl += `&namespace=${encodeURIComponent(namespace)}`;
+      }
+      const response = await fetch(chunksUrl, {
+        signal: abortSignal,
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to connect to stream: ${response.statusText}`);

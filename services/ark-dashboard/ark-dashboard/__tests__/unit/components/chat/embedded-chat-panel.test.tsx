@@ -30,6 +30,10 @@ vi.mock('@/lib/services/proxy', () => ({
   },
 }));
 
+vi.mock('@/providers/NamespaceProvider', () => ({
+  useNamespace: () => ({ namespace: 'demo' }),
+}));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),

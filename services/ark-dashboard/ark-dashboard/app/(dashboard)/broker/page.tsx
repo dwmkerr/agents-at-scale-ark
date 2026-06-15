@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { trackEvent } from '@/lib/analytics/singleton';
 import { BASE_BREADCRUMBS } from '@/lib/constants/breadcrumbs';
 import { type Memory, memoriesService } from '@/lib/services/memories';
+import { useNamespace } from '@/providers/NamespaceProvider';
 
 interface StreamEntry {
   id: string;
@@ -57,6 +58,7 @@ function extractItemTimestamp(item: unknown): string {
 }
 
 export function useSSEStream(endpoint: string | null, memory: string) {
+  const { namespace } = useNamespace();
   const [streamedEntries, setStreamedEntries] = useState<StreamEntry[]>([]);
   const [fetchedEntries, setFetchedEntries] = useState<StreamEntry[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -82,7 +84,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
       }
 
       setError(null);
-      let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&watch=true`;
+      let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&watch=true&namespace=${encodeURIComponent(namespace)}`;
       if (cursor !== undefined && cursor !== null) {
         url += `&cursor=${cursor}`;
       }
@@ -125,7 +127,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
         }, 3000);
       };
     },
-    [endpoint, memory],
+    [endpoint, memory, namespace],
   );
 
   const fetchPage = useCallback(
@@ -136,7 +138,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
 
       setIsLoading(true);
       try {
-        let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&limit=1000`;
+        let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&limit=1000&namespace=${encodeURIComponent(namespace)}`;
         if (cursor !== undefined && cursor !== null) {
           url += `&cursor=${cursor}`;
         }
@@ -176,7 +178,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
         }
       }
     },
-    [endpoint, memory],
+    [endpoint, memory, namespace],
   );
 
   const loadMore = useCallback(() => {
@@ -205,7 +207,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
   const purge = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api${endpoint}?memory=${encodeURIComponent(memory)}`,
+        `/api${endpoint}?memory=${encodeURIComponent(memory)}&namespace=${encodeURIComponent(namespace)}`,
         {
           method: 'DELETE',
         },
@@ -229,7 +231,7 @@ export function useSSEStream(endpoint: string | null, memory: string) {
         description: (e as Error).message,
       });
     }
-  }, [endpoint, memory]);
+  }, [endpoint, memory, namespace]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -411,6 +413,7 @@ function StreamView({
 }
 
 export function SessionsView({ memory }: { memory: string }) {
+  const { namespace } = useNamespace();
   const [store, setStore] = useState<Record<string, unknown>>({});
   const [isConnected, setIsConnected] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -418,7 +421,7 @@ export function SessionsView({ memory }: { memory: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const es = new EventSource(`/api/v1/broker/sessions?memory=${encodeURIComponent(memory)}&watch=true`);
+    const es = new EventSource(`/api/v1/broker/sessions?memory=${encodeURIComponent(memory)}&watch=true&namespace=${encodeURIComponent(namespace)}`);
     const sessions: Record<string, unknown> = {};
 
     es.onopen = () => setIsConnected(true);
@@ -435,7 +438,7 @@ export function SessionsView({ memory }: { memory: string }) {
     es.onerror = () => setIsConnected(false);
 
     return () => es.close();
-  }, [memory]);
+  }, [memory, namespace]);
 
   useEffect(() => {
     if (autoScroll && containerRef.current) {
@@ -461,7 +464,7 @@ export function SessionsView({ memory }: { memory: string }) {
 
   const handlePurge = async () => {
     try {
-      await fetch(`/api/v1/broker/sessions?memory=${encodeURIComponent(memory)}`, { method: 'DELETE' });
+      await fetch(`/api/v1/broker/sessions?memory=${encodeURIComponent(memory)}&namespace=${encodeURIComponent(namespace)}`, { method: 'DELETE' });
       setStore({ sessions: {} });
     } catch {
     }

@@ -4,6 +4,10 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import { SessionsView } from '@/app/(dashboard)/broker/page';
 
+vi.mock('@/providers/NamespaceProvider', () => ({
+  useNamespace: () => ({ namespace: 'demo' }),
+}));
+
 type ESInstance = {
   url: string;
   onopen: ((ev?: unknown) => void) | null;
@@ -55,7 +59,7 @@ describe('SessionsView', () => {
   it('opens EventSource with correct URL on mount', () => {
     render(<SessionsView memory="default" />);
     expect(esInstances).toHaveLength(1);
-    expect(latestES().url).toBe('/api/v1/broker/sessions?memory=default&watch=true');
+    expect(latestES().url).toBe('/api/v1/broker/sessions?memory=default&watch=true&namespace=demo');
   });
 
   it('cleans up EventSource on unmount', () => {
@@ -151,7 +155,7 @@ describe('SessionsView', () => {
     await user.click(screen.getByRole('button', { name: /purge/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/broker/sessions?memory=default', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/broker/sessions?memory=default&namespace=demo', {
         method: 'DELETE',
       });
     });

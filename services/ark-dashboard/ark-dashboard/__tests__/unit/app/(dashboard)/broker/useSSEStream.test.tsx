@@ -11,6 +11,10 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+vi.mock('@/providers/NamespaceProvider', () => ({
+  useNamespace: () => ({ namespace: 'demo' }),
+}));
+
 import { trackEvent } from '@/lib/analytics/singleton';
 
 type ESInstance = {

@@ -14,6 +14,7 @@ vi.mock('@/lib/api/client', () => ({
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
+    getDefaultParam: vi.fn(() => undefined),
   },
 }));
 

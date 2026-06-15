@@ -24,6 +24,7 @@ import {
 import { getSessionDisplayNameFromEntries } from '@/lib/broker/session-utils';
 import { type BrokerStatus, proxyService } from '@/lib/services/proxy';
 import type { GraphEdge } from '@/lib/types/chat-message';
+import { useNamespace } from '@/providers/NamespaceProvider';
 
 type ChatType = 'model' | 'team' | 'agent';
 type TabType = 'chat' | 'debug';
@@ -67,6 +68,7 @@ function extractItemTimestamp(item: unknown): string {
 }
 
 function useSSEStream(endpoint: string, memory: string, agentName: string) {
+  const { namespace } = useNamespace();
   const [streamedEntries, setStreamedEntries] = useState<StreamEntry[]>([]);
   const [fetchedEntries, setFetchedEntries] = useState<StreamEntry[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -100,7 +102,7 @@ function useSSEStream(endpoint: string, memory: string, agentName: string) {
       }
 
       setError(null);
-      let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&watch=true`;
+      let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&watch=true&namespace=${encodeURIComponent(namespace)}`;
       if (cursor !== undefined && cursor !== null) {
         url += `&cursor=${cursor}`;
       }
@@ -144,7 +146,7 @@ function useSSEStream(endpoint: string, memory: string, agentName: string) {
         }, 3000);
       };
     },
-    [endpoint, memory, filterByAgent],
+    [endpoint, memory, namespace, filterByAgent],
   );
 
   const fetchPage = useCallback(
@@ -154,7 +156,7 @@ function useSSEStream(endpoint: string, memory: string, agentName: string) {
 
       setIsLoading(true);
       try {
-        let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&limit=${PAGE_SIZE}`;
+        let url = `/api${endpoint}?memory=${encodeURIComponent(memory)}&limit=${PAGE_SIZE}&namespace=${encodeURIComponent(namespace)}`;
         if (cursor !== undefined && cursor !== null) {
           url += `&cursor=${cursor}`;
         }
@@ -196,7 +198,7 @@ function useSSEStream(endpoint: string, memory: string, agentName: string) {
         }
       }
     },
-    [endpoint, memory, filterByAgent],
+    [endpoint, memory, namespace, filterByAgent],
   );
 
   const loadMore = useCallback(() => {
