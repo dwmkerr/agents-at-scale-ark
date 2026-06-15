@@ -35,10 +35,11 @@ sse_headers = {
 }
 
 
-async def get_broker_url(memory_name: str, impersonation: Optional[ImpersonationConfig] = None) -> Optional[str]:
+async def get_broker_url(memory_name: str, namespace: Optional[str] = None, impersonation: Optional[ImpersonationConfig] = None) -> Optional[str]:
     """Get the broker URL from a Memory resource."""
     try:
-        async with with_ark_client(None, VERSION, impersonation=impersonation) as client:
+        # Resolve the memory in the request's namespace so impersonated users hit their own tenant's RBAC, not the pod namespace.
+        async with with_ark_client(namespace, VERSION, impersonation=impersonation) as client:
             memory_dicts = await get_all_memory_resources(client, memory_name)
             if not memory_dicts:
                 logger.warning("No memory resource found for requested name")
@@ -90,10 +91,11 @@ async def proxy_broker_request(
     path: str,
     watch: bool = False,
     params: Optional[dict] = None,
+    namespace: Optional[str] = None,
     impersonation: Optional[ImpersonationConfig] = None,
 ):
     """Generic proxy for broker requests - handles both SSE streaming and JSON fetching."""
-    broker_url = await get_broker_url(memory, impersonation=impersonation)
+    broker_url = await get_broker_url(memory, namespace=namespace, impersonation=impersonation)
     if not broker_url:
         return JSONResponse(
             content={"error": {"message": f"Memory service '{memory}' not available", "type": "service_unavailable"}},
@@ -146,12 +148,14 @@ async def get_traces(
     limit: int = Query(100, description="Max traces to return"),
     cursor: Optional[int] = Query(None, description=DESC_CURSOR),
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream OTEL traces from the broker."""
     return await proxy_broker_request(
         memory, "/traces", watch,
         {"limit": limit, "cursor": cursor, "session_id": session_id},
+        namespace=namespace,
         impersonation=impersonation,
     )
 
@@ -164,13 +168,14 @@ async def get_trace(
     from_beginning: bool = Query(False, alias="from-beginning", description="Include existing spans"),
     cursor: Optional[int] = Query(None, description=DESC_CURSOR_STREAM),
     memory: str = Query("default", description=DESC_MEMORY),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream a specific trace from the broker."""
     params = {"cursor": cursor}
     if from_beginning:
         params["from-beginning"] = "true"
-    return await proxy_broker_request(memory, f"/traces/{trace_id}", watch, params, impersonation=impersonation)
+    return await proxy_broker_request(memory, f"/traces/{trace_id}", watch, params, namespace=namespace, impersonation=impersonation)
 
 
 @router.get("/messages")
@@ -182,12 +187,14 @@ async def get_messages(
     cursor: Optional[int] = Query(None, description=DESC_CURSOR),
     conversation_id: Optional[str] = Query(None, description="Filter by conversation ID"),
     query_id: Optional[str] = Query(None, description="Filter by query ID"),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream messages from the broker."""
     return await proxy_broker_request(
         memory, "/messages", watch,
         {"limit": limit, "cursor": cursor, "conversation_id": conversation_id, "query_id": query_id},
+        namespace=namespace,
         impersonation=impersonation,
     )
 
@@ -200,12 +207,14 @@ async def get_events(
     limit: int = Query(100, description="Max events to return"),
     cursor: Optional[int] = Query(None, description=DESC_CURSOR),
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream operation events from the broker."""
     return await proxy_broker_request(
         memory, "/events", watch,
         {"limit": limit, "cursor": cursor, "session_id": session_id},
+        namespace=namespace,
         impersonation=impersonation,
     )
 
@@ -219,13 +228,14 @@ async def get_events_by_query(
     cursor: Optional[int] = Query(None, description=DESC_CURSOR_STREAM),
     memory: str = Query("default", description=DESC_MEMORY),
     limit: int = Query(100, description="Max events to return"),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream events for a specific query."""
     params = {"limit": limit, "cursor": cursor}
     if from_beginning:
         params["from-beginning"] = "true"
-    return await proxy_broker_request(memory, f"/events/{query_id}", watch, params, impersonation=impersonation)
+    return await proxy_broker_request(memory, f"/events/{query_id}", watch, params, namespace=namespace, impersonation=impersonation)
 
 
 @router.get("/chunks")
@@ -236,11 +246,12 @@ async def get_chunks(
     memory: str = Query("default", description=DESC_MEMORY),
     limit: int = Query(100, description="Max chunks to return"),
     cursor: Optional[int] = Query(None, description=DESC_CURSOR),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream LLM chunks from the broker."""
     if watch and query_id:
-        broker_url = await get_broker_url(memory, impersonation=impersonation)
+        broker_url = await get_broker_url(memory, namespace=namespace, impersonation=impersonation)
         if not broker_url:
             return JSONResponse(
                 content={"error": {"message": f"Memory service '{memory}' not available", "type": "service_unavailable"}},
@@ -259,6 +270,7 @@ async def get_chunks(
     return await proxy_broker_request(
         memory, "/stream", watch,
         {"limit": limit, "cursor": cursor},
+        namespace=namespace,
         impersonation=impersonation,
     )
 
@@ -276,6 +288,7 @@ async def get_sessions(
     search: Optional[str] = Query(None, description="Search by session ID or participant"),
     sort: Optional[str] = Query(None, description="Sort field (date, name, conversations)"),
     order: Optional[str] = Query(None, description="Sort order (asc/desc)"),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get or stream sessions from the broker. Sessions are global broker state, not memory-scoped, but the memory parameter selects which broker service to query."""
@@ -291,6 +304,7 @@ async def get_sessions(
             "sort": sort,
             "order": order,
         },
+        namespace=namespace,
         impersonation=impersonation,
     )
 
@@ -300,15 +314,16 @@ async def get_session(
     request: Request,
     session_id: str,
     memory: str = Query("default", description=DESC_MEMORY),
+    namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"),
     impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config),
 ):
     """Get a single session by ID from the broker."""
-    return await proxy_broker_request(memory, f"/sessions/{session_id}", False, {}, impersonation=impersonation)
+    return await proxy_broker_request(memory, f"/sessions/{session_id}", False, {}, namespace=namespace, impersonation=impersonation)
 
 
-async def proxy_broker_delete(memory: str, path: str, impersonation: Optional[ImpersonationConfig] = None):
+async def proxy_broker_delete(memory: str, path: str, namespace: Optional[str] = None, impersonation: Optional[ImpersonationConfig] = None):
     """Proxy DELETE requests to broker."""
-    broker_url = await get_broker_url(memory, impersonation=impersonation)
+    broker_url = await get_broker_url(memory, namespace=namespace, impersonation=impersonation)
     if not broker_url:
         return JSONResponse(
             content={"error": {"message": f"Memory service '{memory}' not available", "type": "service_unavailable"}},
@@ -336,30 +351,30 @@ async def proxy_broker_delete(memory: str, path: str, impersonation: Optional[Im
 
 
 @router.delete("/traces")
-async def purge_traces(request: Request, memory: str = Query("default", description=DESC_MEMORY), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
+async def purge_traces(request: Request, memory: str = Query("default", description=DESC_MEMORY), namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
     """Purge all traces from the broker."""
-    return await proxy_broker_delete(memory, "/traces", impersonation=impersonation)
+    return await proxy_broker_delete(memory, "/traces", namespace=namespace, impersonation=impersonation)
 
 
 @router.delete("/events")
-async def purge_events(request: Request, memory: str = Query("default", description=DESC_MEMORY), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
+async def purge_events(request: Request, memory: str = Query("default", description=DESC_MEMORY), namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
     """Purge all events from the broker."""
-    return await proxy_broker_delete(memory, "/events", impersonation=impersonation)
+    return await proxy_broker_delete(memory, "/events", namespace=namespace, impersonation=impersonation)
 
 
 @router.delete("/messages")
-async def purge_messages(request: Request, memory: str = Query("default", description=DESC_MEMORY), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
+async def purge_messages(request: Request, memory: str = Query("default", description=DESC_MEMORY), namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
     """Purge all messages from the broker."""
-    return await proxy_broker_delete(memory, "/messages", impersonation=impersonation)
+    return await proxy_broker_delete(memory, "/messages", namespace=namespace, impersonation=impersonation)
 
 
 @router.delete("/chunks")
-async def purge_chunks(request: Request, memory: str = Query("default", description=DESC_MEMORY), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
+async def purge_chunks(request: Request, memory: str = Query("default", description=DESC_MEMORY), namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
     """Purge all chunks from the broker."""
-    return await proxy_broker_delete(memory, "/stream", impersonation=impersonation)
+    return await proxy_broker_delete(memory, "/stream", namespace=namespace, impersonation=impersonation)
 
 
 @router.delete("/sessions")
-async def purge_sessions(request: Request, memory: str = Query("default", description=DESC_MEMORY), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
+async def purge_sessions(request: Request, memory: str = Query("default", description=DESC_MEMORY), namespace: Optional[str] = Query(None, description="Namespace for this request (defaults to current context)"), impersonation: Optional[ImpersonationConfig] = Depends(get_impersonation_config)):
     """Purge all sessions from the broker."""
-    return await proxy_broker_delete(memory, "/sessions", impersonation=impersonation)
+    return await proxy_broker_delete(memory, "/sessions", namespace=namespace, impersonation=impersonation)
