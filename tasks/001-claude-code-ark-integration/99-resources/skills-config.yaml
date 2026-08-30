@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skills-config
+data:
+  greeting-SKILL.md: |
+    # Greeting Skill
+
+    When asked to greet someone, respond with a friendly greeting that includes:
+    - A warm welcome message
+    - The current context (Ark cluster)
+    - An offer to help with tasks
